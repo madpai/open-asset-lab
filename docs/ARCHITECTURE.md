@@ -1,0 +1,11 @@
+# Architecture
+
+The service has one Python process, one SQLite queue and one worker. A Source BSP importer reads bounded lumps into an in-memory world: triangle vertices, material keys, spawn points and diagnostics. The compiler resolves materials, serializes OALMAP v1, and records source hash and conversion provenance. A staging job calls Open Halo's host tool as a fixed executable with fixed arguments, verifies render and collision, and then atomically publishes a unique staged directory. Browser connections only create and inspect jobs; they do not own worker lifetime.
+
+Asset Lab owns source selection, format identification, parsing, dependency resolution, conversion, validation, package compilation and staging. Open Halo owns native package loading, renderer upload, collision, navigation and eventual Android gameplay. The shared contract is [OALMAP v1](RUNTIME_PACKAGE.md), rather than a false Halo `.map` cache.
+
+The importer lives under `assetlab/importers/`; a future importer can produce the same minimal world representation and compile through the package layer. A future acquisition provider would register a local source in the same queue. The current service only has local directories and uploads. Workshop search/download must be a separate provider and never execute remote scripts.
+
+Security: default bind is localhost. `--tailscale` binds the current Tailscale IPv4 only. Every route requires Basic Auth with a 256-bit random token stored mode 0600. Mutations require a custom request header and reject foreign Origin values. Source selection uses server-issued IDs derived from registered files; no remote path or shell command is accepted. Upload names are restricted, symlinks are excluded, input/queue/disk limits apply, and one conversion runs at a time. This is a private local service, with no public Internet listener.
+
+Ownership: Python owns BSP bytes, mesh lists and converted texture bytes during compilation. The package owns their serialized copies. `hta_external_map_load` allocates Open Halo `hta_bsp_mesh` buffers and spawns; `hta_external_map_free` releases them. The Vulkan mesh upload owns GPU copies until `hta_gfx_mesh_free`. `hta_collision_build` borrows mesh vertex/index pointers; free its grid before freeing the mesh.
