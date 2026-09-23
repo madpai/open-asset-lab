@@ -1,5 +1,11 @@
 # First vertical slice — 2026-09-23
 
+## Displacement fix and no-login portal — 2026-09-23 (evening)
+
+- Owner's phone screenshots of de_dust2 showed shredded brown rock ribbons in the sky, holes and dark slivers in the sand. Cause: displacement grids were built transposed. Valve's `CCoreDispInfo` advances the outer (row) index along p0→p1 and the inner index along p0→p3; the importer had them swapped, so every vertex offset was applied at its mirror position. Measured on de_dust2: 1,195 of 2,064 displacement edge vertices coincide with a neighbour's after the fix, 76 before. Each displacement now has one winding chosen from its flat base quad, alternating diagonals, and per-triangle normals. A synthetic regression test fails on the old code (`0.0 != 0.25`) and passes now; 8 tests pass.
+- Open Halo's host test gained `OALMAP_CAMERA="x y z yaw pitch"` to render the exact positions from a device report. Side-by-side renders at the three reported positions show the holes, slivers and rock ribbons gone. The restaged `de_dust2-3e24a3cf2954-5fa236d6` is byte-identical to the desktop conversion (SHA-256 `9543d04c…`), 40/40 spawns usable.
+- Basic Auth was removed at the owner's request; the `access` command is gone. Mutations still need the `X-OAL-Request` header and a same-origin `Origin`. The service stays bound to the Tailscale address. Open Halo's sideload page links to it.
+
 ## Counter-Strike: Source de_dust2 — 2026-09-23
 
 SteamCMD anonymous login installed the Counter-Strike: Source dedicated-server package (app 232330) in private storage. Its `de_dust2.bsp` is Source BSP v20. The VTF decoder used byte 63 (depth) as the mip count; correcting it to byte 56 resolved all 100 used material textures from the CS:S VPK. The resulting private OALMAP has 67,257 vertices, 22,419 triangles, 40 spawns, no placeholder materials or missing dependencies, and is 91,421,427 bytes. Open Halo's host Vulkan test rendered the map with llvmpipe and found usable ground under 40/40 spawns. The Android exploration picker and walking path were added for device testing; no on-device result is claimed yet. Brush entities, Source lightmaps, static props and gameplay entities remain unsupported. The private Asset Lab service has staged this package for the owner's download.

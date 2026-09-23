@@ -6,7 +6,7 @@ from pathlib import Path
 from .importers.source_bsp import SourceBSP,BSPError
 from .package import Resolver,compile_map
 from .library import Library
-from .server import serve,token_file
+from .server import serve
 
 DEFAULT_ROOT=Path.home()/'.local/share/open-asset-lab'
 DEFAULT_ENGINE=Path(__file__).resolve().parents[2]/'halo-trial-android/build-host/open-halo-map-test'
@@ -19,7 +19,6 @@ def main():
     a=sub.add_parser('inspect');a.add_argument('source');a.add_argument('--json',action='store_true');a.add_argument('--material-root',action='append',default=[]);a.add_argument('--vpk',action='append',default=[])
     a=sub.add_parser('convert');a.add_argument('source');a.add_argument('--output',required=True);a.add_argument('--material-root',action='append',default=[]);a.add_argument('--vpk',action='append',default=[])
     a=sub.add_parser('staged')
-    a=sub.add_parser('access')
     a=sub.add_parser('serve');a.add_argument('--source-dir',action='append',default=[]);a.add_argument('--material-root',action='append',default=[]);a.add_argument('--vpk',action='append',default=[]);a.add_argument('--port',type=int,default=8762);a.add_argument('--tailscale',action='store_true');a.add_argument('--host-test',type=Path,default=DEFAULT_ENGINE);a.add_argument('--icd',type=Path,default=DEFAULT_ICD)
     args=p.parse_args()
     try:
@@ -35,9 +34,6 @@ def main():
         elif args.command=='convert':
             m,r=compile_map(args.source,args.output,args.material_root,vpks=args.vpk)
             print(json.dumps({'package':args.output,'manifest':m,'report':r},indent=2))
-        elif args.command=='access':
-            args.library.mkdir(parents=True,exist_ok=True)
-            print('username: assetlab\npassword: '+token_file(args.library))
         elif args.command=='staged':
             idx=args.library/'staged/index.json'
             print(idx.read_text() if idx.exists() else '[]')

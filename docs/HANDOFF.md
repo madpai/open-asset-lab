@@ -1,5 +1,11 @@
 # Session handoff — 2026-09-23
 
+## Latest (evening)
+
+- de_dust2's displacement terrain is fixed (grid was transposed; see PROGRESS). Newest stage: `de_dust2-3e24a3cf2954-5fa236d6`.
+- The portal has **no login** now; access control is the Tailscale-only bind. Open Halo's sideload page links to it. Any text below about Basic Auth or `assetlab access` is historical.
+- Open Halo can now play Slayer / Team Slayer / CTF on an imported map: the owner's personal APK bundles `~/assetlab-private/bundle/*.oalmap` (copy a staged `package.oalmap` there as `<name>.oalmap`, then run Open Halo's `scripts/publish_apk.sh --with-assets`). See Open Halo's HANDOFF "IMPORTED MAPS".
+
 ## User direction
 
 The user resumed map-import work and chose Counter-Strike: Source `de_dust2` as the next Android test. Anonymous SteamCMD access provided the CS:S dedicated-server BSP and textures without account credentials. Never request or record a Steam password or Guard code in chat.

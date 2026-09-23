@@ -212,12 +212,13 @@ class SourceBSP:
         def point(index):
             if index<0 or index>=len(vdata)//12:raise BSPError(f'invalid vertex index {index}')
             return unpack('<3f',vdata,index*12)
-        def addtri(a,b,c,mat,uvfn,normal):
+        def addtri(a,b,c,mat,uvfn,normal,fixed=False):
             nonlocal degenerate
             pa,pb,pc=vec3(a),vec3(b),vec3(c)
             n=norm(cross(sub(pb,pa),sub(pc,pa)))
             if n==(0.,0.,0.):degenerate+=1;return
-            if sum(n[i]*normal[i] for i in range(3))<0:
+            if fixed:normal=n
+            elif sum(n[i]*normal[i] for i in range(3))<0:
                 b,c=c,b;pb,pc=pc,pb
             start=len(vertices)
             for p in (a,b,c):vertices.append((vec3(p),normal,uvfn(p)))
@@ -261,20 +262,28 @@ class SourceBSP:
                 if dvstart<0 or dvstart+side_n*side_n>len(dv)//20:raise BSPError(f'face {fi} displacement vertex range invalid')
                 corner=min(range(4),key=lambda j:sum((polygon[j][k]-startpos[k])**2 for k in range(3)))
                 p0,p1,p2,p3=(polygon[(corner+j)%4] for j in range(4))
+                # Valve CCoreDispInfo layout: the outer (row) index advances
+                # p0->p1 and the inner (column) index advances p0->p3.
                 grid=[]
                 for y in range(side_n):
                     row=[]
-                    t=y/(side_n-1)
+                    s=y/(side_n-1)
                     for x in range(side_n):
-                        s=x/(side_n-1)
+                        t=x/(side_n-1)
                         basepos=tuple((1-s)*(1-t)*p0[k]+s*(1-t)*p1[k]+s*t*p2[k]+(1-s)*t*p3[k] for k in range(3))
                         vv=unpack('<5f',dv,(dvstart+y*side_n+x)*20)
                         row.append(tuple(basepos[k]+vv[k]*vv[3] for k in range(3)))
                     grid.append(row)
+                # Choose one winding for the whole surface from the flat base
+                # quad so folded or overhanging terrain keeps consistent facing.
+                flip=sum(cross(sub(p1,p0),sub(p3,p0))[k]*base[k] for k in range(3))<0
                 for y in range(side_n-1):
                     for x in range(side_n-1):
-                        a,b,c,d=grid[y][x],grid[y][x+1],grid[y+1][x+1],grid[y+1][x]
-                        addtri(a,b,c,mat,uvfn,base);addtri(a,c,d,mat,uvfn,base)
+                        a,b,c,d=grid[y][x],grid[y+1][x],grid[y+1][x+1],grid[y][x+1]
+                        if flip:b,d=d,b
+                        # Alternate diagonals like Source to avoid directional creases.
+                        if (x+y)%2:addtri(a,b,c,mat,uvfn,base,True);addtri(a,c,d,mat,uvfn,base,True)
+                        else:addtri(a,b,d,mat,uvfn,base,True);addtri(b,c,d,mat,uvfn,base,True)
                 disps_done+=1
             else:
                 for j in range(1,len(polygon)-1):addtri(polygon[0],polygon[j],polygon[j+1],mat,uvfn,base)

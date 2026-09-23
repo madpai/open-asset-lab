@@ -1,8 +1,6 @@
-"""Private standard-library HTTP UI. Bind localhost unless --tailscale is explicit."""
+"""Standard-library HTTP UI with no login. Bind localhost unless --tailscale is explicit;
+the private tailnet is the access boundary."""
 from __future__ import annotations
-import base64
-import hashlib
-import hmac
 import json
 import os
 import re
@@ -30,28 +28,10 @@ refresh();setInterval(refresh,3000);
 </script></html>'''
 
 
-def token_file(root):
-    p=Path(root)/'access-token'
-    if not p.exists():
-        fd=os.open(p,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
-        with os.fdopen(fd,'w') as f:f.write(secrets.token_urlsafe(32)+'\n')
-    if p.stat().st_mode & 0o077:raise RuntimeError('access token file has unsafe permissions')
-    return p.read_text().strip()
-
-
 def serve(library,host='127.0.0.1',port=8762):
-    token=token_file(library.root)
     class Handler(BaseHTTPRequestHandler):
         server_version='OpenAssetLab/0.1'
-        def _auth(self):
-            h=self.headers.get('Authorization','')
-            if not h.startswith('Basic '):return False
-            try:user,pw=base64.b64decode(h[6:],validate=True).decode().split(':',1)
-            except (ValueError,UnicodeDecodeError):return False
-            return hmac.compare_digest(user,'assetlab') and hmac.compare_digest(pw,token)
         def _pre(self,mutate=False):
-            if not self._auth():
-                self.send_response(401);self.send_header('WWW-Authenticate','Basic realm="Open Asset Lab"');self.end_headers();return False
             if mutate and self.headers.get('X-OAL-Request')!='1':self._error(403,'missing request header');return False
             origin=self.headers.get('Origin')
             if mutate and origin and origin not in (f'http://{self.headers.get("Host")}',f'https://{self.headers.get("Host")}'):

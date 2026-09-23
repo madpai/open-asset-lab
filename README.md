@@ -8,7 +8,7 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 - Convert world faces and power 2–4 displacement surfaces, positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
 - Compile deterministic OALMAP v1 packages with bounds, indexed triangles, RGBA textures, spawn positions and a provenance manifest.
 - Load packages in Open Halo's host `open-halo-map-test`, using its existing Vulkan renderer and triangle collision grid.
-- Submit local or uploaded BSPs through a private authenticated web UI. A SQLite single worker continues after a browser disconnect; successful jobs enter a staged library with package, preview, reports and hashes.
+- Submit local or uploaded BSPs through a private web UI (no login; reachable only on localhost or your tailnet). A SQLite single worker continues after a browser disconnect; successful jobs enter a staged library with package, preview, reports and hashes.
 
 ## Limits
 
@@ -56,14 +56,13 @@ The saved lavapipe ICD is needed on this desktop because the native NVIDIA Vulka
 
 ```sh
 cd /home/commander/projects/open-asset-lab
-python -m assetlab access                 # prints the local Basic Auth password
 python -m assetlab serve --source-dir /private/path/to/maps --vpk /private/path/to/tf2_misc_dir.vpk --vpk /private/path/to/tf2_textures_dir.vpk
 # localhost only: http://127.0.0.1:8762
 python -m assetlab serve --tailscale --source-dir /private/path/to/maps
 # binds only the Tailscale IPv4 address, port 8762
 ```
 
-On this desktop the Tailscale address is currently `http://100.89.1.14:8762`. From your phone on the same tailnet, open that address and sign in with username `assetlab` and the password printed by `assetlab access`. Port 8762 avoids Open Halo's sideload port 8731. The service accepts only registered local directory entries or BSP uploads; web clients cannot submit filesystem paths. Upload limit is 128 MiB, with a 2 GiB upload library cap. The token is stored at `~/.local/share/open-asset-lab/access-token` with mode 0600; keep it private. Bind to Tailscale only when remote access is wanted. For a persistent desktop service, adapt [the user-systemd template](scripts/open-asset-lab.service.example), then run `systemctl --user daemon-reload && systemctl --user enable --now open-asset-lab.service`. This desktop has that user service enabled.
+On this desktop the Tailscale address is currently `http://100.89.1.14:8762`. From your phone on the same tailnet, open that address; there is no login. Open Halo's sideload page (`http://100.89.1.14:8731/`) links to it as **Open Asset Lab**. Port 8762 avoids Open Halo's sideload port 8731. The service accepts only registered local directory entries or BSP uploads; web clients cannot submit filesystem paths. Upload limit is 128 MiB, with a 2 GiB upload library cap. Anyone who can reach the port can use the service, so bind to Tailscale only when remote access is wanted and never to a public interface. For a persistent desktop service, adapt [the user-systemd template](scripts/open-asset-lab.service.example), then run `systemctl --user daemon-reload && systemctl --user enable --now open-asset-lab.service`. This desktop has that user service enabled.
 
 ```sh
 python -m assetlab staged
