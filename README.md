@@ -5,18 +5,18 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 ## What works today
 
 - Inspect Source BSP v20, face lump v1, including compressed lumps, entities, static-prop inventory, embedded pakfile and missing material paths.
-- Convert world faces and power 2–4 displacement surfaces, positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile or explicitly configured material directories. Missing materials display a magenta fallback.
+- Convert world faces and power 2–4 displacement surfaces, positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
 - Compile deterministic OALMAP v1 packages with bounds, indexed triangles, RGBA textures, spawn positions and a provenance manifest.
 - Load packages in Open Halo's host `open-halo-map-test`, using its existing Vulkan renderer and triangle collision grid.
 - Submit local or uploaded BSPs through a private authenticated web UI. A SQLite single worker continues after a browser disconnect; successful jobs enter a staged library with package, preview, reports and hashes.
 
 ## Limits
 
-Android **does not yet select or play** external maps. This milestone proves the host renderer and collision path. Source lightmaps, VPK lookup, static-prop geometry, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision conservatively uses visible world triangles; clip brushes and invisible solids are absent. The demonstrated TF2 map has many missing TF2 textures and 1,211 static props that are inventoried but not rendered. See [progress](docs/PROGRESS.md).
+Android **does not yet select or play** external maps. This milestone proves the host renderer and collision path. Source lightmaps, static-prop geometry, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision conservatively uses visible world triangles; clip brushes and invisible solids are absent. The demonstrated TF2 map still has 66 placeholder materials and 1,211 static props that are inventoried but not rendered. Valve's anonymous dedicated-server files contain VMT indexes but omit the texture data archives; actual TF2 textures require a complete local client installation or user-provided licensed files. See [progress](docs/PROGRESS.md).
 
 ## Install
 
-Requires Python 3.11+, Pillow, and a built Open Halo host tool for staged render validation. On this machine the compiler, CMake, Ninja, Vulkan and Android toolchain were already installed. No system package installation was needed.
+Requires Python 3.11+, Pillow, srctools and a built Open Halo host tool for staged render validation. On this machine the compiler, CMake, Ninja, Vulkan and Android toolchain were already installed. No system package installation was needed.
 
 ```sh
 cd /home/commander/projects/open-asset-lab
@@ -37,6 +37,8 @@ python -m assetlab inspect /path/to/map.bsp --json
 python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap
 # Optional unpacked materials directory; must contain materials/... paths:
 python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap --material-root /path/to/game
+# Optional VPK directory files; include both material and texture archives as needed:
+python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap --vpk /path/to/tf2_misc_dir.vpk --vpk /path/to/tf2_textures_dir.vpk
 ```
 
 `convert` writes the package only. The web job runs Open Halo validation and stages it. Direct host proof:
@@ -55,7 +57,7 @@ The saved lavapipe ICD is needed on this desktop because the native NVIDIA Vulka
 ```sh
 cd /home/commander/projects/open-asset-lab
 python -m assetlab access                 # prints the local Basic Auth password
-python -m assetlab serve --source-dir /private/path/to/maps
+python -m assetlab serve --source-dir /private/path/to/maps --vpk /private/path/to/tf2_misc_dir.vpk --vpk /private/path/to/tf2_textures_dir.vpk
 # localhost only: http://127.0.0.1:8762
 python -m assetlab serve --tailscale --source-dir /private/path/to/maps
 # binds only the Tailscale IPv4 address, port 8762
@@ -68,7 +70,7 @@ python -m assetlab staged
 python -m unittest discover -s tests -v
 ```
 
-The default library is `~/.local/share/open-asset-lab/`, with `jobs.sqlite3`, `uploads/`, `work/`, and `staged/index.json`. Jobs have bounded logs and a single worker. If the service restarts during a job, unfinished jobs requeue. Use the web UI to inspect the final report and preview.
+The default library is `~/.local/share/open-asset-lab/`, with `jobs.sqlite3`, `uploads/`, `work/`, and `staged/index.json`. Jobs have bounded logs and a single worker. If the service restarts during a job, unfinished jobs requeue. The staged list shows resolved texture and missing dependency counts. Earlier staged packages retain their original checkerboard previews; select the newest stage for the updated placeholder preview.
 
 ## Reproduce the demonstrated host milestone
 

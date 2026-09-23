@@ -6,7 +6,7 @@ name = "open-asset-lab"
 version = "0.1.0"
 description = "Local Source BSP to Open Halo map conversion and staging service"
 requires-python = ">=3.11"
-dependencies = ["Pillow>=10,<13"]
+dependencies = ["Pillow>=10,<13", "srctools>=2.7,<3"]
 license = "GPL-3.0-or-later"
 [project.scripts]
 assetlab = "assetlab.__main__:main"

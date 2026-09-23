@@ -1,5 +1,13 @@
 # First vertical slice — 2026-09-23
 
+## Material preview follow-up — 2026-09-23
+
+- Added explicit read-only VPK lookup to the CLI and worker. A synthetic VPK test verifies an actual VMT and VTF are loaded. The local service now uses the project's virtual environment and the privately installed TF2 dedicated-server VPK indexes.
+- The anonymous TF2 dedicated-server install completed successfully, but `tf2_textures_dir.vpk` has no numbered texture archives. A separate anonymous request for client depot 441 returned `missing license for depot (No subscription)`. Asset Lab reports these missing VTF paths instead of claiming to have recovered them.
+- Replaced the harsh checkerboard with deterministic, muted, material-specific placeholders. The manifest now lists every placeholder material, and the web staged list displays resolved texture and missing dependency counts. This improves the geometry preview without disguising missing assets.
+- A fresh authenticated web conversion of the real map staged `koth_bagel_rc2a-a8e448254566-a6eefc80`. It has 71 world materials, five resolved albedos, 66 placeholders and 51 missing dependency paths. The OALMAP is 21,945,010 bytes; conversion took 2.301 s. Open Halo loaded it in 20.16 ms, built collision from 61,016 triangles in 5.22 ms, rendered the new spawn image through llvmpipe and found 32/32 usable ground projected spawns. The preview was visually inspected and has readable wood, masonry, grass and floor colors, though no real TF2 surface detail. Seven Python tests pass.
+- Actual TF2 texture replacement remains dependent on a complete local client install or appropriately supplied content. The phone browser itself was not tested in this follow-up.
+
 ## Demonstrated
 
 - Audited Open Halo `fp-animated-guns` and kept its Trial branch/worktree clean before changes. Found no installed Source BSP in local Steam games; the installed `Zombie Panic Mod` maps are GoldSrc v30. Kept real Source test maps private outside both repositories.

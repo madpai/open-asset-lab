@@ -7,8 +7,9 @@ import time
 import unittest
 from pathlib import Path
 from assetlab.importers.source_bsp import BSPError,SourceBSP
-from assetlab.package import compile_map,read_manifest
+from assetlab.package import _placeholder,compile_map,read_manifest
 from assetlab.library import Library
+from srctools.vpk import VPK
 
 
 def fixture(disp=False):
@@ -71,8 +72,34 @@ class BSPTests(unittest.TestCase):
         self.assertEqual(a.read_bytes(),b.read_bytes())
         self.assertEqual(m['package_version'],1)
         self.assertIn('materials/test/checker.vmt',m['missing_dependencies'])
+        self.assertEqual(m['placeholder_materials'],['test/checker'])
+        self.assertEqual(r['resolved_textures'],0)
         bad=bytearray(a.read_bytes());struct.pack_into('<I',bad,4,2);b.write_bytes(bad)
         with self.assertRaises(BSPError):read_manifest(b)
+    def test_vpk_material_resolution(self):
+        archive=self.root/'materials_dir.vpk'
+        vtf=bytearray(80+16)
+        vtf[:4]=b'VTF\0'
+        struct.pack_into('<III',vtf,4,7,2,80)
+        struct.pack_into('<HH',vtf,16,2,2)
+        struct.pack_into('<I',vtf,52,0)
+        struct.pack_into('<I',vtf,57,0xffffffff)
+        vtf[63]=1
+        vtf[80:]=bytes((255,128,0,255))*4
+        with VPK(archive,mode='w') as v:
+            v.add_file('materials/test/checker.vmt',b'"LightmappedGeneric" { "$basetexture" "test/checker" }',arch_index=None)
+            v.add_file('materials/test/checker.vtf',bytes(vtf),arch_index=None)
+        manifest,report=compile_map(self.path,self.root/'from-vpk.oalmap',vpks=[archive])
+        self.assertEqual(report['resolved_textures'],1)
+        self.assertEqual(report['texture_bytes'],16)
+        self.assertEqual(manifest['placeholder_materials'],[])
+        self.assertEqual(manifest['missing_dependencies'],[])
+    def test_missing_material_uses_diagnostic_color(self):
+        wood=_placeholder('wood/bridge');grass=_placeholder('nature/grass')
+        self.assertEqual(wood,_placeholder('wood/bridge'))
+        self.assertNotEqual(wood[2],grass[2])
+        self.assertEqual((wood[0],wood[1]),(4,4))
+        self.assertTrue(all(wood[2][i]<180 for i in range(0,len(wood[2]),4)))
     def test_job_recovery_and_source_path(self):
         root=self.root/'library';lib=Library(root,[self.root])
         self.assertIsNone(lib.source_path('../../etc/passwd'))

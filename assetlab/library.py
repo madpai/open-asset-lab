@@ -19,13 +19,15 @@ STATES=('QUEUED','VALIDATING','RESOLVING_DEPENDENCIES','IMPORTING','CONVERTING',
 ACTIVE=set(STATES[1:-2])
 
 class Library:
-    def __init__(self,root,source_dirs=(),host_test=None,icd=None):
+    def __init__(self,root,source_dirs=(),host_test=None,icd=None,material_roots=(),vpks=()):
         self.root=Path(root).expanduser().resolve();self.root.mkdir(parents=True,exist_ok=True)
         self.uploads=self.root/'uploads';self.staged=self.root/'staged';self.work=self.root/'work'
         for p in (self.uploads,self.staged,self.work):p.mkdir(exist_ok=True)
         self.provider=LocalDirectories([*source_dirs,self.uploads])
         self.host_test=Path(host_test).resolve() if host_test else None
         self.icd=Path(icd).resolve() if icd else None
+        self.material_roots=tuple(Path(p).resolve() for p in material_roots)
+        self.vpks=tuple(Path(p).resolve() for p in vpks)
         self.db=self.root/'jobs.sqlite3';self.lock=threading.RLock();self.stop=threading.Event()
         with self.connect() as db:
             db.execute('CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, source_id TEXT NOT NULL, source_name TEXT NOT NULL, state TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL, log TEXT NOT NULL, report TEXT, stage_id TEXT, error TEXT)')
@@ -67,7 +69,13 @@ class Library:
 
     def staged_items(self):
         with self.lock,self.connect() as db:
-            return [dict(r) for r in db.execute('SELECT * FROM staged ORDER BY created DESC')]
+            items=[]
+            for row in db.execute('SELECT staged.*,jobs.report FROM staged LEFT JOIN jobs ON jobs.id=staged.job_id ORDER BY staged.created DESC'):
+                item=dict(row);report=json.loads(item.pop('report') or '{}')
+                item['resolved_textures']=report.get('resolved_textures')
+                item['missing_dependencies']=len(report.get('missing_dependencies',[]))
+                items.append(item)
+            return items
 
     def stage_path(self,sid,filename):
         if not isinstance(sid,str) or not sid or any(c not in 'abcdefghijklmnopqrstuvwxyz0123456789-_' for c in sid):return None
@@ -106,7 +114,7 @@ class Library:
         work=self.work/jid;work.mkdir(exist_ok=True)
         package=work/'package.oalmap'
         start=time.perf_counter()
-        manifest,report=compile_map(path,package)
+        manifest,report=compile_map(path,package,self.material_roots,vpks=self.vpks)
         report['import_seconds']=round(time.perf_counter()-start,3)
         report['source_sha256']=manifest['source_sha256']
         self._update(jid,'COMPILING',f"Compiled {report['converted_triangles']} triangles and {report['converted_displacements']} displacements",report=report)

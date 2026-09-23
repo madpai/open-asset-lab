@@ -9,6 +9,7 @@ import struct
 import zipfile
 from pathlib import Path
 from PIL import Image
+from srctools.vpk import VPK
 from .importers.source_bsp import BSPError, SourceBSP
 
 MAGIC=b'OALM'
@@ -16,7 +17,27 @@ VERSION=1
 MAX_TEXTURE=2048
 HEADER='<4s8I6fI'  # 64 bytes
 VMT_VALUE=re.compile(r'"?(\$[a-zA-Z0-9_]+)"?\s+"([^"\r\n]+)"',re.I)
-FALLBACK=bytes((245,0,220,255, 24,24,24,255, 24,24,24,255, 245,0,220,255))
+
+def _placeholder(name):
+    """Muted, material-specific diagnostic colors for unresolved Source assets."""
+    key=name.lower()
+    palette=(
+        (('grass','foliage','tree','leaf','nature'),(83,112,69)),
+        (('wood','plank','timber'),(136,105,72)),
+        (('brick','tile','roof'),(145,98,81)),
+        (('concrete','cement','stone','rock'),(126,126,120)),
+        (('metal','steel','iron'),(112,123,131)),
+        (('water','river','glass'),(77,121,141)),
+        (('dirt','ground','sand'),(131,112,84)),
+    )
+    base=next((color for words,color in palette if any(word in key for word in words)),(124,117,111))
+    digest=hashlib.sha256(key.encode()).digest()
+    # Variation is subtle enough to read map shapes; the report still identifies it as a placeholder.
+    pixels=bytearray()
+    for pixel in range(16):
+        delta=digest[pixel]%11-5
+        pixels.extend((*[max(0,min(255,c+delta)) for c in base],255))
+    return 4,4,bytes(pixels)
 
 
 def _vtf_rgba(data):
@@ -65,7 +86,7 @@ def _vtf_rgba(data):
 
 
 class Resolver:
-    def __init__(self,bsp,roots=()):
+    def __init__(self,bsp,roots=(),vpks=()):
         self.bsp=bsp
         pak=bsp.lump(40)
         self.zip=zipfile.ZipFile(io.BytesIO(pak)) if pak else None
@@ -75,6 +96,13 @@ class Resolver:
             self.names={e.filename.lower():e.filename for e in entries}
         else:self.names={}
         self.roots=[Path(r).resolve() for r in roots]
+        self.vpks=[]
+        for path in vpks:
+            archive=Path(path).resolve()
+            if not archive.is_file() or not archive.name.lower().endswith('_dir.vpk'):
+                raise BSPError(f'VPK directory file not found: {archive}')
+            try:self.vpks.append(VPK(archive))
+            except (OSError,ValueError) as e:raise BSPError(f'cannot read VPK {archive}: {e}') from e
         self.missing=[];self.warnings=[]
 
     def read(self,name):
@@ -84,6 +112,15 @@ class Resolver:
         for root in self.roots:
             p=(root/name).resolve()
             if p.is_relative_to(root) and p.is_file() and p.stat().st_size<64*1024*1024:return p.read_bytes()
+        for archive in self.vpks:
+            if name in archive:
+                entry=archive[name]
+                if entry.size>64*1024*1024:raise BSPError(f'VPK resource exceeds 64 MiB: {name}')
+                try:return entry.read()
+                except FileNotFoundError:
+                    self.warnings.append(f'{name}: VPK entry is indexed but its data archive is unavailable')
+                    continue
+                except (OSError,ValueError) as e:raise BSPError(f'cannot read VPK resource {name}: {e}') from e
         return None
 
     def material(self,name):
@@ -119,17 +156,19 @@ class Resolver:
         return inherited|props
 
 
-def compile_map(source,output,material_roots=(),identifier=None):
+def compile_map(source,output,material_roots=(),identifier=None,vpks=()):
     bsp=SourceBSP(source)
     world=bsp.convert()
-    resolver=Resolver(bsp,material_roots)
+    resolver=Resolver(bsp,material_roots,vpks)
     mats=sorted(set(g[0] for g in world.groups))
-    textures=[(2,2,FALLBACK)]
+    textures=[]
     tex_for={}
+    placeholders=[];resolved=0
     for name in mats:
         decoded=resolver.material(name)
-        tex_for[name]=len(textures) if decoded else 0
-        if decoded:textures.append(decoded)
+        tex_for[name]=len(textures)
+        if decoded:resolved+=1;textures.append(decoded)
+        else:placeholders.append(name);textures.append(_placeholder(name))
     buckets={m:[] for m in mats}
     for mat,first,count in world.groups:buckets[mat].extend(world.indices[first:first+count])
     indices=[];groups=[]
@@ -144,6 +183,7 @@ def compile_map(source,output,material_roots=(),identifier=None):
         'source_reference':src.name,'coordinate_transform':{'axes':'Source xyz -> Open Halo xyz (right handed, +Z up)','scale':1/120,'source_unit':'inch','runtime_unit':'ten feet'},
         'required_open_halo_runtime':'external-map-v1','geometry':{'vertices':len(world.vertices),'triangles':len(indices)//3,'displacements':world.report['converted_displacements']},
         'material_paths':mats,'missing_dependencies':sorted(set(resolver.missing)),
+        'placeholder_materials':placeholders,
         'supported_features':['world faces','power 2-4 displacement grids','spawn points','opaque albedo VTF subset'],
         'unsupported_features':world.report['unsupported_features'],
         'conversion_warnings':world.report['warnings']+resolver.warnings,
@@ -167,7 +207,7 @@ def compile_map(source,output,material_roots=(),identifier=None):
             f.write(struct.pack('<3I',w,h,len(pixels)));f.write(pixels)
         for sp in world.spawns:f.write(struct.pack('<4f',*sp['position'],math.radians(sp['yaw_degrees'])))
     report=world.report|{'missing_dependencies':manifest['missing_dependencies'],'material_warnings':resolver.warnings,
-        'resolved_textures':len(textures)-1,'texture_bytes':sum(len(t[2]) for t in textures),'runtime_package_bytes':out.stat().st_size,
+        'resolved_textures':resolved,'placeholder_materials':placeholders,'texture_bytes':sum(len(t[2]) for t in textures),'runtime_package_bytes':out.stat().st_size,
         'runtime_package_sha256':hashlib.sha256(out.read_bytes()).hexdigest()}
     return manifest,report
 

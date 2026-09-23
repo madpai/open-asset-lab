@@ -7,7 +7,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/path/to/open-asset-lab
-ExecStart=/usr/bin/python -m assetlab serve --tailscale --source-dir /private/path/to/maps
+ExecStart=/path/to/open-asset-lab/.venv/bin/python -m assetlab serve --tailscale --source-dir /private/path/to/maps --vpk /private/path/to/tf2_misc_dir.vpk --vpk /private/path/to/tf2_textures_dir.vpk
 Restart=on-failure
 RestartSec=10
 UMask=0077
