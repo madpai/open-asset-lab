@@ -8,6 +8,10 @@
 - A fresh authenticated web conversion of the real map staged `koth_bagel_rc2a-a8e448254566-a6eefc80`. It has 71 world materials, five resolved albedos, 66 placeholders and 51 missing dependency paths. The OALMAP is 21,945,010 bytes; conversion took 2.301 s. Open Halo loaded it in 20.16 ms, built collision from 61,016 triangles in 5.22 ms, rendered the new spawn image through llvmpipe and found 32/32 usable ground projected spawns. The preview was visually inspected and has readable wood, masonry, grass and floor colors, though no real TF2 surface detail. Seven Python tests pass.
 - Actual TF2 texture replacement remains dependent on a complete local client install or appropriately supplied content. The phone browser itself was not tested in this follow-up.
 
+## Paused Steam install — 2026-09-23
+
+At the user's request, the desktop Steam client was launched with `steam://install/440`. The client appeared to wait for account sign-in and no TF2 content download began. The transient Steam unit was stopped when the user requested a pause. The Asset Lab service remains active. The partial anonymous 435 MiB `app_update 440` directory has an app manifest but no numbered texture archives; it must not be mistaken for a complete TF2 install. No Steam password or Guard code was requested or stored. Further installation and texture conversion are paused until the user resumes.
+
 ## Demonstrated
 
 - Audited Open Halo `fp-animated-guns` and kept its Trial branch/worktree clean before changes. Found no installed Source BSP in local Steam games; the installed `Zombie Panic Mod` maps are GoldSrc v30. Kept real Source test maps private outside both repositories.
@@ -29,4 +33,4 @@ C: **Not yet demonstrated from the phone.** The authenticated service is live on
 
 ## Limits and next test
 
-Static props, clip brushes, brush entities, Source lightmaps and most shader behaviors are missing. Visible world triangles are used conservatively as collision, so some decorative surfaces can collide and invisible solid/clip surfaces are absent. Spawn ground projection and static host collision are proven; walking, jumping and wall behavior on this imported map need a native Android exploration mode. Material paths from TF2 require legitimately installed content or explicitly supplied roots; VPKs are not yet resolved. The next milestone is an isolated external-map Android picker/exploration flow with measured on-device movement and memory, followed by collision brush and prop work.
+Static props, clip brushes, brush entities, Source lightmaps and most shader behaviors are missing. Visible world triangles are used conservatively as collision, so some decorative surfaces can collide and invisible solid/clip surfaces are absent. Spawn ground projection and static host collision are proven; walking, jumping and wall behavior on this imported map need a native Android exploration mode. VPK lookup now works for explicitly configured archives; this TF2 map still needs the client texture data archives. After that material follow-up, the next engine milestone is an isolated external-map Android picker/exploration flow with measured on-device movement and memory, followed by collision brush and prop work.
