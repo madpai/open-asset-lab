@@ -14,6 +14,7 @@ from PIL import Image
 from .importers.source_bsp import BSPError, SourceBSP
 from .package import compile_map, read_manifest
 from .providers import LocalDirectories
+from .report import write as write_compat
 
 STATES=('QUEUED','VALIDATING','RESOLVING_DEPENDENCIES','IMPORTING','CONVERTING','COMPILING','VALIDATING_OUTPUT','STAGED','FAILED')
 ACTIVE=set(STATES[1:-2])
@@ -79,7 +80,7 @@ class Library:
 
     def stage_path(self,sid,filename):
         if not isinstance(sid,str) or not sid or any(c not in 'abcdefghijklmnopqrstuvwxyz0123456789-_' for c in sid):return None
-        if filename not in ('package.oalmap','manifest.json','report.json','dependencies.json','preview.png'):return None
+        if filename not in ('package.oalmap','manifest.json','report.json','dependencies.json','preview.png','compatibility.json','compatibility.md'):return None
         with self.lock,self.connect() as db:
             if not db.execute('SELECT 1 FROM staged WHERE id=?',(sid,)).fetchone():return None
         p=self.staged/sid/filename
@@ -134,6 +135,7 @@ class Library:
         dst.mkdir()
         shutil.move(str(package),str(dst/'package.oalmap'))
         with Image.open(work/'preview_spawn.ppm') as im:im.save(dst/'preview.png')
+        write_compat(report['compatibility'],dst)
         for name,obj in (('manifest.json',manifest),('report.json',report),('dependencies.json',{'missing':manifest['missing_dependencies'],'static_prop_models':manifest['static_prop_models']})):
             (dst/name).write_text(json.dumps(obj,indent=2,sort_keys=True)+'\n')
         entry={'id':sid,'job_id':jid,'map_id':manifest['map_id'],'source_sha256':manifest['source_sha256'],'created':time.time(),'package_sha256':report['runtime_package_sha256']}

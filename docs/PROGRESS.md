@@ -1,5 +1,9 @@
 # First vertical slice — 2026-09-23
 
+## Generalization audit — 2026-09-23 (night)
+
+Audited the whole path for de_dust2-specific behaviour and refactored it into format tables, a translation registry and per-map compatibility reports: [GENERALIZATION_AUDIT.md](GENERALIZATION_AUDIT.md). Eight maps from CS:S (incl. two v19), TF2, Garry's Mod and Black Mesa now go through one command; all load, collide, keep every shipped start in the map and play bot matches in Open Halo. Two runtime assumptions tuned to dust2 were found by the new maps: the start re-grounding lift (cs_office ceilings) and region-based item placement (one-way ledges). 25 synthetic tests.
+
 ## Playable and scouted — 2026-09-23 (late)
 
 - Owner's phone: de_dust2 runs at ~120 fps with bots in Team Slayer and CTF. Remaining reports were see-through windows (fixed by props) and respawns on roofs (an Open Halo snap-to-ground bug, fixed on its sandbox branch).

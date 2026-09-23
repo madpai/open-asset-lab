@@ -5,9 +5,9 @@ static prop needs is read: texture names, the skin table, body part 0's
 first model, its meshes' triangle lists and the vertices they index.
 """
 from __future__ import annotations
-import math
 import struct
 from .source_bsp import BSPError
+from ..coords import angle_matrix  # noqa: F401  (re-exported for callers)
 
 MAX_MODEL = 32 * 1024 * 1024
 
@@ -130,11 +130,3 @@ class Model:
         return next((n for n in names if exists and exists(n)), names[0])
 
 
-def angle_matrix(pitch, yaw, roll):
-    """Valve AngleMatrix: columns are forward, left, up in world space."""
-    sp, cp = math.sin(math.radians(pitch)), math.cos(math.radians(pitch))
-    sy, cy = math.sin(math.radians(yaw)), math.cos(math.radians(yaw))
-    sr, cr = math.sin(math.radians(roll)), math.cos(math.radians(roll))
-    return ((cp * cy, sr * sp * cy - cr * sy, cr * sp * cy + sr * sy),
-            (cp * sy, sr * sp * sy + cr * cy, cr * sp * sy - sr * cy),
-            (-sp, sr * cp, cr * cp))

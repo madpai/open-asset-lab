@@ -4,7 +4,7 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 
 ## What works today
 
-- Inspect Source BSP v20, face lump v1, including compressed lumps, entities, static-prop inventory, embedded pakfile and missing material paths.
+- Inspect Source BSP v19 and v20, face lump v1, including compressed lumps, entities, static-prop inventory, embedded pakfile and missing material paths.
 - Convert world faces, power 2–4 displacement surfaces and static prop models (MDL v44–48, LOD 0), positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
 - Compile deterministic OALMAP v1 packages with bounds, indexed triangles, RGBA textures, spawn positions and a provenance manifest.
 - Load packages in Open Halo's host `open-halo-map-test`, using its existing Vulkan renderer and triangle collision grid.
@@ -12,7 +12,7 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 
 ## Limits
 
-Open Halo's private sandbox branch plays Slayer, Team Slayer and CTF with bots on a bundled package (de_dust2 was tested on a phone); Open Halo's public `main` stays Halo-only and has only the walking explorer. Source BSP v19, Source lightmaps, translucency/alpha-test, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision uses visible world triangles and solid props; clip brushes and invisible solids are absent. Textures are not downsampled, so large maps can exceed Open Halo's 128 MiB texture cap. The TF2 test map still has 66 placeholder materials. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md) and the [map import playbook](docs/MAP_IMPORT_PLAYBOOK.md).
+Open Halo's private sandbox branch plays Slayer, Team Slayer and CTF with bots on a bundled package (de_dust2 was tested on a phone); Open Halo's public `main` stays Halo-only and has only the walking explorer. BSP v19 and v20 are read; v21+ is refused with a reason. Source lightmaps, overlays, translucency/alpha-test, clip brushes, moving brushes, game logic, Workshop browsing and most Source shader features are not implemented, and every map's `compatibility.md` lists what it lost. Collision uses visible world triangles, solid brush entities and solid props. Textures are downsampled to fit Open Halo's 128 MiB cap. See the [generalization audit](docs/GENERALIZATION_AUDIT.md) for the eight maps tested. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md) and the [map import playbook](docs/MAP_IMPORT_PLAYBOOK.md).
 
 ## Install
 
@@ -35,6 +35,9 @@ Alternatively, from this checkout run `python -m assetlab` with the system Pytho
 python -m assetlab inspect /path/to/map.bsp
 python -m assetlab inspect /path/to/map.bsp --json
 python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap
+# Mount a game's content the way Source does (the folder and every *_dir.vpk in it), and write a compatibility report:
+python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap --game-dir "/path/to/Counter-Strike Source/cstrike" --game-dir "/path/to/Counter-Strike Source/hl2" --report-dir /private/path/report
+python -m assetlab report /private/path/*.oalmap
 # Optional unpacked materials directory; must contain materials/... paths:
 python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap --material-root /path/to/game
 # Optional VPK directory files; include both material and texture archives as needed:
