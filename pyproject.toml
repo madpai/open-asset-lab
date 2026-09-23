@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "open-asset-lab"
+version = "0.1.0"
+description = "Local Source BSP to Open Halo map conversion and staging service"
+requires-python = ">=3.11"
+dependencies = ["Pillow>=10,<12"]
+license = "GPL-3.0-or-later"
+[project.scripts]
+assetlab = "assetlab.__main__:main"
+[tool.setuptools.packages.find]
+include = ["assetlab*"]
