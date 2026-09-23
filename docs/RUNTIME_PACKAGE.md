@@ -7,7 +7,7 @@ A single little-endian binary file, portable between x86-64 Linux and ARM64 Andr
 | UTF-8 manifest | canonical sorted-key JSON, byte count from header |
 | Vertices | 10 float32 each: position XYZ, normal XYZ, UV, lightmap UV |
 | Indices | uint32 triangle list |
-| Groups | four uint32: first index, index count, albedo texture index, reserved |
+| Groups | four uint32: first index, index count, albedo texture index, flags (bit 0: drawn but not collided with — Source `SOLID_NONE` static props; older readers ignore it) |
 | Textures | uint32 width, height, byte count, then tightly packed RGBA8 |
 | Spawns | four float32: feet XYZ and yaw radians |
 

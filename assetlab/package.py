@@ -10,12 +10,14 @@ import zipfile
 from pathlib import Path
 from PIL import Image
 from srctools.vpk import VPK
-from .importers.source_bsp import BSPError, SourceBSP
+from .importers.source_bsp import BSPError, SourceBSP, SCALE, cross, sub, norm
+from .importers.source_mdl import Model, angle_matrix
 
 MAGIC=b'OALM'
 VERSION=1
 MAX_TEXTURE=2048
 HEADER='<4s8I6fI'  # 64 bytes
+GROUP_NO_COLLISION=1  # group record flags: drawn but not solid
 VMT_VALUE=re.compile(r'"?(\$[a-zA-Z0-9_]+)"?\s+"([^"\r\n]+)"',re.I)
 
 def _placeholder(name):
@@ -157,10 +159,53 @@ class Resolver:
         return inherited|props
 
 
+def add_static_props(world,bsp,resolver):
+    """Static prop models placed into the world triangles. Returns
+    (placed, model names that could not be read)."""
+    cache={};failed=set();placed=0
+    exists=lambda m:resolver.read('materials/'+m+'.vmt') is not None
+    for path,origin,angles,skin,_solid in bsp.static_prop_placements():
+        key=(path,skin)
+        if key not in cache:
+            base=path.removesuffix('.mdl')
+            try:
+                mdl,vvd,vtx=(resolver.read(base+ext) for ext in ('.mdl','.vvd','.dx90.vtx'))
+                if mdl is None or vvd is None or vtx is None:
+                    for ext,blob in (('.mdl',mdl),('.vvd',vvd),('.dx90.vtx',vtx)):
+                        if blob is None:resolver.missing.append(base+ext)
+                    cache[key]=None
+                else:cache[key]=Model(mdl,vvd,vtx,skin,exists)
+            except BSPError as e:
+                resolver.warnings.append(f'{path}: {e}');cache[key]=None
+        model=cache[key]
+        if model is None:failed.add(path);continue
+        m=angle_matrix(*angles)
+        rot=lambda v:tuple(sum(m[r][c]*v[c] for c in range(3)) for r in range(3))
+        for mat,tris in model.groups.items():
+            start=len(world.indices)
+            for t in range(0,len(tris),3):
+                corners=[]
+                for pos,nrm,uv in tris[t:t+3]:
+                    wp=rot(pos);corners.append((tuple((wp[k]+origin[k])*SCALE for k in range(3)),norm(rot(nrm)),uv))
+                a,b,c=corners
+                face=cross(sub(b[0],a[0]),sub(c[0],a[0]))
+                if face==(0.,0.,0.) or norm(face)==(0.,0.,0.):continue
+                # Wind to agree with the model's own normals, whatever the source order.
+                if sum(face[k]*(a[1][k]+b[1][k]+c[1][k]) for k in range(3))<0:b,c=c,b
+                i0=len(world.vertices);world.vertices.extend((a,b,c));world.indices.extend((i0,i0+1,i0+2))
+            # Source SOLID_NONE props are drawn, not collided with.
+            if len(world.indices)>start:world.groups.append((mat,start,len(world.indices)-start,_solid!=0))
+        placed+=1
+    return placed,sorted(failed)
+
+
 def compile_map(source,output,material_roots=(),identifier=None,vpks=()):
     bsp=SourceBSP(source)
     world=bsp.convert()
     resolver=Resolver(bsp,material_roots,vpks)
+    props_placed,props_failed=add_static_props(world,bsp,resolver)
+    world.report['static_props_placed']=props_placed
+    world.report['static_props_unresolved']=props_failed
     mats=sorted(set(g[0] for g in world.groups))
     textures=[]
     tex_for={}
@@ -170,11 +215,14 @@ def compile_map(source,output,material_roots=(),identifier=None,vpks=()):
         tex_for[name]=len(textures)
         if decoded:resolved+=1;textures.append(decoded)
         else:placeholders.append(name);textures.append(_placeholder(name))
-    buckets={m:[] for m in mats}
-    for mat,first,count in world.groups:buckets[mat].extend(world.indices[first:first+count])
+    buckets={}
+    for g in world.groups:
+        mat,first,count=g[:3];solid=g[3] if len(g)>3 else True
+        buckets.setdefault((mat,solid),[]).extend(world.indices[first:first+count])
     indices=[];groups=[]
-    for mat in mats:
-        first=len(indices);indices.extend(buckets[mat]);groups.append((first,len(indices)-first,tex_for[mat]))
+    for mat,solid in sorted(buckets,key=lambda k:(k[0],not k[1])):
+        first=len(indices);indices.extend(buckets[(mat,solid)])
+        groups.append((first,len(indices)-first,tex_for[mat],0 if solid else GROUP_NO_COLLISION))
     src=Path(source)
     source_hash=hashlib.sha256(src.read_bytes()).hexdigest()
     if identifier is None:identifier=re.sub('[^a-z0-9_-]+','-',src.stem.lower()).strip('-')[:64]
@@ -185,7 +233,7 @@ def compile_map(source,output,material_roots=(),identifier=None,vpks=()):
         'required_open_halo_runtime':'external-map-v1','geometry':{'vertices':len(world.vertices),'triangles':len(indices)//3,'displacements':world.report['converted_displacements']},
         'material_paths':mats,'missing_dependencies':sorted(set(resolver.missing)),
         'placeholder_materials':placeholders,
-        'supported_features':['world faces','power 2-4 displacement grids','spawn points','opaque albedo VTF subset'],
+        'supported_features':['world faces','power 2-4 displacement grids','static prop models (MDL v44-48, LOD 0)','spawn points','opaque albedo VTF subset'],'static_props_placed':props_placed,'static_props_unresolved':props_failed,
         'unsupported_features':world.report['unsupported_features'],
         'conversion_warnings':world.report['warnings']+resolver.warnings,
         'static_prop_count':bsp.inspect()['static_props']['count'],'static_prop_models':bsp.inspect()['static_props']['models'],
@@ -203,7 +251,7 @@ def compile_map(source,output,material_roots=(),identifier=None,vpks=()):
         f.write(manifest_bytes)
         for pos,nrm,uv in world.vertices:f.write(struct.pack('<10f',*pos,*nrm,*uv,0.,0.))
         for i in indices:f.write(struct.pack('<I',i))
-        for first,count,tex in groups:f.write(struct.pack('<4I',first,count,tex,0))
+        for first,count,tex,flags in groups:f.write(struct.pack('<4I',first,count,tex,flags))
         for w,h,pixels in textures:
             f.write(struct.pack('<3I',w,h,len(pixels)));f.write(pixels)
         for sp in world.spawns:f.write(struct.pack('<4f',*sp['position'],math.radians(sp['yaw_degrees'])))

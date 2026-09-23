@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from assetlab.importers.source_bsp import BSPError,SourceBSP
 from assetlab.package import _placeholder,compile_map,read_manifest
+from assetlab.importers.source_mdl import Model,angle_matrix
 from assetlab.library import Library
 from srctools.vpk import VPK
 
@@ -33,6 +34,45 @@ def fixture(disp=False,raised=(2,2)):
     for i,d in sorted(lumps.items()):
         off=len(out);out.extend(d);struct.pack_into('<4I',out,8+i*16,off,len(d),1 if i==7 else 0,0)
     return out
+
+
+def model_fixture():
+    """One triangle, one texture, one body part: the least a static prop can be."""
+    mdl=bytearray(1024);mdl[:4]=b'IDST';struct.pack_into('<ii',mdl,4,48,1234)
+    # textures at 300 (one 64-byte record, name at 400), cdmaterials table at 380 -> 420
+    struct.pack_into('<iiiiiiiii',mdl,204,1,300,1,380,1,1,390,1,500)
+    struct.pack_into('<i',mdl,300,100);mdl[400:408]=b'crate01\0'
+    struct.pack_into('<i',mdl,380,420);mdl[420:436]=b'models\\props\\x\\\0'
+    struct.pack_into('<h',mdl,390,0)
+    struct.pack_into('<iiii',mdl,500,0,1,0,16)            # body part -> model at 516
+    struct.pack_into('<iiii',mdl,516+72,1,148,3,0)        # one mesh at 664, vertices from 0
+    struct.pack_into('<iiii',mdl,664,0,0,3,0)
+    vvd=bytearray(64+3*48);vvd[:4]=b'IDSV';struct.pack_into('<iiii',vvd,4,4,1234,1,3);struct.pack_into('<iii',vvd,48,0,0,64)
+    for i,(x,y) in enumerate(((0,0),(10,0),(0,10))):struct.pack_into('<8f',vvd,64+i*48+16,x,y,0,0,0,1,x/10,y/10)
+    vtx=bytearray(200);struct.pack_into('<i',vtx,0,7);struct.pack_into('<i',vtx,16,1234);struct.pack_into('<ii',vtx,28,1,36)
+    struct.pack_into('<ii',vtx,36,1,8)      # body part 36 -> model 44
+    struct.pack_into('<ii',vtx,44,1,8)      # model -> lod 52
+    struct.pack_into('<ii',vtx,52,1,12)     # lod -> mesh 64
+    struct.pack_into('<ii',vtx,64,1,9)      # mesh -> strip group 73
+    struct.pack_into('<iiii',vtx,73,3,25,3,25+27)   # 3 verts at 98, 3 indices at 125
+    for i in range(3):struct.pack_into('<H',vtx,98+i*9+4,i)
+    struct.pack_into('<3H',vtx,125,0,1,2)
+    return bytes(mdl),bytes(vvd),bytes(vtx)
+
+
+class ModelTests(unittest.TestCase):
+    def test_static_model_triangle_and_material(self):
+        m=Model(*model_fixture(),exists=lambda n:n=='models/props/x/crate01')
+        self.assertEqual(list(m.groups),['models/props/x/crate01'])
+        tri=m.groups['models/props/x/crate01']
+        self.assertEqual([v[0] for v in tri],[(0,0,0),(10,0,0),(0,10,0)])
+        self.assertEqual(tri[1][2],(1.0,0.0))
+    def test_checksum_mismatch_rejected(self):
+        mdl,vvd,vtx=model_fixture();bad=bytearray(vvd);struct.pack_into('<i',bad,8,99)
+        with self.assertRaises(BSPError):Model(mdl,bytes(bad),vtx)
+    def test_angle_matrix_yaw(self):
+        m=angle_matrix(0,90,0)
+        self.assertAlmostEqual(m[0][0],0,places=6);self.assertAlmostEqual(m[1][0],1,places=6)
 
 
 class BSPTests(unittest.TestCase):

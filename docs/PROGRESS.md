@@ -1,5 +1,11 @@
 # First vertical slice — 2026-09-23
 
+## Static props — 2026-09-23 (night)
+
+- The owner saw sky through de_dust2's windows. Those windows, and its crates, domes, palms, rocks and wall trims, are static props: 321 placements of 53 models in a version-6 static prop lump the importer skipped. New `importers/source_mdl.py` reads MDL v44-48, VVD v4 and DX90 VTX v7 (LOD 0, bind pose, skin families, first existing `$cdmaterials` folder), placed with Valve's AngleMatrix and wound to agree with the model normals. `SourceBSP.static_prop_placements` reads lump versions 4-10 by record size.
+- de_dust2: 315 placed, all materials resolved; six HL2 cars are absent from the CS:S server install and are listed as missing. 94,143 triangles (was 22,419), 130,645,616 bytes, texture data 118 MB (Open Halo's cap is 128 MiB). Renders at the owner's reported window position show the arched grille and shutters where the hole was.
+- Group records' reserved word is now flags; bit 0 marks Source `SOLID_NONE` props as drawn but not collided with (46k of 72k prop triangles). Old readers ignore it. Three synthetic model tests added; 11 pass. Portal stage `de_dust2-3e24a3cf2954-7ec0e144` is byte-identical to the desktop conversion.
+
 ## Displacement fix and no-login portal — 2026-09-23 (evening)
 
 - Owner's phone screenshots of de_dust2 showed shredded brown rock ribbons in the sky, holes and dark slivers in the sand. Cause: displacement grids were built transposed. Valve's `CCoreDispInfo` advances the outer (row) index along p0→p1 and the inner index along p0→p3; the importer had them swapped, so every vertex offset was applied at its mirror position. Measured on de_dust2: 1,195 of 2,064 displacement edge vertices coincide with a neighbour's after the fix, 76 before. Each displacement now has one winding chosen from its flat base quad, alternating diagonals, and per-triangle normals. A synthetic regression test fails on the old code (`0.0 != 0.25`) and passes now; 8 tests pass.

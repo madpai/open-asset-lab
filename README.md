@@ -5,14 +5,14 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 ## What works today
 
 - Inspect Source BSP v20, face lump v1, including compressed lumps, entities, static-prop inventory, embedded pakfile and missing material paths.
-- Convert world faces and power 2–4 displacement surfaces, positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
+- Convert world faces, power 2–4 displacement surfaces and static prop models (MDL v44–48, LOD 0), positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
 - Compile deterministic OALMAP v1 packages with bounds, indexed triangles, RGBA textures, spawn positions and a provenance manifest.
 - Load packages in Open Halo's host `open-halo-map-test`, using its existing Vulkan renderer and triangle collision grid.
 - Submit local or uploaded BSPs through a private web UI (no login; reachable only on localhost or your tailnet). A SQLite single worker continues after a browser disconnect; successful jobs enter a staged library with package, preview, reports and hashes.
 
 ## Limits
 
-Android has a separate package picker and basic walking mode, pending device testing. It does not run Source or Halo game modes on imported maps. Source lightmaps, static-prop geometry, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision conservatively uses visible world triangles; clip brushes and invisible solids are absent. The demonstrated TF2 map still has 66 placeholder materials and 1,211 static props that are inventoried but not rendered. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md).
+Android has a separate package picker and basic walking mode, pending device testing. It does not run Source or Halo game modes on imported maps. Source lightmaps, translucency/alpha-test, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision conservatively uses visible world triangles; clip brushes and invisible solids are absent. The demonstrated TF2 map still has 66 placeholder materials and 1,211 static props that are inventoried but not rendered. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md).
 
 ## Install
 

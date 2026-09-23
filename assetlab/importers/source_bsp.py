@@ -144,6 +144,42 @@ class SourceBSP:
         d=self.lump(14)
         return [(unpack('<i',d,o+40)[0],unpack('<i',d,o+44)[0],unpack('<6f',d,o)) for o in range(0,len(d),48)]
 
+    def static_prop_placements(self):
+        """Every static prop: (model path, origin, angles, skin, solid). The
+        leading fields are the same in lump versions 4 to 10; the record
+        size is whatever divides the rest of the lump."""
+        d=self.lump(35)
+        if len(d)<4:return []
+        n=unpack('<i',d)[0]
+        if n<0 or n>4096 or 4+n*16>len(d):raise BSPError('invalid game lump directory')
+        for i in range(n):
+            tag,flags,version,off,length=unpack('<IHHii',d,4+i*16)
+            if tag!=int.from_bytes(b'prps','little'):continue
+            if flags&1 or not 4<=version<=10:return []
+            if off<0 or length<0 or off+length>len(self.data):raise BSPError('static prop game lump outside file')
+            p=self.data[off:off+length]
+            model_n=unpack('<i',p)[0]
+            if model_n<0 or model_n>65536:raise BSPError('invalid static prop model dictionary')
+            models=[p[4+j*128:4+(j+1)*128].split(b'\0',1)[0].decode('utf-8','replace').replace('\\','/').lower() for j in range(model_n)]
+            pos=4+model_n*128
+            leaf_n=unpack('<i',p,pos)[0];pos+=4
+            if leaf_n<0:raise BSPError('invalid static prop leaf table')
+            pos+=leaf_n*2
+            count=unpack('<i',p,pos)[0];pos+=4
+            if count<=0:return []
+            if count>100000 or (len(p)-pos)%count:raise BSPError('static prop records do not divide the lump')
+            size=(len(p)-pos)//count
+            if size<32:raise BSPError('static prop record too small')
+            out=[]
+            for k in range(count):
+                o=pos+k*size
+                origin=unpack('<3f',p,o);angles=unpack('<3f',p,o+12);mt=unpack('<H',p,o+24)[0];solid=p[o+30]
+                skin=unpack('<i',p,o+32)[0] if size>=36 else 0
+                if mt>=len(models):raise BSPError('static prop model index out of range')
+                out.append((models[mt],origin,angles,skin,solid))
+            return out
+        return []
+
     def _static_props(self):
         d=self.lump(35)
         if len(d)<4:return {'count':0,'models':[],'supported':False}
