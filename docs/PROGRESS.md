@@ -1,5 +1,10 @@
 # First vertical slice — 2026-09-23
 
+## Playable and scouted — 2026-09-23 (late)
+
+- Owner's phone: de_dust2 runs at ~120 fps with bots in Team Slayer and CTF. Remaining reports were see-through windows (fixed by props) and respawns on roofs (an Open Halo snap-to-ground bug, fixed on its sandbox branch).
+- Dry-ran every stock CS:S map: 12 of 18 are BSP v19 (refused), and de_nuke/de_inferno/cs_militia exceed the 128 MiB texture cap. Adding `hl2/hl2_misc_dir.vpk` places every HL2 prop, but HL2 textures stay placeholders (no data archives in the server install). Table and next steps in [MAP_IMPORT_PLAYBOOK.md](MAP_IMPORT_PLAYBOOK.md).
+
 ## Static props — 2026-09-23 (night)
 
 - The owner saw sky through de_dust2's windows. Those windows, and its crates, domes, palms, rocks and wall trims, are static props: 321 placements of 53 models in a version-6 static prop lump the importer skipped. New `importers/source_mdl.py` reads MDL v44-48, VVD v4 and DX90 VTX v7 (LOD 0, bind pose, skin families, first existing `$cdmaterials` folder), placed with Valve's AngleMatrix and wound to agree with the model normals. `SourceBSP.static_prop_placements` reads lump versions 4-10 by record size.

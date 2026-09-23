@@ -6,4 +6,6 @@ Audited current `fp-animated-guns` branch, `README.md`, `CLAUDE.md`, `docs/HANDO
 
 The added `src/asset/external_map.c` loads OALMAP v1 into the existing mesh and spawn structures. `src/tools/open_halo_map_test.c` validates version/counts, builds collision, checks ground under spawns, uploads through the production Vulkan renderer and renders overview and spawn images. The engine's existing tests and `scripts/verify.sh` include `test_external_map`. No Trial gameplay code or current map selection was changed.
 
+**Update 2026-09-23:** done and exceeded on Open Halo's private `halo-sandbox` branch: bundled packages are playable in Slayer / Team Slayer / CTF with bots, Blood Gulch's tags supplying everything but the world (see that branch's `docs/HANDOFF.md`, "IMPORTED MAPS"). The note below is the original plan.
+
 For Android, the smallest next step is a separate external-map activity/choice: accept a user-selected `.oalmap`, copy or open its content URI, call `hta_external_map_load` or an fd-based equivalent, then initialize the existing camera/player/collision/render path with a simple exploration mode. Do not force the Trial's `hta_game` constructor to use fabricated scenario tags. Multiplayer, bots and combat need later mode-specific initialization. Android compilation alone does not prove this path.

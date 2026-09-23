@@ -12,7 +12,7 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 
 ## Limits
 
-Android has a separate package picker and basic walking mode, pending device testing. It does not run Source or Halo game modes on imported maps. Source lightmaps, translucency/alpha-test, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision conservatively uses visible world triangles; clip brushes and invisible solids are absent. The demonstrated TF2 map still has 66 placeholder materials and 1,211 static props that are inventoried but not rendered. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md).
+Open Halo's private sandbox branch plays Slayer, Team Slayer and CTF with bots on a bundled package (de_dust2 was tested on a phone); Open Halo's public `main` stays Halo-only and has only the walking explorer. Source BSP v19, Source lightmaps, translucency/alpha-test, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision uses visible world triangles and solid props; clip brushes and invisible solids are absent. Textures are not downsampled, so large maps can exceed Open Halo's 128 MiB texture cap. The TF2 test map still has 66 placeholder materials. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md) and the [map import playbook](docs/MAP_IMPORT_PLAYBOOK.md).
 
 ## Install
 
