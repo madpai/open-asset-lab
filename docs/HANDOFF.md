@@ -2,7 +2,11 @@
 
 ## User direction
 
-The user asked for the checkered missing-texture previews to be fixed, then asked to start a TF2 install remotely. They subsequently said **"Pause until later"** and asked for this handoff. Do not resume TF2 installation, authenticate Steam, or rerun conversion until the user resumes the work. Never request or record their Steam password or Guard code in chat.
+The user resumed map-import work and chose Counter-Strike: Source `de_dust2` as the next Android test. Anonymous SteamCMD access provided the CS:S dedicated-server BSP and textures without account credentials. Never request or record a Steam password or Guard code in chat.
+
+## Current de_dust2 result
+
+The private Asset Lab service staged `de_dust2-3e24a3cf2954-762e529d`. All 100 used albedo textures resolved, with no missing dependencies or placeholders. The 91,421,427-byte OALMAP has 22,419 world triangles and 40 spawn points. Open Halo's host Vulkan renderer drew the map and found ground under all 40 spawns. The Android app now has a separate `.oalmap` picker and walking mode; phone movement has not yet been tested. The VTF decoder now reads the mip count at byte 56, with an updated synthetic VPK regression test. Source props, brush entities, lightmaps and game rules remain unsupported.
 
 ## Repositories and current state
 
@@ -12,7 +16,7 @@ The user asked for the checkered missing-texture previews to be fixed, then aske
 
 ## What was implemented and verified
 
-Asset Lab imports Source BSP v20 face lump v1 world faces and power 2–4 displacements, extracts supported spawns and entities, inventories static props, resolves supported VMT/VTF albedo, and compiles OALMAP v1. The job worker stages packages only after Open Halo's host render and collision test succeeds. A private authenticated web UI accepts registered maps and bounded BSP uploads. Android external-map selection and gameplay are not implemented.
+Asset Lab imports Source BSP v20 face lump v1 world faces and power 2–4 displacements, extracts supported spawns and entities, inventories static props, resolves supported VMT/VTF albedo, and compiles OALMAP v1. The job worker stages packages only after Open Halo's host render and collision test succeeds. A private authenticated web UI accepts registered maps and bounded BSP uploads. Android now supports package selection and basic walking in a separate exploration mode; imported-map gameplay is not implemented.
 
 The preview follow-up added read-only `_dir.vpk` lookup using `srctools` to inspection, CLI conversion, and the worker. Lookup order is BSP embedded pakfile, configured unpacked roots, configured VPKs. VPK numbered data archives must sit beside their `_dir.vpk`. Missing or unsupported material data remains in the manifest/report. The bright checkerboard was replaced with deterministic muted material-specific placeholder colors; the staged UI shows resolved texture and missing dependency counts.
 
@@ -41,7 +45,7 @@ find /home/commander/assetlab-private/tf2-client -name 'tf2_textures_*.vpk' -pri
 
 For a direct Open Halo host proof, set `VK_ICD_FILENAMES` to `/home/commander/projects/halo-trial-android/scratch/lvp/usr/share/vulkan/icd.d/lvp_icd.json` and run `build-host/open-halo-map-test /path/to/package.oalmap /private/output-prefix` from the Open Halo checkout. Its full `scripts/verify.sh` gate needs `HTA_MAP=/home/commander/halo-trial-data/extract/maps/bloodgulch.map`. Rebuild and rerun that gate when changing Open Halo code; the current texture follow-up changed Asset Lab only.
 
-## Resume checklist after user authorization
+## Earlier TF2 follow-up (separate from the de_dust2 test)
 
 1. Confirm a complete, legitimately installed TF2 client and locate `tf/tf2_misc_dir.vpk`, `tf/tf2_textures_dir.vpk`, and the numbered texture archives. Steam library paths may differ from the private paths above. If the user chooses SSH, give an interactive SteamCMD command that prompts locally for their account password and Guard code; do not accept either in chat or command arguments.
 2. Run `.venv/bin/python -m assetlab inspect /home/commander/assetlab-private/maps/koth_bagel_rc2a.bsp --vpk /path/to/tf2_misc_dir.vpk --vpk /path/to/tf2_textures_dir.vpk --json` and compare exact missing paths. If actual VTF formats exceed the current RGBA8888, BGRA8888, DXT1, DXT5 subset, extend decoding with focused fixtures. The current 2048-pixel texture dimension limit may also need measured adjustment and downsampling for Android memory.

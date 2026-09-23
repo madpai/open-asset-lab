@@ -1,6 +1,6 @@
 # Open Asset Lab
 
-Local Source BSP ingestion, conversion and staging for [Open Halo Project](https://github.com/madpai/open-halo-project). This first release converts Source 1 BSP v20 world geometry into a versioned `.oalmap` package. Open Halo's host Vulkan renderer loads it, builds collision and writes offscreen images. The map is staged for review, not installed into the Android game.
+Local Source BSP ingestion, conversion and staging for [Open Halo Project](https://github.com/madpai/open-halo-project). This first release converts Source 1 BSP v20 world geometry into a versioned `.oalmap` package. Open Halo's host Vulkan renderer loads it, builds collision and writes offscreen images. Android can also pick the staged package and explore its world geometry.
 
 ## What works today
 
@@ -12,7 +12,7 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 
 ## Limits
 
-Android **does not yet select or play** external maps. This milestone proves the host renderer and collision path. Source lightmaps, static-prop geometry, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision conservatively uses visible world triangles; clip brushes and invisible solids are absent. The demonstrated TF2 map still has 66 placeholder materials and 1,211 static props that are inventoried but not rendered. Valve's anonymous dedicated-server files contain VMT indexes but omit the texture data archives; actual TF2 textures require a complete local client installation or user-provided licensed files. See [progress](docs/PROGRESS.md).
+Android has a separate package picker and basic walking mode, pending device testing. It does not run Source or Halo game modes on imported maps. Source lightmaps, static-prop geometry, brush entities, Source game logic, Workshop browsing and most Source shader features are not implemented. Collision conservatively uses visible world triangles; clip brushes and invisible solids are absent. The demonstrated TF2 map still has 66 placeholder materials and 1,211 static props that are inventoried but not rendered. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md).
 
 ## Install
 

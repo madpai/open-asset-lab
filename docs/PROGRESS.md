@@ -1,5 +1,9 @@
 # First vertical slice — 2026-09-23
 
+## Counter-Strike: Source de_dust2 — 2026-09-23
+
+SteamCMD anonymous login installed the Counter-Strike: Source dedicated-server package (app 232330) in private storage. Its `de_dust2.bsp` is Source BSP v20. The VTF decoder used byte 63 (depth) as the mip count; correcting it to byte 56 resolved all 100 used material textures from the CS:S VPK. The resulting private OALMAP has 67,257 vertices, 22,419 triangles, 40 spawns, no placeholder materials or missing dependencies, and is 91,421,427 bytes. Open Halo's host Vulkan test rendered the map with llvmpipe and found usable ground under 40/40 spawns. The Android exploration picker and walking path were added for device testing; no on-device result is claimed yet. Brush entities, Source lightmaps, static props and gameplay entities remain unsupported. The private Asset Lab service has staged this package for the owner's download.
+
 ## Material preview follow-up — 2026-09-23
 
 - Added explicit read-only VPK lookup to the CLI and worker. A synthetic VPK test verifies an actual VMT and VTF are loaded. The local service now uses the project's virtual environment and the privately installed TF2 dedicated-server VPK indexes.

@@ -1,6 +1,6 @@
 # Roadmap
 
-1. **Next: Android exploration mode.** Add an explicit external package picker and a small game mode that uses the imported world mesh, collision and spawn without requiring Trial scenario tags. Test walking on a phone and measure device memory/GPU behavior.
+1. **Next: test Android exploration on a phone.** The external package picker and basic walking mode now use the imported world mesh, collision and spawn without Trial scenario tags. Measure movement, device memory and GPU behavior on de_dust2.
 2. Add Source brush collision and classify invisible clips and non-solid decorative surfaces. Test wall, slope, opening and floor movement on device.
 3. Add unpacked game/VPK material resolution, Source lightmaps and common VMT shader properties. Implement static-prop model conversion for maps that need props to be playable.
 4. Add general asset importer dispatch, model/weapon/humanoid workflows and a provider interface for acquisition. Steam Workshop discovery must use legitimate installed content or officially supported APIs and respect app permissions and licenses.

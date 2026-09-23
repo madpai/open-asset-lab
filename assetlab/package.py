@@ -46,7 +46,8 @@ def _vtf_rgba(data):
     if major!=7 or minor>5 or head>len(data):raise BSPError('unsupported VTF version')
     w,h=struct.unpack_from('<HH',data,16)
     fmt=struct.unpack_from('<I',data,52)[0]
-    mip=data[63]
+    # VTF stores mipmapCount at byte 56; byte 63 is the optional depth field.
+    mip=data[56]
     if not 0<w<=MAX_TEXTURE or not 0<h<=MAX_TEXTURE or mip<1 or mip>16:raise BSPError('VTF dimensions or mip count out of range')
     if fmt not in (0,12,13,15):raise BSPError(f'unsupported VTF image format {fmt}')
     def level_size(a,b):

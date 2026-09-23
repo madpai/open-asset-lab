@@ -84,7 +84,8 @@ class BSPTests(unittest.TestCase):
         struct.pack_into('<HH',vtf,16,2,2)
         struct.pack_into('<I',vtf,52,0)
         struct.pack_into('<I',vtf,57,0xffffffff)
-        vtf[63]=1
+        vtf[56]=1
+        vtf[63]=0  # VTF depth is zero for this 2D texture.
         vtf[80:]=bytes((255,128,0,255))*4
         with VPK(archive,mode='w') as v:
             v.add_file('materials/test/checker.vmt',b'"LightmappedGeneric" { "$basetexture" "test/checker" }',arch_index=None)
