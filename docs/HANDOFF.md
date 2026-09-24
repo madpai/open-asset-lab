@@ -20,6 +20,14 @@
   - **flag_points** in the manifest from `item_teamflag` (TeamNum 2 red, 3 blue); Open Halo stands the CTF flags there.
 - **Open Halo engine fixes it needed (sandbox):** a 0.175 wu bot grid on imported maps (TF2 doorways are body-wide), floors under more than six stacked surfaces, links need room for a body's sides (slatted railings), no push through a one-sided wall into the void. Bots now fight on 2fort (~35 kills / 5 min) but have not captured a flag in tests.
 
+## Garry's Mod Workshop (2026-09-24)
+
+- Fetch: `~/assetlab-private/steamcmd/steamcmd.sh +login anonymous +workshop_download_item 4000 <id> +quit` (lands in `~/.local/share/Steam/steamapps/workshop/content/4000/<id>/`). Collections come down as their thumbnail only; a removed item says File Not Found.
+- `assetlab gma <file.gma or *_legacy.bin> [--extract DIR]` lists or unpacks an addon (`importers/gma.py`; legacy bins are LZMA "alone"). Pass DIR as the first `--game-dir`, then GMod's `garrysmod` and `sourceengine` for the shared player animations.
+- Some addons need another item for their textures (Goku 764848190 needs 703107302): extract it into the same DIR.
+- Imported: Harry Potter (2855665131, `models/konnie/harrypotter/harrypotter_school.mdl`), Goku (764848190, `.../goku/pm/gokupm.mdl`), Superman 64 (3300749206, `models/player/ms/superman64/superman64.mdl`). Extracted under `~/assetlab-private/workshop/<id>/` (private).
+- Characters now flag alpha materials (group flag bit 1) and take `--display` and `--loadout`.
+
 ## Sound packs (2026-09-24)
 
 - `assetlab sounds <definition.json> --output ui.oalasset --game-dir ...`: an OALASSET of kind `sounds` (no models), sounds by role. `assetlab/data/sounds/tf2_hitsounds.json` packs TF2's hit and kill dings and its freeze-cam sounds; MEGAMOD SHOWDOWN loads `assets/sounds/ui.oalasset` for its hit feedback and killcam.

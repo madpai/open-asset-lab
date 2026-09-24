@@ -264,10 +264,12 @@ def _name(text, n):
 def _write_model(f, entry, resolver, budget):
     main, mesh = entry['studio'], entry['mesh']
     mats = sorted(mesh.groups)
-    textures, placeholders = {}, []
+    textures, placeholders, alpha = {}, [], set()
     for m in mats:
         decoded, params = resolver.material(m)
         textures[m] = decoded if decoded else translate.placeholder(m, params)
+        if translate.material_alpha(params or {}):
+            alpha.add(m)                     # hair cards, lace: see-through where the texture is
         if not decoded:
             placeholders.append(m)
     downsampled = fit_textures(textures, budget)
@@ -287,7 +289,7 @@ def _write_model(f, entry, resolver, budget):
                     j = remap[key] = len(verts); verts.append(key)
                 indices.append(j)
         if len(indices) > first:
-            groups.append((first, len(indices)-first, ti, 0))
+            groups.append((first, len(indices)-first, ti, 2 if m in alpha else 0))   # bit 1: alpha
     bones = main.bones
     f.write(struct.pack('<8I', len(verts), len(indices), len(groups), len(mats), len(bones),
                         len(entry['attachments']), len(entry['clips']), 0))
@@ -316,7 +318,7 @@ def _write_model(f, entry, resolver, budget):
             'clips': [{'role': c['role'], 'fps': c['fps'], 'frames': len(c['frames']), 'loop': c['loop'],
                        'source': entry['notes'].get(c['role'])} for c in entry['clips']],
             'missing_roles': entry['missing_roles'], 'includes': entry['includes'],
-            'materials': mats, 'placeholder_materials': placeholders, 'textures_downsampled': downsampled,
+            'materials': mats, 'alpha_materials': sorted(alpha), 'placeholder_materials': placeholders, 'textures_downsampled': downsampled,
             'texture_bytes': sum(len(t[2]) for t in textures.values())}
 
 

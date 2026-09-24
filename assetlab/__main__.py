@@ -47,6 +47,8 @@ def main():
                    help='its default class: two weapon names as the game shows them'); search_args(a)
     a = sub.add_parser('weapon', help='a weapon definition (JSON) into an .oalasset')
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
+    a = sub.add_parser('gma', help="list or extract a Garry's Mod addon (.gma, or a Workshop *_legacy.bin)")
+    a.add_argument('archive'); a.add_argument('--extract', type=Path, help='unpack under this folder (then pass it as --game-dir)')
     a = sub.add_parser('sounds', help='a sound pack definition (JSON) into an .oalasset')
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
     a = sub.add_parser('report', help='compatibility report of one or more packages')
@@ -90,6 +92,15 @@ def main():
             else:
                 m = build_weapon(args.definition, args.output, roots, vpks)
             print(json.dumps(m, indent=2))
+        elif args.command == 'gma':
+            from .importers.gma import GMA, load
+            g = GMA(load(args.archive))
+            if args.extract:
+                g.extract(args.extract)
+            print(json.dumps({'name': g.name, 'author': g.author, 'files': len(g.files),
+                              'player_models': g.player_models(),
+                              'models': sorted(n for n in g.files if n.endswith('.mdl')),
+                              'extracted_to': str(args.extract) if args.extract else None}, indent=2))
         elif args.command == 'report':
             compats = [read_manifest(x)['compatibility'] for x in args.packages]
             if args.json:
