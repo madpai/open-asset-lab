@@ -1,0 +1,21 @@
+{
+  "name": "tf2_scattergun",
+  "display_name": "Scattergun (TF2)",
+  "base": "shotgun",
+  "world_model": "models/weapons/w_models/w_scattergun.mdl",
+  "view_model": "models/weapons/v_models/v_scattergun_scout.mdl",
+  "stats": {
+    "rounds_per_second": 1.6,
+    "magazine": 6,
+    "reserve": 32,
+    "damage_scale": 1.0,
+    "spread_scale": 1.2
+  },
+  "stats_provenance": "TF2 Scout's stock Scattergun as documented publicly: 6 shells, 32 spare, 0.625 s between shots, a wider spread than a plain shotgun. Damage against the Halo shotgun's is ours (kept equal).",
+  "sounds": {
+    "fire": "sound/weapons/scatter_gun_shoot.wav",
+    "reload": "sound/weapons/scatter_gun_reload.wav"
+  },
+  "view_model_mirrored": false,
+  "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default)."
+}

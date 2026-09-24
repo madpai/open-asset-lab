@@ -1,5 +1,9 @@
 # First vertical slice — 2026-09-23
 
+## ctf_2fort and TF2/HL2 weapons — 2026-09-24
+
+TF2's ctf_2fort converts with no missing dependencies and plays in Open Halo's sandbox: doors imported open, the 3D skybox and additive light shafts left out, props at LOD 1, CTF flags in the intelligence rooms. Bots fight on it after Open Halo's bot grid was made finer for imported maps. Three more class weapons: TF2's Rocket Launcher and Scattergun, HL2's .357 Magnum (given a grip it never had). Bundled in sandbox build `5b64d7d`; phone test pending. 34 synthetic tests.
+
 ## Characters, weapons and custom classes — 2026-09-23 (late night)
 
 Source characters (CS:S terrorist and counter-terrorist, GMod's Kleiner and Alyx) and the CS:S AK-47 convert into OALASSET packages through the same registry-and-search-path rules as maps, and play in Open Halo's sandbox. Bodies animate by role and hold both imported and Halo weapons. The AK has its own first-person model, clips, sound and stats. A custom-classes option spawns players with two chosen weapons. Verified on the desktop by renders and bot matches; phone test pending. Details in HANDOFF.

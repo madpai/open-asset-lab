@@ -48,6 +48,15 @@ With `cstrike_pak_dir.vpk` only / with the HL2 VPKs added:
 | cs_militia | v20 | — / 547k | 362 / 393 | 29 / 38 | 576 MiB | same |
 | cs_assault, cs_compound, cs_havana, cs_italy, cs_office, de_aztec, de_cbble, de_chateau, de_piranesi, de_port, de_prodigy, de_tides | **v19** | — | — | — | — | importer refuses v19 |
 
+## What broke on ctf_2fort, and why (2026-09-24)
+
+1. **Spawn rooms sealed**: func_doors imported closed -> now imported open; door handles parented to them follow.
+2. **Red spawn cut off for bots, blue not**: the nav grid stopped at six stacked surfaces, and red's grid phase put the spawn floor seventh. Check `HTA_DEBUG_NAV=<start>` in htamatch for a start whose region is tiny.
+3. **Bots stuck at doorways and railings**: 0.35 wu rows missed body-wide doorways; centre-line rays passed between slats. Imported maps now use a 0.175 grid with side rays.
+4. **A bot fell out of the map**: a wall push at a one-sided outer wall's corner; refused now. `HTA_DEBUG_TRACE=<unit>` finds the moment.
+5. **Black slabs in the air**: additive light shafts; left out now.
+6. **Weight**: 2265 props. `--prop-lod 1` and the skybox cut brought 1.69M triangles to 1.24M; still the heaviest map yet -- the phone result decides whether a triangle budget is next.
+
 ## Work the next maps need, in order of payoff
 
 1. **BSP v19** (12 of the 18 stock maps). v19 and v20 share the lump layout the importer reads; the differences are mostly HDR lighting lumps (unused here) and the face lump version. Accept 19 behind the same bounds checks and prove it on de_aztec or cs_office with the host test.

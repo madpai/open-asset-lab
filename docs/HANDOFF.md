@@ -1,10 +1,28 @@
-# Session handoff — 2026-09-23 (characters, weapons, custom classes)
+# Session handoff — 2026-09-24 (ctf_2fort, TF2 and HL2 weapons)
 
 ## Start of next session
 
+0. **ctf_2fort and three weapons (2026-09-24)** -- sandbox build `5b64d7d`, phone test pending. See "ctf_2fort" below. Ask for fps / load time / holes before touching 2fort again.
 1. **Characters and weapons are implemented (2026-09-23, late)** -- see "Characters and weapons" below. First phone test pending: player model in Settings, custom classes with the AK-47 in SINGLEPLAYER / CREATE GAME. Ask for the result before extending.
 2. Imported maps on the phone (sandbox build `8c25abc`): **cs_office and gm_construct run at 120 fps and are "almost complete with some problems"**. The owner does not want to work on those problems now. de_aztec has no report yet; dust2 has an earlier phone pass.
 3. The **Garry's Mod Workshop** is the long-term goal but is **not started**. Keep the **Halo sky**. Imported work never goes to Open Halo's GitHub `main` (local branch `halo-sandbox`; a separate repository is planned, name not chosen).
+
+## ctf_2fort (2026-09-24)
+
+- **Command:** `convert <TF2>/tf/maps/ctf_2fort.bsp --prop-lod 1 --game-dir <TF2>/tf --game-dir <TF2>/hl2`. 0 missing dependencies; 1,243,866 triangles (1.69M at LOD 0), 210 MB, texture budget full (385 of 479 downsampled).
+- **New importer behaviour (applies to every map on its next conversion):**
+  - `--prop-lod N`: props and model entities drawn at VTX LOD N, or the coarsest a model ships (every LOD indexes the same LOD 0 vertex list). Only a third fewer triangles on 2fort: many TF2 props have one LOD.
+  - **3D skybox left out**: the sky_camera's BSP area (nodes + leaves are now read), when no player start shares it. Faces by centroid, props and brush entities by origin. Owner's call to keep the Halo sky makes the skybox a floating miniature otherwise.
+  - **func_door imported open** at Source's m_vecPosition2 (movedir, brush size, lip); models parented to a door move with it. Nothing opens doors in Open Halo; closed they sealed 2fort's spawn rooms.
+  - **Additive materials not drawn** (`$additive 1`: light shafts, glows); drawn opaque they were black slabs.
+  - **flag_points** in the manifest from `item_teamflag` (TeamNum 2 red, 3 blue); Open Halo stands the CTF flags there.
+- **Open Halo engine fixes it needed (sandbox):** a 0.175 wu bot grid on imported maps (TF2 doorways are body-wide), floors under more than six stacked surfaces, links need room for a body's sides (slatted railings), no push through a one-sided wall into the void. Bots now fight on 2fort (~35 kills / 5 min) but have not captured a flag in tests.
+
+## TF2 and HL2 weapons (2026-09-24)
+
+- `assetlab/data/weapons/tf2_rocketlauncher.json`, `tf2_scattergun.json` (TF2's legacy `v_models/` view models, arms included; right-handed), `hl2_357.json` (GMod's `sourceengine` HL2 content, HEV hands).
+- **`world_grip`** in a definition: an attachment for a world model with no weapon bone (HL2's `w_357` is a pickup lying on its side). The .357's value was worked out from mesh extents against the AK and checked by render; Open Halo now bone-merges through weapon attachments as well as bones.
+- TF2's modern `c_models` (arms + separate weapon, animations on the arms) are not supported; the legacy `v_models` still ship and are used instead.
 
 ## Characters and weapons (done 2026-09-23, late)
 

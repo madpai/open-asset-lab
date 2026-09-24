@@ -37,6 +37,8 @@ def main():
     a = sub.add_parser('convert'); a.add_argument('source'); a.add_argument('--output', required=True); search_args(a)
     a.add_argument('--texture-budget-mib', type=float, default=DEFAULT_TEXTURE_BUDGET/2**20)
     a.add_argument('--report-dir', type=Path, help='write compatibility.json/.md here')
+    a.add_argument('--prop-lod', type=int, default=0,
+                   help='draw props at this model LOD (0 full detail; a model without it uses its coarsest)')
     a = sub.add_parser('character', help='a Source character model into an .oalasset')
     a.add_argument('model'); a.add_argument('--output', required=True); a.add_argument('--hold', default='ak')
     a.add_argument('--name'); a.add_argument('--skin', type=int, default=0); search_args(a)
@@ -67,7 +69,8 @@ def main():
                     print(f'{k}: {v}')
         elif args.command == 'convert':
             roots, vpks = search_path(args)
-            m, r = compile_map(args.source, args.output, roots, vpks=vpks, texture_budget=int(args.texture_budget_mib*2**20))
+            m, r = compile_map(args.source, args.output, roots, vpks=vpks, texture_budget=int(args.texture_budget_mib*2**20),
+                               prop_lod=args.prop_lod)
             if args.report_dir:
                 args.report_dir.mkdir(parents=True, exist_ok=True); write(r['compatibility'], args.report_dir)
             print(json.dumps({'package': args.output, 'manifest': m, 'report': r}, indent=2))

@@ -39,7 +39,9 @@ BRUSH_CLASSES = {
     'func_breakable_surf': {'solid': True, 'note': 'imported unbroken'},
     'func_physbox': {'solid': True, 'note': 'imported static at its spawn pose'},
     'func_physbox_multiplayer': {'solid': True, 'note': 'imported static at its spawn pose'},
-    'func_door': {'solid': True, 'note': 'imported closed, does not open'},
+    # Nothing opens a door in Open Halo, so a sliding door is placed where
+    # it stops when open (Source's m_vecPosition2), not left as a wall.
+    'func_door': {'solid': True, 'open': True, 'note': 'imported open, does not move'},
     'func_door_rotating': {'solid': True, 'note': 'imported closed, does not open'},
     'func_movelinear': {'solid': True, 'note': 'imported static at its spawn pose'},
     'func_rotating': {'solid': True, 'note': 'imported static, does not rotate'},
@@ -80,6 +82,21 @@ NOT_GEOMETRY_PREFIXES = ('trigger_', 'logic_', 'env_', 'info_', 'point_', 'ambie
                          'func_detail', 'func_vehicleclip', 'func_playerclip')
 
 
+# Where each team's flag stands in a capture-the-flag map. TF2's intelligence
+# briefcase: TeamNum 2 is RED's, 3 is BLU's.
+FLAG_CLASSES = {
+    'item_teamflag': {'key': 'teamnum', 'values': {'2': RED, '3': BLUE}},
+}
+
+
+def flag_team(entity):
+    """The team whose flag this entity is, or None."""
+    rule = FLAG_CLASSES.get(entity.get('classname', '').lower())
+    if rule is None:
+        return None
+    return rule['values'].get(entity.get(rule['key'], '').strip())
+
+
 def spawn_team(entity):
     """The Open Halo team for a start (None for either), or False when the
     class is not a player start."""
@@ -105,6 +122,32 @@ def brush_rule(entity):
     if isinstance(solid, dict):
         solid = entity.get(solid['key'], '').strip() not in solid['false']
     return bool(solid), rule.get('note')
+
+
+def door_open_offset(entity, bounds):
+    """Where a func_door stops when open, from its closed place, in Source
+    units: along movedir by the brush's extent that way less the lip
+    (CFuncDoor's m_vecPosition2 = pos1 + dir * (|size . |dir|| - lip)).
+    `bounds` is the brush model's (mins, maxs). Spawnflag 1 (starts open)
+    already stands open: no offset."""
+    import math
+    try:
+        flags = int(entity.get('spawnflags', '0'))
+    except ValueError:
+        flags = 0
+    if flags & 1:
+        return (0.0, 0.0, 0.0)
+    try:
+        pitch, yaw, _ = (float(x) for x in entity.get('movedir', '0 0 0').split())
+        lip = float(entity.get('lip', '0'))
+    except ValueError:
+        return (0.0, 0.0, 0.0)
+    p, y = math.radians(pitch), math.radians(yaw)
+    d = (math.cos(p)*math.cos(y), math.cos(p)*math.sin(y), -math.sin(p))
+    d = tuple(0.0 if abs(c) < 1e-6 else c for c in d)
+    size = [bounds[1][k] - bounds[0][k] for k in range(3)]
+    travel = abs(sum(abs(d[k])*size[k] for k in range(3))) - lip
+    return tuple(d[k]*travel for k in range(3))
 
 
 def entity_role(classname):
@@ -158,6 +201,13 @@ def material_policy(props):
     dropped = sorted(msg for key, msg in UNSUPPORTED_MATERIAL_PARAMS.items()
                      if key in props and props[key] not in ('0', ''))
     return solid, dropped
+
+
+def material_hidden(props):
+    """An additive surface (light shafts, glows, sprites) only brightens what
+    is behind it. Open Halo draws it opaque -- a black or white slab in the
+    air -- so it is left out."""
+    return props.get('$additive', '0').strip() not in ('0', '')
 
 
 def placeholder(name, props=None):

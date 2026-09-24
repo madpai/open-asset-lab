@@ -51,7 +51,7 @@ Each item: what was wrong, and how it was generalized.
 | 11 | Water (SURF_WARP, Water shader) was solid | Silent behaviour | Drawn, not collided with; counted |
 | 12 | Faces hidden by surface flags vanished without a count | Silent omission | `faces_excluded_by_flag` per flag |
 | 13 | Unused lumps (lightmaps, overlays, clip brushes, cubemaps, physics…) ignored silently | Silent omission | `lump_report()`: every non-empty lump classified; unsupported ones listed as features lost |
-| 14 | 3D skybox geometry imported without comment | Silent behaviour | Reported ("imported unscaled at its build location"). The **Halo sky** is kept deliberately (owner's call) |
+| 14 | 3D skybox geometry imported without comment | Silent behaviour | Reported ("imported unscaled at its build location"). The **Halo sky** is kept deliberately (owner's call). Since 2026-09-24 the skybox's own BSP area is left out when no start shares it |
 | 15 | Bounds sanity limit `1000` wu, arbitrary | Unexplained constant | Derived from Source's MAX_COORD (±16384 in) |
 | 16 | Texture data over Open Halo's 128 MiB cap failed only at runtime | Late failure | `fit_textures()` halves the largest textures to the budget; reported per map |
 | 17 | Package wrote 3 unshared vertices per triangle; prop-heavy maps exceeded the 256 MiB file cap | Waste | Identical vertices shared (2–3× smaller vertex data); deterministic |
@@ -119,7 +119,7 @@ Before the audit's runtime fixes, cs_office and de_inferno scored **0** kills. O
 - **Lighting:** lightmaps, HDR, light entities and cubemaps. Everything uses even daylight.
 - **Collision:** clip and playerclip brushes are not imported, so bodies and the nav grid can reach ledges Source forbids. Physics hulls aren't used; collision uses visible triangles.
 - **Surfaces:** overlays and decals, translucency, alpha test, normal, detail and environment maps, and blend layers are not drawn (listed per map). Water surfaces with no `$basetexture` get a placeholder colour.
-- **3D skybox:** its geometry sits unscaled where it was built. The Halo sky is used and **stays** (owner's decision).
+- **3D skybox:** left out since 2026-09-24 (the sky_camera's area, when no start shares it); before that its geometry sat unscaled where it was built. The Halo sky is used and **stays** (owner's decision).
 - **Moving parts:** doors, trains, rotators and buttons are frozen in their spawn pose. Ladders, lifts and teleports are not traversable.
 - **Game logic:** Source entities, gamemodes and `lua_run` are not run.
 - **Scale:** no prop scale and no triangle budget. Prop-heavy maps reach 0.7–1.5 M triangles, a phone performance risk not yet measured.

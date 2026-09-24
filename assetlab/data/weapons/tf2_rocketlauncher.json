@@ -1,0 +1,21 @@
+{
+  "name": "tf2_rocketlauncher",
+  "display_name": "Rocket Launcher (TF2)",
+  "base": "rocket launcher",
+  "world_model": "models/weapons/w_models/w_rocketlauncher.mdl",
+  "view_model": "models/weapons/v_models/v_rocketlauncher_soldier.mdl",
+  "stats": {
+    "rounds_per_second": 1.25,
+    "magazine": 4,
+    "reserve": 20,
+    "damage_scale": 0.6,
+    "spread_scale": 1.0
+  },
+  "stats_provenance": "TF2 Soldier's stock Rocket Launcher as documented publicly: 4-rocket clip, 20 spare, 0.8 s between shots. Its rockets (90 base damage against 200-health Soldiers) do not one-shot the way Halo's do, so damage is scaled to 0.6 of the Halo rocket's -- that factor is ours.",
+  "sounds": {
+    "fire": "sound/weapons/rocket_shoot.wav",
+    "reload": "sound/weapons/rocket_reload.wav"
+  },
+  "view_model_mirrored": false,
+  "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default)."
+}

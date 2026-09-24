@@ -61,12 +61,12 @@ LUMP_NAMES = {
     56: 'leaf_ambient_lighting', 57: 'xzippakfile', 58: 'faces_hdr', 59: 'map_flags',
     60: 'overlay_fades',
 }
-CONSUMED = {0, 1, 2, 3, 6, 7, 12, 13, 14, 26, 33, 35, 40, 43, 44}
+CONSUMED = {0, 1, 2, 3, 5, 6, 7, 10, 12, 13, 14, 26, 33, 35, 40, 43, 44}
 # Lumps that carry things Open Halo builds itself (visibility, its own
 # collision grid and nav) or that only matter to Source's compiler/tools.
 NOT_NEEDED = {
-    4: 'visibility: Open Halo draws everything', 5: 'BSP tree: Open Halo builds its own grid',
-    9: 'occluders', 10: 'BSP tree leaves', 11: 'editor face ids', 16: 'BSP tree',
+    4: 'visibility: Open Halo draws everything',
+    9: 'occluders', 11: 'editor face ids', 16: 'BSP tree',
     17: 'BSP tree', 20: 'area portals', 21: 'area portals', 27: 'pre-split faces',
     30: 'smoothing normals (flat normals used)', 31: 'smoothing normals', 41: 'area portals',
     46: 'water distance', 47: 'macro textures', 48: 'displacement collision flags',
@@ -153,6 +153,7 @@ class World:
     materials: list
     entities: list
     report: dict = field(default_factory=dict)
+    flags: list = field(default_factory=list)   # [{'team', 'position'}] runtime units
 
 
 class SourceBSP:
@@ -257,6 +258,56 @@ class SourceBSP:
             out.append(names[off:end].decode('utf-8', 'replace').replace('\\', '/').lower())
         return out
 
+    # ---- areas -------------------------------------------------------------
+
+    def area_at(self, point):
+        """The BSP area holding a Source-space point: the world model's node
+        tree down to a leaf. Nodes (lump 5) and leaves (lump 10) are read
+        only for this; a leaf is 56 bytes with its ambient cube (lump
+        version 0) and 32 without (version 1). Returns None when the tree
+        cannot be walked."""
+        nodes, planes, leafs = self.lump(5), self.lump(1), self.lump(10)
+        size = 56 if self.lumps[10][2] == 0 else 32
+        if not nodes or not leafs or len(nodes) % 32 or len(leafs) % size:
+            return None
+        n = unpack('<i', self.lump(14), 36)[0]
+        for _ in range(len(nodes)//32 + 1):
+            if n < 0:
+                leaf = -1 - n
+                if leaf >= len(leafs)//size:
+                    return None
+                return unpack('<h', leafs, leaf*size + 6)[0] & 0x1ff
+            if n >= len(nodes)//32:
+                return None
+            plane, front, back = unpack('<iii', nodes, n*32)
+            if not 0 <= plane < len(planes)//20:
+                return None
+            nx, ny, nz, dist = unpack('<4f', planes, plane*20)
+            n = front if nx*point[0] + ny*point[1] + nz*point[2] - dist >= 0 else back
+        return None
+
+    def skybox_area(self):
+        """The 3D skybox's area (the sky_camera's), when it is a room of its
+        own: not area 0 (solid) and holding no player start. Open Halo keeps
+        its own sky, so this room is left out rather than imported as a
+        miniature floating beside the map. None: keep everything."""
+        if hasattr(self, '_sky_area'):
+            return self._sky_area
+        self._sky_area = None
+        cams = [parse_vector(e.get('origin', '')) for e in self.entities
+                if e.get('classname', '').lower() == 'sky_camera']
+        if len(cams) == 1 and cams[0] is not None:
+            area = self.area_at(cams[0])
+            starts = [parse_vector(e.get('origin', '')) for e in self.entities
+                      if translate.spawn_team(e) is not False]
+            if area and not any(p is not None and self.area_at(p) == area for p in starts):
+                self._sky_area = area
+        return self._sky_area
+
+    def in_skybox(self, point):
+        area = self.skybox_area()
+        return area is not None and self.area_at(point) == area
+
     def _models(self):
         d = self.lump(14)
         return [(unpack('<i', d, o+40)[0], unpack('<i', d, o+44)[0], unpack('<6f', d, o)) for o in range(0, len(d), 48)]
@@ -326,6 +377,7 @@ class SourceBSP:
         """Model entities the registry places like static props:
         (model, origin, angles, skin, solid, classname)."""
         out = []
+        moved = self.door_offsets()
         for e in self.entities:
             c = e.get('classname', '').lower()
             rule = translate.MODEL_CLASSES.get(c)
@@ -333,12 +385,32 @@ class SourceBSP:
             if rule is None or not model.endswith('.mdl'):
                 continue
             origin = parse_vector(e.get('origin', '0 0 0')) or (0.0, 0.0, 0.0)
+            # A handle or window parented to a door goes where the door went.
+            shift = moved.get(e.get('parentname', '').lower())
+            if shift:
+                origin = tuple(origin[k] + shift[k] for k in range(3))
             angles = parse_vector(e.get('angles', '0 0 0')) or (0.0, 0.0, 0.0)
             try:
                 skin = int(e.get('skin', '0'))
             except ValueError:
                 skin = 0
             out.append((model, origin, angles, skin, 6 if rule['solid'] else 0, c))
+        return out
+
+    def door_offsets(self):
+        """{targetname: Source-unit shift} for every door the registry
+        imports open."""
+        models = self._models(); out = {}
+        for e in self.entities:
+            rule = translate.BRUSH_CLASSES.get(e.get('classname', '').lower())
+            name = e.get('targetname', '').lower(); model = e.get('model', '')
+            if not rule or not rule.get('open') or not name or not model.startswith('*'):
+                continue
+            try:
+                box = models[int(model[1:])][2]
+            except (ValueError, IndexError):
+                continue
+            out[name] = translate.door_open_offset(e, (box[:3], box[3:]))
         return out
 
     # ---- inspection --------------------------------------------------------
@@ -424,7 +496,9 @@ class SourceBSP:
             else:
                 groups.append((mat, len(indices)-3, 3, solid))
 
-        def convert_faces(first, count, xf, rot, entity_solid):
+        sky = self.skybox_area()
+
+        def convert_faces(first, count, xf, rot, entity_solid, skip_sky=False):
             if first < 0 or count < 0 or first+count > len(faces)//56:
                 raise BSPError('invalid model face range')
             for fi in range(first, first+count):
@@ -465,6 +539,9 @@ class SourceBSP:
                         raise BSPError(f'face {fi} invalid edge index {ei}')
                     a, b = unpack('<HH', edges, abs(ei)*4)
                     polygon.append(point(a if ei >= 0 else b))
+                if skip_sky and self.area_at(tuple(sum(p[k] for p in polygon)/len(polygon) for k in range(3))) == sky:
+                    excluded['3d_skybox'] += 1
+                    continue
                 if plane >= len(planes)//20:
                     raise BSPError(f'face {fi} invalid plane index')
                 base = norm(unpack('<3f', planes, plane*20))
@@ -482,7 +559,7 @@ class SourceBSP:
                         addtri(polygon[0], polygon[j], polygon[j+1], mat, uvfn, base, solid, xf)
 
         ident = lambda p: p
-        convert_faces(models[0][0], models[0][1], ident, ident, True)
+        convert_faces(models[0][0], models[0][1], ident, ident, True, sky is not None)
 
         # Brush entities, by the registry.
         brush_notes = Counter()
@@ -505,7 +582,15 @@ class SourceBSP:
                 continue
             solid, note = rule
             origin = parse_vector(e.get('origin', '0 0 0')) or (0.0, 0.0, 0.0)
+            if sky is not None and self.in_skybox(origin):
+                excluded['3d_skybox'] += 1
+                continue
             angles = parse_vector(e.get('angles', '0 0 0')) or (0.0, 0.0, 0.0)
+            if translate.BRUSH_CLASSES[e.get('classname', '').lower()].get('open'):
+                box = models[mi][2]
+                shift = translate.door_open_offset(e, (box[:3], box[3:]))
+                origin = tuple(origin[k] + shift[k] for k in range(3))
+                stats['doors_opened'] += any(shift)
             m = angle_matrix(*angles)
             xf = lambda p, m=m, o=origin: tuple(r + oo for r, oo in zip(rotate(m, p), o))
             rot = lambda v, m=m: rotate(m, v)
@@ -548,7 +633,9 @@ class SourceBSP:
         prop_version = report['static_props'].get('version')
         if prop_version in STATIC_PROP_NOTES:
             unsupported_features.append(STATIC_PROP_NOTES[prop_version])
-        if any(e.get('classname', '').lower() == 'sky_camera' for e in self.entities):
+        if sky is not None:
+            unsupported_features.append('3D skybox: left out (Open Halo keeps its own sky)')
+        elif any(e.get('classname', '').lower() == 'sky_camera' for e in self.entities):
             unsupported_features.append('3D skybox: its geometry is imported unscaled at its build location')
         report.update({
             'converted_vertices': len(vertices), 'converted_triangles': len(indices)//3,
@@ -565,7 +652,13 @@ class SourceBSP:
             'unsupported_features': unsupported_features})
         if not spawns:
             warnings.append('no supported player start entity')
-        return World(vertices, indices, groups, spawns, self.materials, self.entities, report)
+        flags = []
+        for e in self.entities:
+            team = translate.flag_team(e)
+            p = parse_vector(e.get('origin', ''))
+            if team is not None and p is not None and not any(f['team'] == team for f in flags):
+                flags.append({'team': team, 'position': vec3(p)})
+        return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags)
 
     def _displacement(self, fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri):
         if di >= len(disp)//176:

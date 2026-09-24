@@ -1,0 +1,39 @@
+{
+  "name": "hl2_357",
+  "display_name": ".357 Magnum (HL2)",
+  "base": "pistol",
+  "world_model": "models/weapons/w_357.mdl",
+  "view_model": "models/weapons/v_357.mdl",
+  "stats": {
+    "rounds_per_second": 1.33,
+    "magazine": 6,
+    "reserve": 12,
+    "damage_scale": 1.6,
+    "spread_scale": 0.8
+  },
+  "stats_provenance": "Half-Life 2's .357 Magnum as documented publicly: 6-round cylinder, 12 spare, about 0.75 s between shots, 40 damage against the pistol's 5. Relative to Halo's pistol: slower, harder hitting and tighter -- the 1.6 and 0.8 are ours.",
+  "sounds": {
+    "fire": "sound/weapons/357/357_fire2.wav",
+    "reload": "sound/weapons/357/357_reload1.wav"
+  },
+  "view_model_mirrored": false,
+  "view_model_mirrored_provenance": "Half-Life 2 view models are authored right-handed.",
+  "world_grip": {
+    "on": "MAXSceneRoot.Cylinder01",
+    "local": [
+      0.0,
+      -1.0,
+      0.0,
+      1.5,
+      -1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -1.0,
+      0.0
+    ]
+  },
+  "world_grip_provenance": "HL2's w_357 is a pickup with no weapon bone. It lies on its side (barrel +Y, grip +X, flat in Z) where a CS:S or GMod weapon bone expects barrel -Y and up +Z, so the grip is that turn, placed 1.5 units down the grip. Ours, checked by render."
+}

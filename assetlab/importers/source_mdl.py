@@ -29,7 +29,7 @@ def _cstr(data, off):
 class Model:
     """Triangles per material in model space: {material: [(pos, normal, uv) * 3n]}."""
 
-    def __init__(self, mdl, vvd, vtx, skin=0, exists=None):
+    def __init__(self, mdl, vvd, vtx, skin=0, exists=None, lod=0):
         for blob in (mdl, vvd, vtx):
             if len(blob) > MAX_MODEL:
                 raise BSPError("model file exceeds 32 MiB")
@@ -93,7 +93,10 @@ class Model:
             nlod, lodi = _u("<ii", vtx, vm)
             if nlod < 1:
                 continue
-            vl = vm + lodi
+            # Every LOD indexes the same LOD 0 vertex list (the VVD built
+            # at root LOD 0); a coarser one only references fewer of them.
+            # ModelLODHeader_t: numMeshes, meshOffset, switchPoint.
+            vl = vm + lodi + min(max(lod, 0), nlod - 1) * 12
             vmesh_n, vmesh_i = _u("<ii", vtx, vl)
             for m in range(min(nmesh, vmesh_n)):
                 ms = mm + meshi + m * 116

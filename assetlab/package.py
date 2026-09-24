@@ -286,7 +286,7 @@ class Resolver:
 
 # ---- models ---------------------------------------------------------------------
 
-def add_models(world, placements, resolver):
+def add_models(world, placements, resolver, lod=0):
     """Static props and model entities into the world triangles. Returns
     (placed count by source, model paths that could not be read)."""
     cache = {}; failed = set(); placed = Counter()
@@ -303,7 +303,7 @@ def add_models(world, placements, resolver):
                             resolver.missing.append(base+ext)
                     cache[key] = None
                 else:
-                    cache[key] = Model(*blobs, skin, exists)
+                    cache[key] = Model(*blobs, skin, exists, lod)
             except BSPError as e:
                 resolver.warnings.append(f'{path}: {e}'); cache[key] = None
         model = cache[key]
@@ -352,7 +352,8 @@ def fit_textures(textures, budget):
 
 # ---- compile ----------------------------------------------------------------------
 
-def compile_map(source, output, material_roots=(), identifier=None, vpks=(), texture_budget=DEFAULT_TEXTURE_BUDGET):
+def compile_map(source, output, material_roots=(), identifier=None, vpks=(), texture_budget=DEFAULT_TEXTURE_BUDGET,
+                prop_lod=0):
     bsp = SourceBSP(source)
     world = bsp.convert()
     resolver = Resolver(bsp, material_roots, vpks)
@@ -362,13 +363,19 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
     except BSPError as e:
         placements = []; prop_warning = str(e)
     placements += [(m, o, a, sk, so, f'entity:{c}') for m, o, a, sk, so, c in bsp.model_entity_placements()]
-    placed, models_failed = add_models(world, placements, resolver)
+    in_sky = [p for p in placements if bsp.in_skybox(p[1])]
+    placements = [p for p in placements if not bsp.in_skybox(p[1])]
+    placed, models_failed = add_models(world, placements, resolver, prop_lod)
 
     mats = sorted(set(g[0] for g in world.groups))
     textures = {}; params = {}; placeholders = []; dropped = Counter(); nonsolid_materials = []
+    hidden = set()
     for name in mats:
         decoded, p = resolver.material(name)
         params[name] = p
+        if translate.material_hidden(p):
+            hidden.add(name); dropped['additive surface not drawn'] += 1
+            continue
         solid, lost = translate.material_policy(p)
         if not solid:
             nonsolid_materials.append(name)
@@ -378,11 +385,14 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
             textures[name] = decoded
         else:
             placeholders.append(name); textures[name] = translate.placeholder(name, p)
+    mats = [m for m in mats if m not in hidden]
     downsampled = fit_textures(textures, min(texture_budget, RUNTIME_TEXTURE_CAP))
     tex_index = {m: i for i, m in enumerate(mats)}
 
     buckets = {}
     for mat, first, count, solid in world.groups:
+        if mat in hidden:
+            continue
         solid = solid and mat not in nonsolid_materials
         buckets.setdefault((mat, solid), []).extend(world.indices[first:first+count])
     indices = []; groups = []; collision_triangles = 0
@@ -432,7 +442,8 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
                       'texture_bytes': sum(len(t[2]) for t in textures.values())},
         'static_props': {'lump_version': r['static_props']['version'], 'in_bsp': r['static_props']['count'],
                          'placed': placed.get('static_prop', 0), 'model_entities_placed': sum(v for k, v in placed.items() if k != 'static_prop'),
-                         'models_unresolved': models_failed},
+                         'models_unresolved': models_failed, 'left_out_in_3d_skybox': len(in_sky),
+                         'model_lod': prop_lod},
         'entities': {'total': r['entity_count'], **{k: sum(v.values()) for k, v in r['entities'].items()},
                      'unsupported_classes': r['entities']['unsupported']},
         'spawns': {'total': len(world.spawns), 'red': sum(s['team'] == translate.RED for s in world.spawns),
@@ -456,12 +467,13 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         'placeholder_materials': placeholders, 'non_solid_materials': nonsolid_materials,
         'textures_downsampled': downsampled,
         'supported_features': ['world faces', 'power 2-4 displacement grids', 'brush entities (registry)',
-                               'static prop and model entity models (MDL v44-48, LOD 0)', 'player starts with teams (registry)',
+                               f'static prop and model entity models (MDL v44-48, LOD {prop_lod} or the coarsest shipped)', 'player starts with teams (registry)',
                                'albedo VTF (RGBA/BGRA/RGB/BGR/L/LA/A/DXT1/3/5)'],
         'unsupported_features': unsupported, 'conversion_warnings': compat['warnings'],
         'static_props_placed': placed.get('static_prop', 0), 'static_props_unresolved': models_failed,
         'static_prop_models': r['static_props']['models'],
         'entity_translation': r['entities'], 'entities': world.entities, 'spawn_points': world.spawns,
+        'flag_points': world.flags,
         'rejected_spawn_points': r['rejected_spawns'],
         'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats), 'compatibility': compat,
         'source_provenance': 'user supplied; redistribution rights not inferred',

@@ -369,6 +369,19 @@ def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None,
                  'hand_points': list(translate.HAND_POINTS)})
 
 
+def add_world_grip(entry, grip):
+    """A definition's `world_grip`: an attachment (default name
+    ValveBiped.weapon_bone) on bone `on` (default the root) at `local`, a
+    3x4 row-major transform in that bone's space."""
+    bone = entry['studio'].bone_index.get(str(grip.get('on', '')).lower(), 0)
+    local = tuple(float(x) for x in grip.get('local', (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0)))
+    if len(local) != 12:
+        raise BSPError('world_grip.local must be 12 numbers (3x4 row-major)')
+    name = grip.get('name', 'ValveBiped.weapon_bone')
+    entry['attachments'].append((name, bone, local))
+    entry['notes']['synthesized_attachments'] = [name]
+
+
 def build_weapon(definition, output, roots=(), vpks=()):
     """A weapon from a JSON definition: its world and view models and the
     numbers it plays by (see assetlab/data/weapons/)."""
@@ -377,7 +390,13 @@ def build_weapon(definition, output, roots=(), vpks=()):
         if key not in d:
             raise BSPError(f'weapon definition lacks {key!r}')
     resolver = Resolver(None, roots, vpks)
-    models = [_model_entry(resolver, d['world_model'].lower(), None, 'world'),
+    world = _model_entry(resolver, d['world_model'].lower(), None, 'world')
+    # A world model with no weapon bone (a pickup nobody was animated
+    # holding, like HL2's .357) takes one from its definition: an
+    # attachment the body's weapon bone can merge with.
+    if d.get('world_grip'):
+        add_world_grip(world, d['world_grip'])
+    models = [world,
               _model_entry(resolver, d['view_model'].lower(), 'viewmodel', 'view')]
     extra = {k: v for k, v in d.items() if k not in ('world_model', 'view_model', 'sounds')}
     extra['sound_sources'] = d.get('sounds', {})

@@ -31,7 +31,8 @@ def markdown(compat):
              f"{m['non_solid']} non-solid; {m['textures_downsampled']} downsampled; "
              f"{m['texture_bytes']/2**20:.1f} MiB RGBA",
              f"- **Static props:** lump v{st['lump_version']}, {st['placed']} of {st['in_bsp']} placed, "
-             f"{st['model_entities_placed']} model entities; unresolved models: {len(st['models_unresolved'])}",
+             f"{st['model_entities_placed']} model entities; unresolved models: {len(st['models_unresolved'])}"
+             f"; left out in the 3D skybox: {st.get('left_out_in_3d_skybox', 0)}; model LOD {st.get('model_lod', 0)}",
              f"- **Entities:** {en['total']} total; spawn {en['spawn']}, brush {en['brush']}, model {en['model']}, "
              f"not geometry {en['not_geometry']}, unsupported {en['unsupported']}",
              f"- **Spawns:** {sp['total']} ({sp['red']} red, {sp['blue']} blue, {sp['either']} either), "

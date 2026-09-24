@@ -128,6 +128,13 @@ class CharacterTests(unittest.TestCase):
         self.assertEqual(m['models'][0]['bones'],['root','hand'])
         data=(self.root/'guy.oalasset').read_bytes()
         self.assertEqual(data[:4],MAGIC);self.assertEqual(struct.unpack_from('<I',data,4)[0],1)
+    def test_world_grip_gives_a_boneless_weapon_its_merge_point(self):
+        from assetlab.character import _model_entry,add_world_grip
+        from assetlab.package import Resolver
+        e=_model_entry(Resolver(None,[self.root]),'models/test/guy.mdl',None,'world')
+        add_world_grip(e,{'on':'hand','local':[0,-1,0,1.5, -1,0,0,0, 0,0,-1,0]})
+        self.assertEqual(e['attachments'][-1],('ValveBiped.weapon_bone',1,(0.,-1.,0.,1.5,-1.,0.,0.,0.,0.,0.,-1.,0.)))
+        with self.assertRaisesRegex(BSPError,'12 numbers'):add_world_grip(e,{'local':[1,0,0]})
     def test_character_without_required_roles_is_refused(self):
         from assetlab.character import build_character
         mdl=bytearray((self.root/'models/test/guy.mdl').read_bytes())
@@ -142,6 +149,10 @@ class ModelTests(unittest.TestCase):
         tri=m.groups['models/props/x/crate01']
         self.assertEqual([v[0] for v in tri],[(0,0,0),(10,0,0),(0,10,0)])
         self.assertEqual(tri[1][2],(1.0,0.0))
+    def test_missing_lod_falls_back_to_the_coarsest(self):
+        # The fixture ships LOD 0 only: asking for LOD 2 draws that.
+        full=Model(*model_fixture());coarse=Model(*model_fixture(),lod=2)
+        self.assertEqual(coarse.groups,full.groups)
     def test_checksum_mismatch_rejected(self):
         mdl,vvd,vtx=model_fixture();bad=bytearray(vvd);struct.pack_into('<i',bad,8,99)
         with self.assertRaises(BSPError):Model(mdl,bytes(bad),vtx)
@@ -316,17 +327,54 @@ class GeneralizationTests(unittest.TestCase):
         self.assertEqual(water.report['water_faces'],1);self.assertEqual(water.groups[0][3],False)
 
     def test_unused_lumps_are_reported(self):
-        w=self.convert(extra={8:b'\0'*16,45:b'\0'*4,5:b'\0'*32})
+        w=self.convert(extra={8:b'\0'*16,45:b'\0'*4,9:b'\0'*32})
         self.assertIn('lighting',w.report['lumps']['unsupported'])
         self.assertIn('overlays',w.report['lumps']['unsupported'])
-        self.assertIn('nodes',w.report['lumps']['not_needed'])
+        self.assertIn('occlusion',w.report['lumps']['not_needed'])
         self.assertIn('lightmaps',w.report['unsupported_features'])
+
+    def test_doors_are_imported_open(self):
+        box=((0,0,0),(8,64,112))
+        up=translate.door_open_offset({'movedir':'-90 0 0','lip':'4'},box)
+        self.assertEqual([round(c,4) for c in up],[0,0,108])
+        side=translate.door_open_offset({'movedir':'0 270 0','lip':'-2'},box)
+        self.assertEqual([round(c,4) for c in side],[0,-66,0])
+        self.assertEqual(translate.door_open_offset({'movedir':'-90 0 0','spawnflags':'1'},box),(0.0,0.0,0.0))
+
+    def test_ctf_flags_come_from_the_map(self):
+        ents=(b'{ "classname" "info_player_start" "origin" "60 60 8" }'
+              b'{ "classname" "item_teamflag" "TeamNum" "3" "origin" "120 0 12" }')
+        w=self.convert(ents=ents)
+        self.assertEqual(w.flags,[{'team':translate.BLUE,'position':(1.0,0.0,0.1)}])
+
+    def skybox_fixture(self,start='60 60 8'):
+        # One node splits at x=200: the map's room (area 1) behind it, the
+        # 3D skybox's (area 2) in front, where the sky_camera stands.
+        planes=struct.pack('<4fi',0,0,1,0,2)+struct.pack('<4fi',1,0,0,200,0)
+        node=struct.pack('<iii6hHHhh',1,-2,-1,0,0,0,0,0,0,0,0,0,0)
+        leafs=b''.join(struct.pack('<ihh',1,0,area)+b'\0'*48 for area in (1,2))
+        ents=(b'{ "classname" "info_player_start" "origin" "%s" }'%start.encode()+
+              b'{ "classname" "sky_camera" "origin" "500 0 0" }')
+        self.path.write_bytes(fixture(ents=ents,extra={1:planes,5:node,10:leafs}))
+        return SourceBSP(self.path)
+
+    def test_3d_skybox_is_left_out(self):
+        b=self.skybox_fixture()
+        self.assertEqual(b.area_at((60,60,0)),1);self.assertEqual(b.area_at((500,0,0)),2)
+        self.assertEqual(b.skybox_area(),2)
+        self.assertTrue(b.in_skybox((520,10,0)));self.assertFalse(b.in_skybox((60,60,0)))
+        w=b.convert()
+        self.assertEqual(len(w.indices),6)   # the map's own face stays
+        self.assertIn('3D skybox: left out (Open Halo keeps its own sky)',w.report['unsupported_features'])
+        # A start inside the camera's area: that is no skybox, keep it all.
+        self.assertIsNone(self.skybox_fixture(start='500 10 8').skybox_area())
 
     def test_keyvalues_and_patch_materials(self):
         shader,kv=parse_keyvalues('// c\nLightmappedGeneric\n{\n $basetexture foo/bar // x\n "$translucent" 1\n proxies { a { b c } }\n}')
         self.assertEqual(shader,'lightmappedgeneric');self.assertEqual(kv['$basetexture'],'foo/bar');self.assertEqual(kv['$translucent'],'1')
         self.assertEqual(translate.material_policy({'shader':'water'})[0],False)
         self.assertIn('translucency drawn opaque',translate.material_policy({'$translucent':'1'})[1])
+        self.assertTrue(translate.material_hidden({'$additive':'1'}));self.assertFalse(translate.material_hidden({'$additive':'0'}))
         archive=self.root/'p_dir.vpk'
         with VPK(archive,mode='w') as v:
             v.add_file('materials/test/checker.vmt',b'patch { include "materials/base/w.vmt" insert { "$surfaceprop" "wood" } }',arch_index=None)
