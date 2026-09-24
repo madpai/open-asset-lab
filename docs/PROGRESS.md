@@ -1,5 +1,9 @@
 # First vertical slice — 2026-09-23
 
+## Four imported maps on the phone — 2026-09-23 (late night)
+
+de_aztec, cs_office and gm_construct were converted with the audited importer (same command as dust2) and bundled with de_dust2 in the owner's personal APK (sandbox build `8c25abc`, 707 MB). Owner's phone: cs_office and gm_construct run at **120 fps** and are "almost complete with some problems" (not being pursued now); screenshots show office interiors, props and GMod's buildings rendering. Next objective set by the owner: importing a player model and a weapon (see HANDOFF).
+
 ## Generalization audit — 2026-09-23 (night)
 
 Audited the whole path for de_dust2-specific behaviour and refactored it into format tables, a translation registry and per-map compatibility reports: [GENERALIZATION_AUDIT.md](GENERALIZATION_AUDIT.md). Eight maps from CS:S (incl. two v19), TF2, Garry's Mod and Black Mesa now go through one command; all load, collide, keep every shipped start in the map and play bot matches in Open Halo. Two runtime assumptions tuned to dust2 were found by the new maps: the start re-grounding lift (cs_office ceilings) and region-based item placement (one-way ledges). 25 synthetic tests.
