@@ -2,6 +2,7 @@
 
 ## Start of next session
 
+0. **All five bundled maps re-imported (2026-09-24, sandbox build after `99ee632`)** with alpha surfaces, the skybox cut, open doors, additive cut and flag points. Same commands as before; dust2 now from the CS:S client with its hl2 dir (0 missing).
 0. **ctf_2fort and three weapons (2026-09-24)** -- sandbox build `5b64d7d`, phone test pending. See "ctf_2fort" below. Ask for fps / load time / holes before touching 2fort again.
 1. **Characters and weapons are implemented (2026-09-23, late)** -- see "Characters and weapons" below. First phone test pending: player model in Settings, custom classes with the AK-47 in SINGLEPLAYER / CREATE GAME. Ask for the result before extending.
 2. Imported maps on the phone (sandbox build `8c25abc`): **cs_office and gm_construct run at 120 fps and are "almost complete with some problems"**. The owner does not want to work on those problems now. de_aztec has no report yet; dust2 has an earlier phone pass.
@@ -15,6 +16,7 @@
   - **3D skybox left out**: the sky_camera's BSP area (nodes + leaves are now read), when no player start shares it. Faces by centroid, props and brush entities by origin. Owner's call to keep the Halo sky makes the skybox a floating miniature otherwise.
   - **func_door imported open** at Source's m_vecPosition2 (movedir, brush size, lip); models parented to a door move with it. Nothing opens doors in Open Halo; closed they sealed 2fort's spawn rooms.
   - **Additive materials not drawn** (`$additive 1`: light shafts, glows); drawn opaque they were black slabs.
+  - **Alpha surfaces** (`$alphatest`, `$translucent`): group flag bit 1, drawn in Open Halo's alpha pass -- fences, hay, cobwebs, glass were black cut-outs.
   - **flag_points** in the manifest from `item_teamflag` (TeamNum 2 red, 3 blue); Open Halo stands the CTF flags there.
 - **Open Halo engine fixes it needed (sandbox):** a 0.175 wu bot grid on imported maps (TF2 doorways are body-wide), floors under more than six stacked surfaces, links need room for a body's sides (slatted railings), no push through a one-sided wall into the void. Bots now fight on 2fort (~35 kills / 5 min) but have not captured a flag in tests.
 

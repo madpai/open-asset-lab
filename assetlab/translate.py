@@ -169,8 +169,6 @@ def entity_role(classname):
 # VMT shaders / parameters and what the package does with them.
 NON_SOLID_SHADERS = {'water'}            # drawn, not collided with
 UNSUPPORTED_MATERIAL_PARAMS = {
-    '$translucent': 'translucency drawn opaque',
-    '$alphatest': 'alpha test drawn opaque',
     '$basetexture2': 'second blend layer ignored (first layer only)',
     '$bumpmap': 'normal map ignored',
     '$envmap': 'reflections ignored',
@@ -201,6 +199,13 @@ def material_policy(props):
     dropped = sorted(msg for key, msg in UNSUPPORTED_MATERIAL_PARAMS.items()
                      if key in props and props[key] not in ('0', ''))
     return solid, dropped
+
+
+def material_alpha(props):
+    """A surface whose texture alpha is its shape: fences, foliage, hay,
+    cobwebs ($alphatest) and glass or decals ($translucent). Open Halo draws
+    these in its alpha-blended pass, after the solid world."""
+    return any(props.get(k, '0').strip() not in ('0', '') for k in ('$alphatest', '$translucent'))
 
 
 def material_hidden(props):

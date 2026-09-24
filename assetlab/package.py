@@ -27,6 +27,7 @@ VERSION = 1
 MAX_TEXTURE = 2048
 HEADER = '<4s8I6fI'  # 64 bytes
 GROUP_NO_COLLISION = 1  # group record flags: drawn but not solid
+GROUP_ALPHA = 2         # drawn blended by the texture's alpha ($alphatest, $translucent)
 # Open Halo's loader refuses more RGBA texture data than this (external_map.c).
 RUNTIME_TEXTURE_CAP = 128 * 1024 * 1024
 RUNTIME_FILE_CAP = 256 * 1024 * 1024
@@ -398,7 +399,8 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
     indices = []; groups = []; collision_triangles = 0
     for mat, solid in sorted(buckets, key=lambda k: (k[0], not k[1])):
         first = len(indices); indices.extend(buckets[(mat, solid)])
-        groups.append((first, len(indices)-first, tex_index[mat], 0 if solid else GROUP_NO_COLLISION))
+        flags = (0 if solid else GROUP_NO_COLLISION) | (GROUP_ALPHA if translate.material_alpha(params[mat]) else 0)
+        groups.append((first, len(indices)-first, tex_index[mat], flags))
         if solid:
             collision_triangles += (len(indices)-first)//3
 

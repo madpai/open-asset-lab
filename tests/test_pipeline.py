@@ -373,7 +373,9 @@ class GeneralizationTests(unittest.TestCase):
         shader,kv=parse_keyvalues('// c\nLightmappedGeneric\n{\n $basetexture foo/bar // x\n "$translucent" 1\n proxies { a { b c } }\n}')
         self.assertEqual(shader,'lightmappedgeneric');self.assertEqual(kv['$basetexture'],'foo/bar');self.assertEqual(kv['$translucent'],'1')
         self.assertEqual(translate.material_policy({'shader':'water'})[0],False)
-        self.assertIn('translucency drawn opaque',translate.material_policy({'$translucent':'1'})[1])
+        self.assertEqual(translate.material_policy({'$translucent':'1'})[1],[])
+        self.assertTrue(translate.material_alpha({'$alphatest':'1'}));self.assertTrue(translate.material_alpha({'$translucent':'1'}))
+        self.assertFalse(translate.material_alpha({'$alphatest':'0'}))
         self.assertTrue(translate.material_hidden({'$additive':'1'}));self.assertFalse(translate.material_hidden({'$additive':'0'}))
         archive=self.root/'p_dir.vpk'
         with VPK(archive,mode='w') as v:
