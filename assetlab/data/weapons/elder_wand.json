@@ -1,0 +1,24 @@
+{
+  "name": "elder_wand",
+  "display_name": "Elder Wand",
+  "base": "plasma pistol",
+  "world_model": "models/weapons/w_stunbaton.mdl",
+  "view_model": "models/weapons/v_magicwandweapon.mdl",
+  "stats": {
+    "rounds_per_second": 2.4,
+    "damage_scale": 2.1,
+    "spread_scale": 0.55,
+    "magazine": 8,
+    "recharge": 2.2
+  },
+  "stats_provenance": "Our stronger, more deliberate wizard balance: eight recharging charges, 2.2 charges/s, 2.1x plasma pistol projectile damage. The visible wand and sound come from Workshop 410020480; the world model is the HL2 stun baton.",
+  "sounds": {
+    "fire": "sound/spells/spell1.wav"
+  },
+  "crosshair": "ring+dot",
+  "crosshair_size": 18,
+  "view_model_mirrored": false,
+  "material_overrides": {
+    "models/weapons/v_physcannon/wand": "models/weapons/v_magicwandweapon/wand"
+  }
+}

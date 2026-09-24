@@ -382,8 +382,10 @@ def build(output, kind, name, models, resolver, extra=None, budget=CHARACTER_TEX
 BODY_STATS = {'health': 'body_health', 'shield': 'body_shield', 'damage': 'body_damage',
               'speed': 'body_speed', 'fly': 'can_fly', 'fly_speed': 'fly_speed', 'fly_damage': 'fly_damage',
               'ability': 'ability_name', 'ability_base': 'ability_base', 'ability_damage': 'ability_damage',
-              'ability_cooldown': 'ability_cooldown'}
-TEXT_STATS = ('ability', 'ability_base')
+              'ability_cooldown': 'ability_cooldown', 'ability_beam': 'ability_beam',
+              'group': 'hero_group', 'unique': 'unique_limit'}
+TEXT_STATS = ('ability', 'ability_base', 'group')
+BOOL_STATS = ('fly', 'ability_beam')
 
 
 def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None, skin=0,
@@ -400,7 +402,7 @@ def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None,
     for k, v in (stats or {}).items():
         if k not in BODY_STATS:
             raise BSPError(f'unknown character stat {k!r} (known: {", ".join(BODY_STATS)})')
-        extra[BODY_STATS[k]] = str(v) if k in TEXT_STATS else bool(float(v)) if k == 'fly' else float(v)
+        extra[BODY_STATS[k]] = str(v) if k in TEXT_STATS else bool(float(v)) if k in BOOL_STATS else float(v)
     if loadout:
         if len(loadout) != 2 or not all(isinstance(w, str) and w for w in loadout):
             raise BSPError('a loadout is two weapon names')

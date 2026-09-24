@@ -425,6 +425,19 @@ class GeneralizationTests(unittest.TestCase):
         self.assertEqual(m['compatibility']['geometry']['collision_triangles'],0)
         self.assertIn('materials/base/w.vtf',m['missing_dependencies'])
 
+    def test_workshop_armor_tint_uses_vtf_alpha(self):
+        from assetlab.package import Resolver
+        folder = self.root/'materials'/'armor'
+        folder.mkdir(parents=True)
+        (folder/'plate.vmt').write_text('VertexLitGeneric { "$basetexture" "armor/plate" '
+                                        '"$blendtintbybasealpha" "1" "$color2" "{87 103 37}" }')
+        (folder/'plate.vtf').write_bytes(vtf(2, 1, lambda w, h, f:
+                                         bytes((200, 200, 200, 255, 200, 200, 200, 0))))
+        decoded, _ = Resolver(None, [self.root]).material('armor/plate')
+        self.assertEqual(decoded[:2], (2, 1))
+        self.assertEqual(decoded[2][:4], bytes((68, 81, 29, 255)))
+        self.assertEqual(decoded[2][4:8], bytes((200, 200, 200, 255)))
+
     def test_vtf_frames_and_formats(self):
         solid=lambda c:(lambda w,h,f:bytes(c if f==0 else (9,9,9,9))*w*h)
         w,h,px=_vtf_rgba(vtf(4,4,solid((10,20,30,255)),frames=2,mips=3))

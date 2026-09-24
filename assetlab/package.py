@@ -24,7 +24,9 @@ from .importers.source_mdl import Model
 
 MAGIC = b'OALM'
 VERSION = 1
-MAX_TEXTURE = 2048
+# Workshop characters can ship 4K VTFs. Decode them, then let the package
+# texture budget downsample before writing runtime RGBA data.
+MAX_TEXTURE = 4096
 HEADER = '<4s8I6fI'  # 64 bytes
 GROUP_NO_COLLISION = 1  # group record flags: drawn but not solid
 GROUP_ALPHA = 2         # drawn blended by the texture's alpha ($alphatest, $translucent)
@@ -288,7 +290,22 @@ class Resolver:
         if raw is None:
             self.missing.append(tex); return None, params
         try:
-            return _vtf_rgba(raw), params
+            decoded = _vtf_rgba(raw)
+            if params.get('$blendtintbybasealpha') == '1' and '$color2' in params:
+                color = [float(x) for x in re.findall(r'[-+]?\d*\.?\d+', params['$color2'])]
+                if len(color) == 3:
+                    # Workshop armor uses texture alpha as a tint mask.
+                    if max(color) > 1.0:
+                        color = [x / 255.0 for x in color]
+                    w, h, pixels = decoded
+                    px = bytearray(pixels)
+                    for i in range(0, len(px), 4):
+                        blend = px[i + 3] / 255.0
+                        for c in range(3):
+                            px[i + c] = round(px[i + c] * (1.0 - blend + blend * color[c]))
+                        px[i + 3] = 255
+                    decoded = w, h, bytes(px)
+            return decoded, params
         except BSPError as e:
             self.warnings.append(f'{tex}: {e}'); return None, params
 

@@ -46,7 +46,7 @@ def main():
     a.add_argument('--loadout', nargs=2, metavar=('PRIMARY', 'SECONDARY'),
                    help='its default class: two weapon names as the game shows them')
     a.add_argument('--stats', nargs='*', default=[], metavar='KEY=VALUE',
-                   help='how it plays against the Spartan: health shield damage speed fly fly_speed fly_damage'); search_args(a)
+                   help='balance and roster metadata: health shield damage speed fly fly_speed fly_damage group unique ability ability_beam'); search_args(a)
     a = sub.add_parser('weapon', help='a weapon definition (JSON) into an .oalasset')
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
     a = sub.add_parser('gma', help="list or extract a Garry's Mod addon (.gma, or a Workshop *_legacy.bin)")

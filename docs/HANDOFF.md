@@ -1,4 +1,4 @@
-# Session handoff — 2026-09-24 (ctf_2fort, TF2 and HL2 weapons)
+# Session handoff — 2026-09-24 (hero roster and Workshop weapons)
 
 ## Start of next session
 
@@ -26,6 +26,10 @@
 - `assetlab gma <file.gma or *_legacy.bin> [--extract DIR]` lists or unpacks an addon (`importers/gma.py`; legacy bins are LZMA "alone"). Pass DIR as the first `--game-dir`, then GMod's `garrysmod` and `sourceengine` for the shared player animations.
 - Some addons need another item for their textures (Goku 764848190 needs 703107302): extract it into the same DIR.
 - Imported: Harry Potter (2855665131, `models/konnie/harrypotter/harrypotter_school.mdl`), Goku (764848190, `.../goku/pm/gokupm.mdl`), Superman 64 (3300749206, `models/player/ms/superman64/superman64.mdl`). Extracted under `~/assetlab-private/workshop/<id>/` (private).
+- New personal roster: Master Chief (`348923474`, `models/halo1/spartan_mc.mdl`), Dragonborn (`156922874`, `models/player/dovahkiin.mdl`), Iron Man (`158326196`, `models/avengers/iron man/mark7_player.mdl`), and Dumbledore (`156923049`, `models/player/voikanaa/albus_dumbledore.mdl`). The last three came as legacy bins; the original Workshop pages for some old items say removed, but SteamCMD delivered their archived content. Keep the converted packages personal and private.
+- `Skyrim Sweps` (`192130265`) supplies Dragonborn's Daedric Sword world and first-person models. `assetlab/data/weapons/skyrim_daedric_sword.json` is the build recipe; its swing sound comes from TF2. `elder_wand.json` reuses Harry's Workshop wand model and sound with separate balance. Both built private packages have no missing materials or dependencies.
+- The importer now decodes 4096-pixel VTFs then reduces them to its package texture budget (Dragonborn's body texture); `$blendtintbybasealpha` and `$color2` are baked into RGBA (Master Chief's green armor). Both were checked with `open-halo-asset-test` renders.
+- Asset Lab's 36 synthetic unit tests pass, including the new tint-mask material test.
 - Characters now flag alpha materials (group flag bit 1) and take `--display` and `--loadout`.
 
 ## Sound packs (2026-09-24)
@@ -36,6 +40,9 @@
 
 - `assetlab character --stats KEY=VALUE` writes health, shield, damage,
   movement speed, flight and ability settings into the character manifest.
+  `group` writes a picker category, `unique=1` reserves one per match unless
+  the host enables duplicate heroes, and `ability_beam=1` marks a piercing
+  line ability. The current private bundle has 12 characters and 11 weapons.
   The game reads these when each character spawns. Current private packages
   include Goku, Superman, Harry, two CS:S players and three Source players.
 - `assetlab/data/weapons/fists.json` uses an empty world model, TF2 Heavy's
