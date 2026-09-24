@@ -1,0 +1,32 @@
+{
+  "name": "hp_broom",
+  "display_name": "Broomstick",
+  "base": "plasma pistol",
+  "mount": true,
+  "fly_speed": 5.5,
+  "mount_offset": [
+    -0.03,
+    0.0,
+    0.3
+  ],
+  "mount_yaw": 180,
+  "mount_pitch": 0,
+  "world_model": "models/nimbus2000/jason_isaacs/nimbus2000.mdl",
+  "view_model": "models/weapons/v_magicwandweapon.mdl",
+  "stats": {
+    "rounds_per_second": 3.0,
+    "damage_scale": 1.2,
+    "spread_scale": 0.9
+  },
+  "stats_provenance": "Ours: a Nimbus 2000 (the Workshop's 'Quidditch Pack [Models]', 2159144427) you ride in third person, flying at 5.5 wu/s (a Banshee-ish pace), casting the wand's spells as you go.",
+  "sounds": {
+    "fire": "sound/spells/spell2.wav"
+  },
+  "crosshair": "ring+dot",
+  "crosshair_size": 22,
+  "view_model_mirrored": false,
+  "material_overrides": {
+    "models/weapons/v_physcannon/wand": "models/weapons/v_magicwandweapon/wand"
+  },
+  "material_overrides_provenance": "The wand SWEP's Lua points its view model's 'wand' material at the addon's own texture; the model's $cdmaterials say v_physcannon."
+}

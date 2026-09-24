@@ -402,6 +402,8 @@ def build_weapon(definition, output, roots=(), vpks=()):
         if key not in d:
             raise BSPError(f'weapon definition lacks {key!r}')
     resolver = Resolver(None, roots, vpks)
+    resolver.aliases = {k.lower().removesuffix('.vmt'): v.lower().removesuffix('.vmt')
+                        for k, v in d.get('material_overrides', {}).items()}
     world = _model_entry(resolver, d['world_model'].lower(), None, 'world')
     # A world model with no weapon bone (a pickup nobody was animated
     # holding, like HL2's .357) takes one from its definition: an

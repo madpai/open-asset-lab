@@ -1,0 +1,23 @@
+{
+  "name": "hp_wand",
+  "display_name": "Wand",
+  "base": "plasma pistol",
+  "world_model": "models/weapons/w_stunbaton.mdl",
+  "view_model": "models/weapons/v_magicwandweapon.mdl",
+  "stats": {
+    "rounds_per_second": 3.0,
+    "damage_scale": 1.2,
+    "spread_scale": 0.7
+  },
+  "stats_provenance": "Ours: spells are the Halo plasma pistol's bolts, a little harder hitting and tighter. First-person wand and spell sound from the Workshop's '[Harry Potter] Magic Wand (70 spells!)' (410020480); in other hands the wand is HL2's stun baton (no world wand ships).",
+  "sounds": {
+    "fire": "sound/spells/spell1.wav"
+  },
+  "crosshair": "ring+dot",
+  "crosshair_size": 18,
+  "view_model_mirrored": false,
+  "material_overrides": {
+    "models/weapons/v_physcannon/wand": "models/weapons/v_magicwandweapon/wand"
+  },
+  "material_overrides_provenance": "The wand SWEP's Lua points its view model's 'wand' material at the addon's own texture; the model's $cdmaterials say v_physcannon."
+}

@@ -222,10 +222,18 @@ class Resolver:
                 return data
         return None
 
+    # Material names redirected by a definition (`material_overrides`): an
+    # addon whose Lua swaps a model's material at run time.
+    aliases = {}
+
+    def _alias(self, name):
+        n = name.replace('\\', '/').lower().removesuffix('.vmt')
+        return self.aliases.get(n, n)
+
     def has_material(self, name):
         """Is there a VMT by this name? A probe: a miss is not a missing
         dependency (studiomdl tries each $cdmaterials folder in turn)."""
-        return self.read('materials/' + name.removesuffix('.vmt') + '.vmt') is not None
+        return self.read('materials/' + self._alias(name) + '.vmt') is not None
 
     def vmt(self, name):
         """(shader, flat parameter dict) for a material, following `patch`
@@ -267,7 +275,7 @@ class Resolver:
 
     def material(self, name):
         """Decoded RGBA albedo (w, h, bytes) or None, plus the VMT parameters."""
-        found = self.vmt(name)
+        found = self.vmt(self._alias(name))
         if found is None:
             return None, {}
         shader, params = found
