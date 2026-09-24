@@ -4,8 +4,8 @@
 
 1. **Current shipped build:** Megamod Showdown game commit `f9ee859`
    (private `madpai/megamod-showdown`, branch `halo-sandbox` -> remote
-   `megamod/main`) and this public Asset Lab repo at `c984d5f`. The personal
-   APK is at `http://100.89.1.14:8733/`; its bundle has 12 characters,
+   `megamod/main`); Asset Lab importer code last changed at `c984d5f`.
+   The personal APK at `http://100.89.1.14:8733/` bundles 12 characters,
    11 weapons and five imported maps. Keep Trial, Source and Workshop
    content private.
 2. **Next test:** use the game repo's `docs/HANDOFF.md` current testing
