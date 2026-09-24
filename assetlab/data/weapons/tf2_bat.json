@@ -16,5 +16,6 @@
   "crosshair": "dot",
   "crosshair_size": 12,
   "view_model_mirrored": false,
-  "view_model_mirrored_provenance": "TF2 view models are authored right-handed."
+  "view_model_mirrored_provenance": "TF2 view models are authored right-handed.",
+  "hold_type": "melee"
 }

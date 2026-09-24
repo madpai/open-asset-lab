@@ -21,5 +21,6 @@
   "view_model_mirrored_provenance": "CS:S view models are authored left-handed; the game mirrors them with cl_righthand 1 (its default).",
   "crosshair": "arms+dot",
   "crosshair_size": 26,
-  "crosshair_and_reload_provenance": "CS:S AK-47 reload: 2.5 s (published). Crosshair: CS:S draws arms with a gap; the dot and the sizes are ours."
+  "crosshair_and_reload_provenance": "CS:S AK-47 reload: 2.5 s (published). Crosshair: CS:S draws arms with a gap; the dot and the sizes are ours.",
+  "hold_type": "ar2"
 }

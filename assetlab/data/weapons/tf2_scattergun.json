@@ -22,5 +22,6 @@
   "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default).",
   "crosshair": "ring+dot",
   "crosshair_size": 34,
-  "crosshair_and_reload_provenance": "TF2 loads one shell per 0.5 s (published; the first takes 0.7). Crosshair: a wider circle for the spread; size ours."
+  "crosshair_and_reload_provenance": "TF2 loads one shell per 0.5 s (published; the first takes 0.7). Crosshair: a wider circle for the spread; size ours.",
+  "hold_type": "ar2"
 }

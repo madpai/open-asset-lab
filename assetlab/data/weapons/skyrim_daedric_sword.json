@@ -7,8 +7,8 @@
   "view_model": "models/skyrim/daedric/sword/v_daedricsword.mdl",
   "stats": {
     "rounds_per_second": 1.6,
-    "damage_scale": 2.3,
-    "knockback": 1.8
+    "damage_scale": 4.2,
+    "knockback": 4.0
   },
   "stats_provenance": "The world and first-person sword models are from Garry's Mod Workshop Skyrim Sweps (192130265). Our melee balance: 1.6 swings/s, 2.3x the base melee damage and modest knockback. The swing sound is from the owner's TF2 install.",
   "sounds": {
@@ -16,5 +16,6 @@
   },
   "crosshair": "dot",
   "crosshair_size": 12,
-  "view_model_mirrored": false
+  "view_model_mirrored": false,
+  "hold_type": "melee"
 }

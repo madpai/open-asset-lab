@@ -1,0 +1,306 @@
+{
+  "superman64": {
+    "model": "models/player/ms/superman64/superman64.mdl",
+    "hold": "fist",
+    "display": "Superman 64",
+    "loadout": [
+      "Fists",
+      "Fists"
+    ],
+    "stats": {
+      "health": 8,
+      "shield": 6,
+      "damage": 3,
+      "speed": 1.35,
+      "fly": 1,
+      "fly_speed": 8.2,
+      "fly_damage": 0.9,
+      "ability": "HEAT VISION",
+      "ability_base": "sniper rifle",
+      "ability_damage": 110,
+      "ability_cooldown": 6,
+      "ability_beam": 1,
+      "group": "SUPERHERO",
+      "unique": 1,
+      "ability_color": 0,
+      "ability_duration": 2.4,
+      "ability_interval": 0.12
+    }
+  },
+  "goku": {
+    "model": "models/wintermyth/dragon_ball/goku/pm/gokupm.mdl",
+    "hold": "fist",
+    "display": "Goku",
+    "loadout": [
+      "Fists",
+      "Ki Bolts"
+    ],
+    "stats": {
+      "health": 6,
+      "shield": 5,
+      "damage": 2.6,
+      "speed": 1.4,
+      "fly": 1,
+      "fly_speed": 7.8,
+      "fly_damage": 0.9,
+      "ability": "KAMEHAMEHA",
+      "ability_base": "sniper rifle",
+      "ability_damage": 100,
+      "ability_cooldown": 6,
+      "group": "SAIYAN",
+      "unique": 1,
+      "ability_color": 1,
+      "ability_beam": 1,
+      "ability_duration": 1.8,
+      "ability_interval": 0.12
+    }
+  },
+  "iron_man": {
+    "model": "models/avengers/iron man/mark7_player.mdl",
+    "hold": "fist",
+    "display": "Iron Man",
+    "loadout": [
+      "Repulsors",
+      "Fists"
+    ],
+    "stats": {
+      "health": 4,
+      "shield": 3,
+      "damage": 1.8,
+      "speed": 1.25,
+      "fly": 1,
+      "fly_speed": 7,
+      "fly_damage": 0.85,
+      "ability": "UNIBEAM",
+      "ability_base": "sniper rifle",
+      "ability_damage": 85,
+      "ability_cooldown": 6,
+      "group": "SUPERHERO",
+      "unique": 1,
+      "ability_color": 3,
+      "ability_beam": 1,
+      "ability_duration": 1.5,
+      "ability_interval": 0.15
+    }
+  },
+  "harry": {
+    "model": "models/konnie/harrypotter/harrypotter_school.mdl",
+    "hold": "pistol",
+    "display": "Harry Potter",
+    "loadout": [
+      "Wand",
+      "Broomstick"
+    ],
+    "stats": {
+      "health": 1.5,
+      "shield": 0.7,
+      "damage": 1.6,
+      "speed": 1.2,
+      "fly_damage": 0.75,
+      "group": "WIZARD",
+      "unique": 0.0,
+      "ability": "ARCANE LANCE",
+      "ability_color": 4,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 4.5,
+      "ability_beam": 1,
+      "ability_damage": 65,
+      "ability_duration": 1.2,
+      "ability_interval": 0.15
+    }
+  },
+  "dumbledore": {
+    "model": "models/player/voikanaa/albus_dumbledore.mdl",
+    "hold": "pistol",
+    "display": "Dumbledore",
+    "loadout": [
+      "Elder Wand",
+      "Fists"
+    ],
+    "stats": {
+      "health": 2.2,
+      "shield": 1.6,
+      "damage": 1.8,
+      "speed": 1.1,
+      "group": "WIZARD",
+      "ability": "ARCANE TEMPEST",
+      "ability_color": 2,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 8,
+      "ability_damage": 260,
+      "ability_radius": 7,
+      "ability_force": 7,
+      "ability_duration": 2.1,
+      "ability_interval": 1
+    }
+  },
+  "dragonborn": {
+    "model": "models/player/dovahkiin.mdl",
+    "hold": "melee",
+    "display": "Dragonborn",
+    "loadout": [
+      "Daedric Sword",
+      "Fists"
+    ],
+    "stats": {
+      "health": 3,
+      "shield": 2,
+      "damage": 2.1,
+      "speed": 1.2,
+      "group": "HERO",
+      "ability": "FUS RO DAH",
+      "ability_color": 5,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 6,
+      "ability_damage": 350,
+      "ability_radius": 9,
+      "ability_force": 16,
+      "ability_cone": 0.4
+    }
+  },
+  "master_chief": {
+    "model": "models/halo1/spartan_mc.mdl",
+    "hold": "ar2",
+    "display": "Master Chief",
+    "loadout": [
+      "assault rifle",
+      "pistol"
+    ],
+    "stats": {
+      "health": 3,
+      "shield": 3,
+      "damage": 1.65,
+      "speed": 1.2,
+      "group": "HERO",
+      "ability": "SPARTAN QUAKE",
+      "ability_color": 3,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 6,
+      "ability_damage": 320,
+      "ability_radius": 5.5,
+      "ability_force": 9
+    }
+  },
+  "scout": {
+    "model": "models/player/scout.mdl",
+    "hold": "primary",
+    "display": "Scout (TF2)",
+    "loadout": [
+      "Scattergun (TF2)",
+      "Bat (TF2)"
+    ],
+    "stats": {
+      "health": 1.3,
+      "shield": 0.2,
+      "speed": 1.55,
+      "group": "HERO",
+      "unique": 0.0,
+      "damage": 1.5,
+      "ability": "SONIC BOOM",
+      "ability_color": 5,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 4,
+      "ability_damage": 240,
+      "ability_radius": 4,
+      "ability_force": 13
+    }
+  },
+  "kleiner": {
+    "model": "models/player/kleiner.mdl",
+    "hold": "ar2",
+    "display": "Dr. Kleiner (HL2)",
+    "loadout": [
+      ".357 Magnum (HL2)",
+      "shotgun"
+    ],
+    "stats": {
+      "health": 1.2,
+      "shield": 0.2,
+      "speed": 1.1,
+      "group": "HERO",
+      "unique": 0.0,
+      "damage": 1.4,
+      "ability": "GRAVITY SURGE",
+      "ability_color": 2,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 7,
+      "ability_damage": 200,
+      "ability_radius": 8,
+      "ability_force": 18
+    }
+  },
+  "alyx": {
+    "model": "models/player/alyx.mdl",
+    "hold": "pistol",
+    "display": "Alyx (HL2)",
+    "loadout": [
+      ".357 Magnum (HL2)",
+      "plasma pistol"
+    ],
+    "stats": {
+      "health": 1.5,
+      "shield": 0.4,
+      "speed": 1.3,
+      "group": "HERO",
+      "unique": 0.0,
+      "damage": 1.6,
+      "ability": "VORTEX LANCE",
+      "ability_color": 1,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 4,
+      "ability_beam": 1,
+      "ability_damage": 65,
+      "ability_duration": 0.9,
+      "ability_interval": 0.15
+    }
+  },
+  "t_leet": {
+    "model": "models/player/t_leet.mdl",
+    "hold": "ak",
+    "display": "Leet (CS:S)",
+    "loadout": [
+      "AK-47",
+      "pistol"
+    ],
+    "stats": {
+      "health": 0.95,
+      "shield": 0,
+      "group": "HUMAN",
+      "unique": 0.0,
+      "damage": 1.9,
+      "speed": 1.2,
+      "ability": "BREACH SALVO",
+      "ability_color": 0,
+      "ability_base": "rocket launcher",
+      "ability_cooldown": 6,
+      "ability_damage": 1.6,
+      "ability_duration": 0.95,
+      "ability_interval": 0.3
+    }
+  },
+  "ct_urban": {
+    "model": "models/player/ct_urban.mdl",
+    "hold": "ak",
+    "display": "Urban (CS:S)",
+    "loadout": [
+      "M4A1",
+      "pistol"
+    ],
+    "stats": {
+      "health": 1.05,
+      "shield": 0,
+      "damage": 1.85,
+      "speed": 1.15,
+      "group": "HUMAN",
+      "unique": 0.0,
+      "ability": "RAIL STRIKE",
+      "ability_color": 3,
+      "ability_base": "sniper rifle",
+      "ability_cooldown": 6,
+      "ability_beam": 1,
+      "ability_damage": 95,
+      "ability_duration": 0.65,
+      "ability_interval": 0.2
+    }
+  }
+}

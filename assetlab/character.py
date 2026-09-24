@@ -139,6 +139,15 @@ class _Rig:
             if w <= 0.0:
                 continue
             bp, bq = pose[mb]
+            if not delta and fi != 0:
+                # Included clips store locals from their own skeleton. A
+                # citizen neck is a few inches; this body's may be a foot.
+                # Keep the motion, measure it from this bone's bind.
+                src, dst = f.bones[lb], self.main.bones[mb]
+                sq, sp = src['quat'], src['pos']
+                inv = (-sq[0], -sq[1], -sq[2], sq[3])
+                q = q_norm(q_mul(dst['quat'], q_norm(q_mul(inv, q))))
+                pos = tuple(dst['pos'][k] + (pos[k] - sp[k]) for k in range(3))
             if delta:
                 nq = q_norm(q_mul(bq, q_slerp((0, 0, 0, 1), q, w)))
                 npos = tuple(bp[k] + pos[k]*w for k in range(3))
@@ -168,11 +177,21 @@ def _clip_from_recipe(rig, recipe, hold):
         found = rig.find_sequences(label=fill(name))
         if found:
             layer = found[0]; break
-    n = rig.frames(fi, anim_i)
+    for act in recipe.get('layer_activity', []):
+        found = rig.find_sequences(activity=fill(act))
+        if found:
+            layer = found[0]; break
+    if recipe.get('gesture') and layer is None:
+        return None, None
+    base_n = rig.frames(fi, anim_i)
+    n = base_n
+    if recipe.get('gesture') and layer:
+        lfi, lseq = layer
+        n = rig.frames(lfi, lseq['grid'][len(lseq['grid'])//2])
     anim = rig.files[fi].anims[anim_i]
     frames = []
     for k in range(n):
-        pose = rig.pose(fi, anim_i, k)
+        pose = rig.pose(fi, anim_i, k % base_n)
         if layer:
             lfi, lseq = layer
             la = lseq['grid'][len(lseq['grid'])//2]
@@ -185,7 +204,10 @@ def _clip_from_recipe(rig, recipe, hold):
 
 def _viewmodel_clip(rig, activities):
     for act in activities:
-        found = rig.find_sequences(activity=act)
+        if act.startswith('seq:'):
+            found = rig.find_sequences(label=act[4:])
+        else:
+            found = rig.find_sequences(activity=act)
         if found:
             fi, seq = found[0]
             a = seq['grid'][0]
@@ -229,6 +251,29 @@ def _model_entry(resolver, path, clips_spec, kind, hold='ak', skin=0):
                 got['role'] = role; got['loop'] = role != 'death'; clips.append(got)
             else:
                 missing_roles.append(role)
+        # Bake real weapon stances, not one rifle pose for every item.
+        for prefix, stance in (('f', 'fist'), ('m', 'melee'), ('p', 'pistol'), ('r', 'ar2')):
+            gmod = bool(rig.find_sequences(activity=f'ACT_HL2MP_IDLE_{stance.upper()}'))
+            tfhold = 'MELEE' if prefix in ('f', 'm') else 'SECONDARY' if prefix == 'p' else 'PRIMARY'
+            tf = bool(rig.find_sequences(activity=f'ACT_MP_STAND_{tfhold}'))
+            if not gmod and not tf:
+                continue
+            for role, recipes in translate.CHARACTER_ROLES.items():
+                if role == 'death':
+                    continue
+                recipe = dict(recipes[0] if gmod else recipes[2])
+                recipe['activity'] = recipe['activity'][:1]
+                clip, note = _clip_from_recipe(rig, recipe, stance if gmod else tfhold)
+                if clip:
+                    clip['role'] = f'{prefix}_{role}'; clip['loop'] = True
+                    clips.append(clip); notes[clip['role']] = note
+            if gmod:
+                recipe = {'activity': [f'ACT_HL2MP_IDLE_{stance.upper()}'],
+                          'layer_activity': [f'ACT_HL2MP_GESTURE_RANGE_ATTACK_{stance.upper()}'], 'gesture': True}
+                clip, note = _clip_from_recipe(rig, recipe, stance)
+                if clip:
+                    clip['role'] = f'{prefix}_attack'; clip['loop'] = False
+                    clips.append(clip); notes[clip['role']] = note
         lacking = [r for r in translate.CHARACTER_REQUIRED if r in missing_roles]
         if lacking:
             raise BSPError(f'{path}: no animation for {", ".join(lacking)} (hold type {hold!r})')
@@ -383,6 +428,7 @@ BODY_STATS = {'health': 'body_health', 'shield': 'body_shield', 'damage': 'body_
               'speed': 'body_speed', 'fly': 'can_fly', 'fly_speed': 'fly_speed', 'fly_damage': 'fly_damage',
               'ability': 'ability_name', 'ability_base': 'ability_base', 'ability_damage': 'ability_damage',
               'ability_cooldown': 'ability_cooldown', 'ability_beam': 'ability_beam',
+              **{k: k for k in ('ability_duration', 'ability_interval', 'ability_radius', 'ability_force', 'ability_cone', 'ability_color')},
               'group': 'hero_group', 'unique': 'unique_limit'}
 TEXT_STATS = ('ability', 'ability_base', 'group')
 BOOL_STATS = ('fly', 'ability_beam')

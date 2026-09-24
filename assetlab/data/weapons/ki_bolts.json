@@ -1,0 +1,20 @@
+{
+  "name": "ki_bolts",
+  "display_name": "Ki Bolts",
+  "base": "plasma rifle",
+  "world_model": "none",
+  "view_model": "models/weapons/c_arms_citizen.mdl",
+  "hold_type": "fist",
+  "stats": {
+    "rounds_per_second": 4.5,
+    "damage_scale": 2.4,
+    "magazine": 20,
+    "recharge": 6,
+    "spread_scale": 0.4
+  },
+  "stats_provenance": "Megamod energy attacks: recharging plasma rounds, empty world model, Garry's Mod citizen arms. Values are authored game balance.",
+  "crosshair": "ring+dot",
+  "crosshair_size": 18,
+  "view_model_mirrored": false,
+  "sounds": {}
+}

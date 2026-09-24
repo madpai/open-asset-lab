@@ -4,17 +4,18 @@
   "base": "pistol",
   "melee": true,
   "world_model": "none",
-  "view_model": "models/weapons/v_models/v_fist_heavy.mdl",
+  "view_model": "models/weapons/c_arms_citizen.mdl",
   "stats": {
-    "rounds_per_second": 2.2,
-    "damage_scale": 1.1,
-    "knockback": 4.0
+    "rounds_per_second": 2.5,
+    "damage_scale": 3.8,
+    "knockback": 9.0
   },
-  "stats_provenance": "Ours: a punch every 0.45 s at the base pistol's melee x1.1 that throws the one it hits back 4 wu/s (and a little up). First-person fists are TF2's Heavy's; nothing is drawn in a third-person hand.",
+  "stats_provenance": "Megamod balance: 2.5 punches/s, 3.8x base melee damage, 9 wu/s knockback. First person is Garry's Mod's citizen arms (fists_draw / fists_left), not the Heavy's gloves.",
   "sounds": {
     "fire": "sound/weapons/boxing_gloves_hit1.wav"
   },
   "crosshair": "dot",
   "crosshair_size": 12,
-  "view_model_mirrored": false
+  "view_model_mirrored": false,
+  "hold_type": "fist"
 }

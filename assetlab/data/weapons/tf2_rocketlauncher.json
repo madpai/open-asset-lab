@@ -22,5 +22,6 @@
   "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default).",
   "crosshair": "ring+dot",
   "crosshair_size": 24,
-  "crosshair_and_reload_provenance": "TF2 loads one rocket per 0.8 s (published; the first takes 0.92). Crosshair: TF2's default is a small circle; size ours."
+  "crosshair_and_reload_provenance": "TF2 loads one rocket per 0.8 s (published; the first takes 0.92). Crosshair: TF2's default is a small circle; size ours.",
+  "hold_type": "ar2"
 }

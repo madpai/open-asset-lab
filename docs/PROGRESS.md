@@ -1,5 +1,21 @@
 # Progress milestones — 2026-09-23 onward
 
+## McRonalds and citizen fists — 2026-09-24
+
+Workshop item `3159770816` (`gm_mcronalds`) converts with GMod and
+`sourceengine` mounted, prop LOD 1, into private `mcdonalds.oalmap`
+(120 MB, 113,462 triangles, 0 missing dependencies, 4 grounded starts).
+Host render shows the restaurant and the dining room. A 4-bot 45 s Slayer
+got 3 kills at 0.787 ms/tick. Eight conveyor brushes are not imported.
+The menu name is the bundle filename, not the BSP's `mcronald` id.
+
+Fist SWEPs already in the Workshop download folder are scripts or empty
+meshes. The punch viewmodel is Garry's Mod `c_arms_citizen.mdl`.
+`VIEWMODEL_ROLES` now finds `ACT_VM_FISTS_IDLE` and `seq:` labels.
+Included-model absolute poses are retargeted onto the destination bind so
+a citizen neck does not swallow a taller head. Character tests: 5 pass.
+Details in [HANDOFF.md](HANDOFF.md).
+
 ## Workshop hero roster and material import — 2026-09-24
 
 Megamod Showdown's published private build (`f9ee859`) uses Asset Lab

@@ -20,5 +20,6 @@
   "view_model_mirrored": false,
   "material_overrides": {
     "models/weapons/v_physcannon/wand": "models/weapons/v_magicwandweapon/wand"
-  }
+  },
+  "hold_type": "pistol"
 }

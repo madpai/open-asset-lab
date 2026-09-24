@@ -291,10 +291,13 @@ CHARACTER_REQUIRED = ('idle', 'run_front')
 
 # First-person weapon models: clips by viewmodel activity.
 VIEWMODEL_ROLES = {
-    'idle': ['ACT_VM_IDLE'],
-    'fire': ['ACT_VM_PRIMARYATTACK', 'ACT_VM_HITCENTER', 'ACT_VM_SWINGHARD', 'ACT_VM_HITRIGHT'],   # a melee weapon's swing
+    'idle': ['ACT_VM_IDLE', 'ACT_VM_FISTS_IDLE'],
+    # A melee swing, then Garry's Mod's own fist sequences (fists_left and
+    # the rest are labeled, not given attack activities).
+    'fire': ['ACT_VM_PRIMARYATTACK', 'ACT_VM_HITCENTER', 'ACT_VM_SWINGHARD', 'ACT_VM_HITRIGHT',
+             'seq:fists_left', 'seq:fists_right'],
     'reload': ['ACT_VM_RELOAD'],
-    'draw': ['ACT_VM_DRAW', 'ACT_VM_DEPLOY'],
+    'draw': ['ACT_VM_DRAW', 'ACT_VM_DEPLOY', 'seq:fists_draw'],
 }
 VIEWMODEL_REQUIRED = ('idle', 'fire')
 

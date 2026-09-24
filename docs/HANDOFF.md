@@ -1,25 +1,19 @@
-# Session handoff — 2026-09-24 (hero roster and Workshop weapons)
+# Session handoff — 2026-09-24 (McRonalds, citizen fists, Workshop scan)
 
 ## Start of next session
 
-1. **Current shipped build:** Megamod Showdown game commit `f9ee859`
-   (private `madpai/megamod-showdown`, branch `halo-sandbox` -> remote
-   `megamod/main`); Asset Lab importer code last changed at `c984d5f`.
-   The personal APK at `http://100.89.1.14:8733/` bundles 12 characters,
-   11 weapons and five imported maps. Keep Trial, Source and Workshop
-   content private.
-2. **Next test:** use the game repo's `docs/HANDOFF.md` current testing
-   objective on a phone and two matched LAN installs. Check Superman's
-   powered-flight head, beam visibility and multi-target damage, grouped
-   picker, unique hero rejection/duplicate setting, imported materials,
-   weapon views and killer-facing killcam. Those changes have host checks
-   but no new device result yet.
-3. **Importer follow-up:** fix any package issue from that test first. Then
-   add characters and authored abilities as needed, keeping public
-   importer definitions, private converted packages and the game's roster
-   limits/protocol in sync. Test high-resolution textures and APK size on
-   the phone before a large content expansion. The 36 synthetic Asset Lab
-   tests passed at this checkpoint.
+1. **Current private bundle:** 12 characters, 13 weapons, six maps
+   (`de_dust2`, `cs_office`, `de_aztec`, `ctf_2fort`, `gm_construct`,
+   `mcdonalds`). Packages stay in `~/assetlab-private/bundle`. The game
+   handoff's testing objective is the phone pass. Protocol on the game
+   side is v8.
+2. **Next importer work, if the phone pass is clean:** the Workshop maps
+   already downloaded and not converted — Backrooms `2732733089`,
+   gm_abandoned_mall `2878375438`, gm_liminal_hotel `2556466049`,
+   gm_construct_remaster `3334581973`. Same command shape as McRonalds.
+3. **Do not treat a Workshop listing as a mesh.** Several fist addons are
+   Lua or empty VVDs. Check vertex count and `ACT_VM_*` / sequence labels
+   before rebuilding a weapon.
 4. **Earlier map state:** all five bundled maps were re-imported with alpha,
    skybox, door and flag fixes. The owner reported about 120 fps on
    cs_office and gm_construct in an older build and parked their remaining
@@ -36,6 +30,48 @@
   - **Alpha surfaces** (`$alphatest`, `$translucent`): group flag bit 1, drawn in Open Halo's alpha pass -- fences, hay, cobwebs, glass were black cut-outs.
   - **flag_points** in the manifest from `item_teamflag` (TeamNum 2 red, 3 blue); Open Halo stands the CTF flags there.
 - **Open Halo engine fixes it needed (sandbox):** a 0.175 wu bot grid on imported maps (TF2 doorways are body-wide), floors under more than six stacked surfaces, links need room for a body's sides (slatted railings), no push through a one-sided wall into the void. Bots now fight on 2fort (~35 kills / 5 min) but have not captured a flag in tests.
+
+## McRonalds (2026-09-24)
+
+- Workshop `3159770816`, addon name `gm_mcronalds`. Three files:
+  `maps/mcronald.bsp` (11.8 MB), `maps/mcronald.nav`, a thumbnail. No
+  packed models. Anonymous SteamCMD delivered it.
+- Convert:
+  ```sh
+  .venv/bin/python -m assetlab convert ~/assetlab-private/workshop/3159770816/maps/mcronald.bsp \
+    --output ~/assetlab-private/bundle/mcdonalds.oalmap --prop-lod 1 \
+    --report-dir ~/assetlab-private/workshop/3159770816/report \
+    --game-dir ~/.local/share/Steam/steamapps/common/GarrysMod/garrysmod \
+    --game-dir ~/.local/share/Steam/steamapps/common/GarrysMod/sourceengine
+  ```
+- BSP v20. 113,462 triangles (all solid), 42 static props, 186 model
+  entities, 4 `info_player_start` (no teams), 0 missing dependencies,
+  1 placeholder (`glass/reflectiveglass001`, lightmapped reflective, no
+  `$basetexture`). Eight `func_conveyor` brushes unsupported. Texture
+  bytes 118,763,584 (under the 128 MiB cap). Package 120 MB. Manifest
+  `map_id` is `mcronald`; the bundle filename `mcdonalds.oalmap` is what
+  the game menu lists (label MCRONALDS).
+- Host: `open-halo-map-test` 4/4 spawns usable, 0 bodies out of the map.
+  Offscreen overview shows the restaurant and lot; the spawn shot is the
+  dining room. `htamatch` 4 bots, 45 s Slayer: 3 kills, 0.787 ms/tick.
+  The menu label and phone frame rate are not yet confirmed.
+
+## Fist viewmodels and included skeletons (2026-09-24)
+
+- `translate.VIEWMODEL_ROLES` now accepts `ACT_VM_FISTS_IDLE` and
+  `seq:<label>`. `fists.json`, `ki_bolts.json`, and `repulsors.json` use
+  `models/weapons/c_arms_citizen.mdl`. Built clips: idle `fists_idle_01`,
+  fire `fists_left`, draw `fists_draw`. 2979 package verts, no missing
+  materials. Offscreen idle shows two fists; the fire frame is a left hook.
+- Workshop items that do **not** replace that mesh: Hands SWEP
+  `852703807` (Lua and icons), Fighting Fists `954655623` (24-vert
+  `c_fists.vvd`, material `no_material`), Zombie SWEP `2371481770` and
+  parkour hands `2923379220` (animation MDLs, 64-byte empty VVDs).
+- `character.py` retargets absolute poses from an included MDL onto this
+  model's bind (citizen neck vs a custom player neck). The game also
+  refuses a Head/Neck key whose position is much shorter than the bind,
+  so already-built Superman and Goku packages keep their heads without a
+  rebuild. A future character rebuild picks up the baker fix.
 
 ## Garry's Mod Workshop (2026-09-24)
 
@@ -69,9 +105,11 @@
   line ability. The current private bundle has 12 characters and 11 weapons.
   The game reads these when each character spawns. Current private packages
   include Goku, Superman, Harry, two CS:S players and three Source players.
-- `assetlab/data/weapons/fists.json` uses an empty world model, TF2 Heavy's
-  first-person fists and a knockback value. `hp_wand.json` has 12 charges and
-  3 charges per second recharge; `hp_broom.json` flies at 3.5 wu/s.
+- `assetlab/data/weapons/fists.json` uses an empty world model and Garry's
+  Mod citizen arms (`c_arms_citizen.mdl`, sequences `fists_draw` /
+  `fists_left`). `hp_wand.json` has 12 charges and 3 charges per second
+  recharge; `hp_broom.json` flies at 3.5 wu/s. `ki_bolts.json` and
+  `repulsors.json` are the recharging energy primaries for Goku and Iron Man.
 - `assetlab/data/weapons/cs_m4a1.json` is the CS:S M4A1 for Urban's preset.
   Its private package has four view clips, two sounds and no missing
   dependencies. Rate and magazine follow CS:S; damage, spread and reload

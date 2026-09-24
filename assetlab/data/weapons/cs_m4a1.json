@@ -20,5 +20,6 @@
   "view_model_mirrored": true,
   "view_model_mirrored_provenance": "CS:S view models are authored left-handed; the game mirrors them with cl_righthand 1.",
   "crosshair": "arms+dot",
-  "crosshair_size": 24
+  "crosshair_size": 24,
+  "hold_type": "ar2"
 }

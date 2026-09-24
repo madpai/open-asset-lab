@@ -28,5 +28,6 @@
   "material_overrides": {
     "models/weapons/v_physcannon/wand": "models/weapons/v_magicwandweapon/wand"
   },
-  "material_overrides_provenance": "The wand SWEP's Lua points its view model's 'wand' material at the addon's own texture; the model's $cdmaterials say v_physcannon."
+  "material_overrides_provenance": "The wand SWEP's Lua points its view model's 'wand' material at the addon's own texture; the model's $cdmaterials say v_physcannon.",
+  "hold_type": "ar2"
 }
