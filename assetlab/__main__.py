@@ -44,6 +44,8 @@ def main():
     a.add_argument('--name'); a.add_argument('--skin', type=int, default=0); search_args(a)
     a = sub.add_parser('weapon', help='a weapon definition (JSON) into an .oalasset')
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
+    a = sub.add_parser('sounds', help='a sound pack definition (JSON) into an .oalasset')
+    a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
     a = sub.add_parser('report', help='compatibility report of one or more packages')
     a.add_argument('packages', nargs='+'); a.add_argument('--json', action='store_true')
     sub.add_parser('staged')
@@ -74,11 +76,13 @@ def main():
             if args.report_dir:
                 args.report_dir.mkdir(parents=True, exist_ok=True); write(r['compatibility'], args.report_dir)
             print(json.dumps({'package': args.output, 'manifest': m, 'report': r}, indent=2))
-        elif args.command in ('character', 'weapon'):
-            from .character import build_character, build_weapon
+        elif args.command in ('character', 'weapon', 'sounds'):
+            from .character import build_character, build_weapon, build_sounds
             roots, vpks = search_path(args)
             if args.command == 'character':
                 m = build_character(args.model, args.output, roots, vpks, args.hold, args.name, args.skin)
+            elif args.command == 'sounds':
+                m = build_sounds(args.definition, args.output, roots, vpks)
             else:
                 m = build_weapon(args.definition, args.output, roots, vpks)
             print(json.dumps(m, indent=2))

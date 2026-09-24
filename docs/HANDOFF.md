@@ -20,6 +20,10 @@
   - **flag_points** in the manifest from `item_teamflag` (TeamNum 2 red, 3 blue); Open Halo stands the CTF flags there.
 - **Open Halo engine fixes it needed (sandbox):** a 0.175 wu bot grid on imported maps (TF2 doorways are body-wide), floors under more than six stacked surfaces, links need room for a body's sides (slatted railings), no push through a one-sided wall into the void. Bots now fight on 2fort (~35 kills / 5 min) but have not captured a flag in tests.
 
+## Sound packs (2026-09-24)
+
+- `assetlab sounds <definition.json> --output ui.oalasset --game-dir ...`: an OALASSET of kind `sounds` (no models), sounds by role. `assetlab/data/sounds/tf2_hitsounds.json` packs TF2's hit and kill dings and its freeze-cam sounds; MEGAMOD SHOWDOWN loads `assets/sounds/ui.oalasset` for its hit feedback and killcam.
+
 ## TF2 and HL2 weapons (2026-09-24)
 
 - `assetlab/data/weapons/tf2_rocketlauncher.json`, `tf2_scattergun.json` (TF2's legacy `v_models/` view models, arms included; right-handed), `hl2_357.json` (GMod's `sourceengine` HL2 content, HEV hands).

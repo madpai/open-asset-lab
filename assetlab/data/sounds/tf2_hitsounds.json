@@ -1,0 +1,11 @@
+{
+  "name": "ui",
+  "display_name": "TF2 hit and kill dings, freeze cam",
+  "sounds": {
+    "hit": "sound/ui/hitsound.wav",
+    "kill": "sound/ui/killsound.wav",
+    "freeze": "sound/misc/freeze_cam.wav",
+    "snapshot": "sound/misc/freeze_cam_snapshot.wav"
+  },
+  "sounds_provenance": "TF2's own 'Default' hit sound and kill sound (tf_dingalingaling). Open Halo plays 'hit' when your shot damages someone and 'kill' when it kills them; without this pack it synthesizes a plain ding. 'freeze' plays as the killcam swoops to your killer, 'snapshot' as it freezes."
+}

@@ -411,3 +411,24 @@ def build_weapon(definition, output, roots=(), vpks=()):
         except BSPError as e:
             resolver.warnings.append(f'{path}: {e}')
     return build(output, 'weapon', d['name'], models, resolver, extra, sounds=sounds)
+
+
+def build_sounds(definition, output, roots=(), vpks=()):
+    """A sound pack (kind "sounds"): no models, only sounds by role -- the
+    hit and kill dings. See assetlab/data/sounds/."""
+    d = json.loads(Path(definition).read_text()) if not isinstance(definition, dict) else definition
+    if 'name' not in d or not d.get('sounds'):
+        raise BSPError('sound pack definition needs a name and sounds')
+    resolver = Resolver(None, roots, vpks)
+    sounds = []
+    for role, path in sorted(d['sounds'].items()):
+        data = resolver.read(path)
+        if data is None:
+            resolver.missing.append(path)
+            continue
+        sounds.append((role, *decode_wav(data)))
+    if not sounds:
+        raise BSPError('no sound in the pack could be read')
+    extra = {k: v for k, v in d.items() if k != 'sounds'}
+    extra['sound_sources'] = d['sounds']
+    return build(output, 'sounds', d['name'], [], resolver, extra, sounds=sounds)

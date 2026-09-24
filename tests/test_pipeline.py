@@ -135,6 +135,16 @@ class CharacterTests(unittest.TestCase):
         add_world_grip(e,{'on':'hand','local':[0,-1,0,1.5, -1,0,0,0, 0,0,-1,0]})
         self.assertEqual(e['attachments'][-1],('ValveBiped.weapon_bone',1,(0.,-1.,0.,1.5,-1.,0.,0.,0.,0.,0.,-1.,0.)))
         with self.assertRaisesRegex(BSPError,'12 numbers'):add_world_grip(e,{'local':[1,0,0]})
+    def test_sound_pack(self):
+        import wave
+        from assetlab.character import build_sounds,MAGIC
+        d=self.root/'sound/ui';d.mkdir(parents=True)
+        with wave.open(str(d/'hit.wav'),'wb') as w:
+            w.setnchannels(1);w.setsampwidth(2);w.setframerate(22050);w.writeframes(b'\0\1'*100)
+        m=build_sounds({'name':'ui','sounds':{'hit':'sound/ui/hit.wav','kill':'sound/ui/nope.wav'}},self.root/'ui.oalasset',roots=[self.root])
+        self.assertEqual([x['role'] for x in m['sounds']],['hit']);self.assertEqual(m['kind'],'sounds')
+        self.assertEqual(m['missing_dependencies'],['sound/ui/nope.wav'])
+        data=(self.root/'ui.oalasset').read_bytes();self.assertEqual(data[:4],MAGIC);self.assertEqual(struct.unpack_from('<I',data,12)[0],0)
     def test_character_without_required_roles_is_refused(self):
         from assetlab.character import build_character
         mdl=bytearray((self.root/'models/test/guy.mdl').read_bytes())
