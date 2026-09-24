@@ -2,11 +2,28 @@
 
 ## Start of next session
 
-0. **All five bundled maps re-imported (2026-09-24, sandbox build after `99ee632`)** with alpha surfaces, the skybox cut, open doors, additive cut and flag points. Same commands as before; dust2 now from the CS:S client with its hl2 dir (0 missing).
-0. **ctf_2fort and three weapons (2026-09-24)** -- sandbox build `5b64d7d`, phone test pending. See "ctf_2fort" below. Ask for fps / load time / holes before touching 2fort again.
-1. **Characters and weapons are implemented (2026-09-23, late)** -- see "Characters and weapons" below. First phone test pending: player model in Settings, custom classes with the AK-47 in SINGLEPLAYER / CREATE GAME. Ask for the result before extending.
-2. Imported maps on the phone (sandbox build `8c25abc`): **cs_office and gm_construct run at 120 fps and are "almost complete with some problems"**. The owner does not want to work on those problems now. de_aztec has no report yet; dust2 has an earlier phone pass.
-3. The **Garry's Mod Workshop** is the long-term goal but is **not started**. Keep the **Halo sky**. Imported work never goes to Open Halo's GitHub `main` (local branch `halo-sandbox`; a separate repository is planned, name not chosen).
+1. **Current shipped build:** Megamod Showdown game commit `f9ee859`
+   (private `madpai/megamod-showdown`, branch `halo-sandbox` -> remote
+   `megamod/main`) and this public Asset Lab repo at `c984d5f`. The personal
+   APK is at `http://100.89.1.14:8733/`; its bundle has 12 characters,
+   11 weapons and five imported maps. Keep Trial, Source and Workshop
+   content private.
+2. **Next test:** use the game repo's `docs/HANDOFF.md` current testing
+   objective on a phone and two matched LAN installs. Check Superman's
+   powered-flight head, beam visibility and multi-target damage, grouped
+   picker, unique hero rejection/duplicate setting, imported materials,
+   weapon views and killer-facing killcam. Those changes have host checks
+   but no new device result yet.
+3. **Importer follow-up:** fix any package issue from that test first. Then
+   add characters and authored abilities as needed, keeping public
+   importer definitions, private converted packages and the game's roster
+   limits/protocol in sync. Test high-resolution textures and APK size on
+   the phone before a large content expansion. The 36 synthetic Asset Lab
+   tests passed at this checkpoint.
+4. **Earlier map state:** all five bundled maps were re-imported with alpha,
+   skybox, door and flag fixes. The owner reported about 120 fps on
+   cs_office and gm_construct in an older build and parked their remaining
+   issues. ctf_2fort has host bot play, but no current phone report.
 
 ## ctf_2fort (2026-09-24)
 
@@ -22,7 +39,7 @@
 
 ## Garry's Mod Workshop (2026-09-24)
 
-- Fetch: `~/assetlab-private/steamcmd/steamcmd.sh +login anonymous +workshop_download_item 4000 <id> +quit` (lands in `~/.local/share/Steam/steamapps/workshop/content/4000/<id>/`). Collections come down as their thumbnail only; a removed item says File Not Found.
+- Fetch: `~/assetlab-private/steamcmd/steamcmd.sh +login anonymous +workshop_download_item 4000 <id> +quit` (lands in `~/.local/share/Steam/steamapps/workshop/content/4000/<id>/`). Use an exact item ID: collection downloads may contain only a thumbnail. A removed Workshop page does not always mean the archived item is unavailable; inspect SteamCMD's result and any `_legacy.bin` before deciding.
 - `assetlab gma <file.gma or *_legacy.bin> [--extract DIR]` lists or unpacks an addon (`importers/gma.py`; legacy bins are LZMA "alone"). Pass DIR as the first `--game-dir`, then GMod's `garrysmod` and `sourceengine` for the shared player animations.
 - Some addons need another item for their textures (Goku 764848190 needs 703107302): extract it into the same DIR.
 - Imported: Harry Potter (2855665131, `models/konnie/harrypotter/harrypotter_school.mdl`), Goku (764848190, `.../goku/pm/gokupm.mdl`), Superman 64 (3300749206, `models/player/ms/superman64/superman64.mdl`). Extracted under `~/assetlab-private/workshop/<id>/` (private).
@@ -31,6 +48,13 @@
 - The importer now decodes 4096-pixel VTFs then reduces them to its package texture budget (Dragonborn's body texture); `$blendtintbybasealpha` and `$color2` are baked into RGBA (Master Chief's green armor). Both were checked with `open-halo-asset-test` renders.
 - Asset Lab's 36 synthetic unit tests pass, including the new tint-mask material test.
 - Characters now flag alpha materials (group flag bit 1) and take `--display` and `--loadout`.
+- Import lessons: Superman 64's air clip loses his head in game; the game
+  uses a complete idle pose with a forward lean for powered flight.
+  Dragonborn's 4096-pixel VTF needs the raised input cap and budgeted
+  downsampling; otherwise it becomes a placeholder. Master Chief's armor
+  needs the baked tint mask because the game does not execute GMod's
+  material proxies. Check each imported body and weapon in a render and
+  on device before treating a package as complete.
 
 ## Sound packs (2026-09-24)
 
@@ -85,8 +109,10 @@
   - Aim matrices.
   - Facial flexes.
   - Viewmodel FOV (CS:S draws at 54 degrees).
-  - LAN sync of characters and classes.
-- **Built packages (private, `~/assetlab-private/bundle/{characters,weapons}`):** `t_leet`, `ct_urban`, `kleiner`, `alyx`, `ak47`. Also available locally but not built: GMod's Breen, G-Man and a citizen; CS:S `t_phoenix` and other skins. There is no Gordon player model anywhere; GMod has only the HEV arms (`c_arms_hev`).
+  - LAN sync of characters and classes was added later in Megamod protocol
+    v6/v7; both devices need the same package roster, and v7 unique-slot
+    behavior still needs a phone LAN check.
+- **Built packages (private, `~/assetlab-private/bundle/{characters,weapons}`):** the current 12-character/11-weapon set includes `t_leet`, `ct_urban`, `kleiner`, `alyx`, `scout`, Harry, Goku, Superman 64, Master Chief, Dragonborn, Iron Man, Dumbledore, the AK-47, M4A1, wands, Fists, Daedric Sword and TF2 weapons. Also available locally but not built: GMod's Breen, G-Man and a citizen; CS:S `t_phoenix` and other skins. There is no Gordon player model anywhere; GMod has only the HEV arms (`c_arms_hev`).
 
 ## Generalization audit (2026-09-23) — summary
 
@@ -106,7 +132,7 @@
   - lightmaps and lights
   - clip brushes
   - overlays and decals
-  - alpha, translucency and other shader layers
+  - shader layers beyond the imported alpha-test/translucent subset
   - 3D skybox scaling (Halo sky kept on purpose)
   - moving brushes, ladders and lifts
   - game logic and Lua
@@ -118,10 +144,10 @@
 
 ## Where things are
 
-- **This repo** (public, `madpai/open-asset-lab`, branch `main`): importer, packager, no-login portal. Pushed. Tests: `.venv/bin/python -m unittest discover -s tests -v` (25 pass; synthetic fixtures only).
-- **Open Halo sandbox** (`~/projects/halo-trial-android`, local branch **`halo-sandbox`**, never pushed): matches on imported maps. The owner's rule: imported-map work is a separate "Halo Garry's Mod" project and must **not** reach Open Halo's GitHub `main`. `fp-animated-guns`/`main` stay strictly Halo. See its `docs/HANDOFF.md` "IMPORTED MAPS".
+- **This repo** (public, `madpai/open-asset-lab`, branch `main`): importer, packager, no-login portal. Tests: `.venv/bin/python -m unittest discover -s tests -v` (36 pass; synthetic fixtures only).
+- **Megamod Showdown game** (`~/projects/halo-trial-android`, branch **`halo-sandbox`**, private `madpai/megamod-showdown` / remote `megamod`): imported-map matches and the hero roster. Never push this branch or its private packages to Open Halo's public `origin`. The public `fp-animated-guns`/Open Halo `main` remains strictly Halo. See the game repo's `docs/HANDOFF.md` and `CLAUDE.md` before editing.
 - **Portal**: user systemd `open-asset-lab.service`, `http://100.89.1.14:8762/`, bound to Tailscale only, **no login** (removed at the owner's request; the tailnet is the boundary). Mutations still need the `X-OAL-Request` header and a same-origin `Origin`. Linked from Open Halo's sideload page. The service's VPK list is TF2 server + the CS:S server's `cstrike_pak_dir.vpk`. The owner has since installed the CS:S client, Garry's Mod and Black Mesa under `~/.local/share/Steam/steamapps/common/`; they may be used as **test inputs** (conversions to scratch, not bulk-staged). The CS:S client's `hl2/` has HL2's texture archives, unlike the server install.
-- **Private data** (never commit): `~/assetlab-private/` — `css-server/` (SteamCMD CS:S dedicated server incl. `hl2/`), `maps/` (registered BSPs), `bundle/*.oalmap` (what the personal APK bundles), TF2 server install (textures missing), `koth_bagel_rc2a.bsp`.
+- **Private data** (never commit): `~/assetlab-private/` — `css-server/`, `maps/`, `workshop/`, SteamCMD installs and `bundle/` (`.oalmap` and `.oalasset` packages for the personal APK). The owner-supplied CS:S, TF2, GMod and HL2 content remains outside both Git repositories.
 
 ## Current de_dust2
 

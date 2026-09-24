@@ -1,4 +1,33 @@
-# First vertical slice — 2026-09-23
+# Progress milestones — 2026-09-23 onward
+
+## Workshop hero roster and material import — 2026-09-24
+
+Megamod Showdown's published private build (`f9ee859`) uses Asset Lab
+packages for 12 characters and 11 weapons. This public importer is at
+`c984d5f` before the documentation closeout. The new Workshop bodies are
+Master Chief, Dragonborn, Iron Man and Dumbledore; Daedric Sword and Elder
+Wand extend the weapon roster. All source downloads and converted packages
+stay outside Git in `~/assetlab-private/`. The personal APK is available to
+the owner at `http://100.89.1.14:8733/`; device visual feedback is pending.
+
+- Master Chief's `$blendtintbybasealpha`/`$color2` material needed tint
+  baked into RGBA. Without it, armor rendered white because Megamod does
+  not run GMod material proxies.
+- Dragonborn's 4096-pixel body VTF exceeded the former input cap and became
+  a placeholder. The decoder now accepts 4096 pixels and downsamples to
+  fit the package texture budget. Treat input size and output budget as
+  separate limits.
+- Several older Workshop listings said removed, while anonymous SteamCMD
+  still delivered `_legacy.bin` archives. Exact item IDs and inspection of
+  downloaded files matter; a collection ID is not an addon archive.
+- Daedric Sword has separate Source world and view models, a TF2 swing
+  sound and a view attack clip. Elder Wand reuses the Workshop wand model
+  and sound with its own recharge balance. Package and offscreen renders
+  were checked; first-person phone FOV remains unconfirmed.
+- The 36 synthetic tests pass. The game side passed a 12-character,
+  11-weapon bot match and `scripts/verify.sh` 80/80. These results do not
+  establish phone appearance, performance or LAN behavior; the next
+  checklist is in [HANDOFF.md](HANDOFF.md) and the game repo's handoff.
 
 ## ctf_2fort and TF2/HL2 weapons — 2026-09-24
 

@@ -1,10 +1,16 @@
 # Open Asset Lab
 
-Local Source BSP ingestion, conversion and staging for [Open Halo Project](https://github.com/madpai/open-halo-project). This first release converts Source 1 BSP v20 world geometry into a versioned `.oalmap` package. Open Halo's host Vulkan renderer loads it, builds collision and writes offscreen images. Android can also pick the staged package and explore its world geometry.
+Local Source content ingestion, conversion and staging for
+[Open Halo Project](https://github.com/madpai/open-halo-project) and the
+private Megamod Showdown game. It converts Source BSP v19/v20 maps into
+`.oalmap` packages and Source characters and weapons into `.oalasset`
+packages. The host Vulkan tools render and validate packages, and Megamod
+plays matches on the owner's privately converted content.
 
 ## What works today
 
 - Convert Source characters (skeleton, skin weights, animations baked by role) and weapons (world and view models, clips, sounds, stats) into `.oalasset` packages: `assetlab character` and `assetlab weapon`.
+- Read exact Garry's Mod Workshop addon archives with `assetlab gma`, including `.gma` and supported `_legacy.bin` files. Workshop downloads and converted packages stay outside this public repository.
 - Inspect Source BSP v19 and v20, face lump v1, including compressed lumps, entities, static-prop inventory, embedded pakfile and missing material paths.
 - Convert world faces, power 2–4 displacement surfaces and static prop models (MDL v44–48, LOD 0), positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
 - Compile deterministic OALMAP v1 packages with bounds, indexed triangles, RGBA textures, spawn positions and a provenance manifest.
@@ -13,7 +19,18 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 
 ## Limits
 
-Open Halo's private sandbox branch plays Slayer, Team Slayer and CTF with bots on a bundled package (de_dust2 was tested on a phone); Open Halo's public `main` stays Halo-only and has only the walking explorer. BSP v19 and v20 are read; v21+ is refused with a reason. Source lightmaps, overlays, translucency/alpha-test, clip brushes, moving brushes, game logic, Workshop browsing and most Source shader features are not implemented, and every map's `compatibility.md` lists what it lost. Collision uses visible world triangles, solid brush entities and solid props. Textures are downsampled to fit Open Halo's 128 MiB cap. See the [generalization audit](docs/GENERALIZATION_AUDIT.md) for the eight maps tested. The Counter-Strike: Source dedicated-server package supplies de_dust2 and its textures through anonymous SteamCMD login; the TF2 files tested earlier omitted usable texture data archives. See [progress](docs/PROGRESS.md) and the [map import playbook](docs/MAP_IMPORT_PLAYBOOK.md).
+Megamod Showdown is in a separate private repository; Open Halo's public
+`main` stays Halo-only. Megamod's published 2026-09-24 personal build has
+five imported maps, 12 characters and 11 imported weapons. Its latest hero
+roster and two-device rules still need phone feedback. BSP v21+ is refused
+with a reason. Source lightmaps, overlays, clip brushes, live moving brushes,
+game logic, Workshop browsing and most shader features are not implemented;
+alpha-test/translucent surfaces are supported in the current map packages.
+Each map's `compatibility.md` lists what it lost. Collision uses visible
+world triangles, solid brush entities and solid props. Textures are
+downsampled to fit the runtime budget. See the
+[current handoff](docs/HANDOFF.md), [progress](docs/PROGRESS.md) and
+[generalization audit](docs/GENERALIZATION_AUDIT.md).
 
 ## Install
 
