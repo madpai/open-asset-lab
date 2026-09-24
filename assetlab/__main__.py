@@ -41,7 +41,10 @@ def main():
                    help='draw props at this model LOD (0 full detail; a model without it uses its coarsest)')
     a = sub.add_parser('character', help='a Source character model into an .oalasset')
     a.add_argument('model'); a.add_argument('--output', required=True); a.add_argument('--hold', default='ak')
-    a.add_argument('--name'); a.add_argument('--skin', type=int, default=0); search_args(a)
+    a.add_argument('--name'); a.add_argument('--skin', type=int, default=0)
+    a.add_argument('--display', help='its name in menus')
+    a.add_argument('--loadout', nargs=2, metavar=('PRIMARY', 'SECONDARY'),
+                   help='its default class: two weapon names as the game shows them'); search_args(a)
     a = sub.add_parser('weapon', help='a weapon definition (JSON) into an .oalasset')
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
     a = sub.add_parser('sounds', help='a sound pack definition (JSON) into an .oalasset')
@@ -80,7 +83,8 @@ def main():
             from .character import build_character, build_weapon, build_sounds
             roots, vpks = search_path(args)
             if args.command == 'character':
-                m = build_character(args.model, args.output, roots, vpks, args.hold, args.name, args.skin)
+                m = build_character(args.model, args.output, roots, vpks, args.hold, args.name, args.skin,
+                                    args.display, args.loadout)
             elif args.command == 'sounds':
                 m = build_sounds(args.definition, args.output, roots, vpks)
             else:

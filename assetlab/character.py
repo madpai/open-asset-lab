@@ -361,12 +361,22 @@ def build(output, kind, name, models, resolver, extra=None, budget=CHARACTER_TEX
     return manifest
 
 
-def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None, skin=0):
+def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None, skin=0,
+                    display=None, loadout=None):
+    """A character. `display` is its name in menus; `loadout` its default
+    class, [primary, secondary], by the weapon names the game shows (an
+    imported weapon's display_name, or a Halo weapon's own, e.g. "pistol")."""
     resolver = Resolver(None, roots, vpks)
     entry = _model_entry(resolver, model_path.replace('\\', '/').lower(), 'character', 'body', hold, skin)
     name = name or re.sub('[^a-z0-9_-]+', '_', Path(model_path).stem.lower())
-    return build(output, 'character', name, [entry], resolver, {'hold_type': hold,
-                 'hand_points': list(translate.HAND_POINTS)})
+    extra = {'hold_type': hold, 'hand_points': list(translate.HAND_POINTS)}
+    if display:
+        extra['display_name'] = display
+    if loadout:
+        if len(loadout) != 2 or not all(isinstance(w, str) and w for w in loadout):
+            raise BSPError('a loadout is two weapon names')
+        extra['loadout'] = list(loadout)
+    return build(output, 'character', name, [entry], resolver, extra)
 
 
 def add_world_grip(entry, grip):
