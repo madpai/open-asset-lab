@@ -152,6 +152,34 @@ class CharacterTests(unittest.TestCase):
         with self.assertRaisesRegex(BSPError,'run_front'):build_character('models/test/guy.mdl',self.root/'x.oalasset',roots=[self.root])
 
 
+def gma_fixture(files):
+    out=bytearray(b'GMAD\x03')+struct.pack('<QQ',76561198000000000,0)+b'\0'
+    out+=b'test addon\0desc\0me\0'+struct.pack('<i',1)
+    for i,(n,d) in enumerate(files,1): out+=struct.pack('<I',i)+n.encode()+b'\0'+struct.pack('<qI',len(d),0)
+    out+=struct.pack('<I',0)
+    for n,d in files: out+=d
+    return bytes(out)
+
+
+class GMATests(unittest.TestCase):
+    def test_gma_lists_extracts_and_unpacks_legacy_bins(self):
+        import lzma
+        from assetlab.importers.gma import GMA,GMAError,load
+        raw=gma_fixture([('models/player/guy.mdl',b'IDST'),('materials/x/y.vmt',b'"VertexLitGeneric" {}')])
+        with tempfile.TemporaryDirectory() as t:
+            t=Path(t)
+            (t/'a.gma').write_bytes(raw)
+            (t/'a_legacy.bin').write_bytes(lzma.compress(raw,format=lzma.FORMAT_ALONE))
+            for f in ('a.gma','a_legacy.bin'):
+                g=GMA(load(t/f))
+                self.assertEqual(g.name,'test addon');self.assertEqual(g.player_models(),['models/player/guy.mdl'])
+                self.assertEqual(g.read('MATERIALS/X/Y.VMT'),b'"VertexLitGeneric" {}')
+            g.extract(t/'out');self.assertEqual((t/'out/models/player/guy.mdl').read_bytes(),b'IDST')
+            with self.assertRaises(GMAError):GMA(gma_fixture([('../evil.txt',b'x')]))
+            (t/'b.bin').write_bytes(b'\x89PNG....')
+            with self.assertRaises(GMAError):load(t/'b.bin')
+
+
 class ModelTests(unittest.TestCase):
     def test_static_model_triangle_and_material(self):
         m=Model(*model_fixture(),exists=lambda n:n=='models/props/x/crate01')
