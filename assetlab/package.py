@@ -169,7 +169,7 @@ class Resolver:
 
     def __init__(self, bsp, roots=(), vpks=()):
         self.bsp = bsp
-        pak = bsp.lump(40)
+        pak = bsp.lump(40) if bsp is not None else b''
         self.zip = zipfile.ZipFile(io.BytesIO(pak)) if pak else None
         if self.zip:
             entries = self.zip.infolist()
@@ -220,6 +220,11 @@ class Resolver:
                 self.found_in[archive.file_prefix + '_dir.vpk'] += 1
                 return data
         return None
+
+    def has_material(self, name):
+        """Is there a VMT by this name? A probe: a miss is not a missing
+        dependency (studiomdl tries each $cdmaterials folder in turn)."""
+        return self.read('materials/' + name.removesuffix('.vmt') + '.vmt') is not None
 
     def vmt(self, name):
         """(shader, flat parameter dict) for a material, following `patch`
@@ -285,7 +290,7 @@ def add_models(world, placements, resolver):
     """Static props and model entities into the world triangles. Returns
     (placed count by source, model paths that could not be read)."""
     cache = {}; failed = set(); placed = Counter()
-    exists = lambda m: resolver.vmt(m) is not None
+    exists = resolver.has_material
     for path, origin, angles, skin, solid, source in placements:
         key = (path, skin)
         if key not in cache:

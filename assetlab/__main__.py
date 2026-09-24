@@ -37,6 +37,11 @@ def main():
     a = sub.add_parser('convert'); a.add_argument('source'); a.add_argument('--output', required=True); search_args(a)
     a.add_argument('--texture-budget-mib', type=float, default=DEFAULT_TEXTURE_BUDGET/2**20)
     a.add_argument('--report-dir', type=Path, help='write compatibility.json/.md here')
+    a = sub.add_parser('character', help='a Source character model into an .oalasset')
+    a.add_argument('model'); a.add_argument('--output', required=True); a.add_argument('--hold', default='ak')
+    a.add_argument('--name'); a.add_argument('--skin', type=int, default=0); search_args(a)
+    a = sub.add_parser('weapon', help='a weapon definition (JSON) into an .oalasset')
+    a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
     a = sub.add_parser('report', help='compatibility report of one or more packages')
     a.add_argument('packages', nargs='+'); a.add_argument('--json', action='store_true')
     sub.add_parser('staged')
@@ -66,6 +71,14 @@ def main():
             if args.report_dir:
                 args.report_dir.mkdir(parents=True, exist_ok=True); write(r['compatibility'], args.report_dir)
             print(json.dumps({'package': args.output, 'manifest': m, 'report': r}, indent=2))
+        elif args.command in ('character', 'weapon'):
+            from .character import build_character, build_weapon
+            roots, vpks = search_path(args)
+            if args.command == 'character':
+                m = build_character(args.model, args.output, roots, vpks, args.hold, args.name, args.skin)
+            else:
+                m = build_weapon(args.definition, args.output, roots, vpks)
+            print(json.dumps(m, indent=2))
         elif args.command == 'report':
             compats = [read_manifest(x)['compatibility'] for x in args.packages]
             if args.json:

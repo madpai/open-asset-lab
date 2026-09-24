@@ -1,5 +1,9 @@
 # First vertical slice — 2026-09-23
 
+## Characters, weapons and custom classes — 2026-09-23 (late night)
+
+Source characters (CS:S terrorist and counter-terrorist, GMod's Kleiner and Alyx) and the CS:S AK-47 convert into OALASSET packages through the same registry-and-search-path rules as maps, and play in Open Halo's sandbox. Bodies animate by role and hold both imported and Halo weapons. The AK has its own first-person model, clips, sound and stats. A custom-classes option spawns players with two chosen weapons. Verified on the desktop by renders and bot matches; phone test pending. Details in HANDOFF.
+
 ## Four imported maps on the phone — 2026-09-23 (late night)
 
 de_aztec, cs_office and gm_construct were converted with the audited importer (same command as dust2) and bundled with de_dust2 in the owner's personal APK (sandbox build `8c25abc`, 707 MB). Owner's phone: cs_office and gm_construct run at **120 fps** and are "almost complete with some problems" (not being pursued now); screenshots show office interiors, props and GMod's buildings rendering. Next objective set by the owner: importing a player model and a weapon (see HANDOFF).

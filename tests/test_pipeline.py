@@ -64,6 +64,77 @@ def model_fixture():
     return bytes(mdl),bytes(vvd),bytes(vtx)
 
 
+def animated_fixture():
+    """A two-bone model whose bone 1 turns 90 degrees about Z in a RAWROT
+    animation, with ACT_IDLE and ACT_RUN sequences on that anim, one
+    triangle skinned to bone 1. Tables sit after the 408-byte header."""
+    mdl=bytearray(4096);mdl[:4]=b'IDST';struct.pack_into('<ii',mdl,4,48,1234)
+    struct.pack_into('<iiiiiiiii',mdl,204,1,1000,1,1080,1,1,1090,1,1200)   # tex, cd, skin, bodyparts
+    struct.pack_into('<i',mdl,1000,1100-1000);mdl[1100:1108]=b'crate01\0'
+    struct.pack_into('<i',mdl,1080,1120);mdl[1120:1136]=b'models\\props\\x\\\0'
+    struct.pack_into('<iiii',mdl,1200,0,1,0,16)            # body part -> model at 1216
+    struct.pack_into('<iiii',mdl,1216+72,1,148,3,0)        # one mesh at 1364
+    struct.pack_into('<iiii',mdl,1364,0,0,3,0)
+    struct.pack_into('<ii',mdl,156,2,1600)                 # bones at 1600
+    for i,(name_off,parent) in enumerate(((3000,-1),(3010,0))):
+        o=1600+i*216
+        struct.pack_into('<ii',mdl,o,name_off-o,parent)
+        struct.pack_into('<3f',mdl,o+32,0,0,0 if i==0 else 12)
+        struct.pack_into('<4f',mdl,o+44,0,0,0,1)
+        struct.pack_into('<3f',mdl,o+72,1,1,1); struct.pack_into('<3f',mdl,o+84,1,1,1)
+        struct.pack_into('<12f',mdl,o+96,1,0,0,0, 0,1,0,0, 0,0,1,-12 if i else 0)
+    mdl[3000:3005]=b'root\0';mdl[3010:3015]=b'hand\0'
+    struct.pack_into('<ii',mdl,180,1,2100)                 # one anim desc at 2100
+    struct.pack_into('<i',mdl,2104,3020-2100);mdl[3020:3025]=b'turn\0'
+    struct.pack_into('<fii',mdl,2108,30.0,0,2)
+    struct.pack_into('<ii',mdl,2152,0,2300-2100)          # data at 2300
+    z=math.sin(math.pi/4)
+    struct.pack_into('<BBh',mdl,2300,1,2,0)
+    struct.pack_into('<HHH',mdl,2304,32768,32768,int(z*16384+16384))
+    struct.pack_into('<ii',mdl,188,2,2400)                 # two sequences at 2400
+    for k,(lab,act) in enumerate(((3030,3040),(3060,3070))):
+        o=2400+k*212
+        struct.pack_into('<ii',mdl,o+4,lab-o,act-o)
+        struct.pack_into('<i',mdl,o+60,2900-o)
+        struct.pack_into('<ii',mdl,o+68,1,1)
+    mdl[3030:3035]=b'idle\0';mdl[3040:3049]=b'ACT_IDLE\0';mdl[3060:3064]=b'run\0';mdl[3070:3078]=b'ACT_RUN\0'
+    struct.pack_into('<h',mdl,2900,0)
+    _,vvd,vtx=[bytearray(b) for b in model_fixture()]
+    for i in range(3):struct.pack_into('<3f3B',vvd,64+i*48,1,0,0,1,0,0);vvd[64+i*48+15]=1
+    return bytes(mdl),bytes(vvd),bytes(vtx)
+
+
+class CharacterTests(unittest.TestCase):
+    def setUp(self):
+        self.t=tempfile.TemporaryDirectory();self.root=Path(self.t.name)
+        mdl,vvd,vtx=animated_fixture()
+        d=self.root/'models/test';d.mkdir(parents=True)
+        (d/'guy.mdl').write_bytes(mdl);(d/'guy.vvd').write_bytes(vvd);(d/'guy.dx90.vtx').write_bytes(vtx)
+    def tearDown(self):self.t.cleanup()
+    def test_studio_parses_bones_sequences_and_raw_rotation(self):
+        from assetlab.importers.source_studio import Studio
+        st=Studio((self.root/'models/test/guy.mdl').read_bytes(),name='guy')
+        self.assertEqual([b['name'] for b in st.bones],['root','hand'])
+        self.assertEqual([(q['label'],q['activity']) for q in st.sequences],[('idle','ACT_IDLE'),('run','ACT_RUN')])
+        pos,q,delta=st.sample(0,0)[1]
+        self.assertAlmostEqual(q[2],math.sin(math.pi/4),places=3);self.assertAlmostEqual(q[3],math.cos(math.pi/4),places=3)
+        self.assertEqual(pos,(0,0,12))
+    def test_character_bakes_roles_through_the_registry(self):
+        from assetlab.character import build_character,MAGIC
+        m=build_character('models/test/guy.mdl',self.root/'guy.oalasset',roots=[self.root],hold='ak')
+        roles=[c['role'] for c in m['models'][0]['clips']]
+        self.assertIn('idle',roles);self.assertIn('run_front',roles)
+        self.assertIn('death',m['models'][0]['missing_roles'])
+        self.assertEqual(m['models'][0]['bones'],['root','hand'])
+        data=(self.root/'guy.oalasset').read_bytes()
+        self.assertEqual(data[:4],MAGIC);self.assertEqual(struct.unpack_from('<I',data,4)[0],1)
+    def test_character_without_required_roles_is_refused(self):
+        from assetlab.character import build_character
+        mdl=bytearray((self.root/'models/test/guy.mdl').read_bytes())
+        mdl[3070:3078]=b'ACT_XYZ\0';(self.root/'models/test/guy.mdl').write_bytes(bytes(mdl))
+        with self.assertRaisesRegex(BSPError,'run_front'):build_character('models/test/guy.mdl',self.root/'x.oalasset',roots=[self.root])
+
+
 class ModelTests(unittest.TestCase):
     def test_static_model_triangle_and_material(self):
         m=Model(*model_fixture(),exists=lambda n:n=='models/props/x/crate01')

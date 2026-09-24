@@ -1,0 +1,19 @@
+{
+  "name": "ak47",
+  "display_name": "AK-47",
+  "base": "assault rifle",
+  "world_model": "models/weapons/w_rif_ak47.mdl",
+  "view_model": "models/weapons/v_rif_ak47.mdl",
+  "stats": {
+    "rounds_per_second": 10.0,
+    "magazine": 30,
+    "reserve": 90,
+    "damage_scale": 1.6,
+    "spread_scale": 1.3
+  },
+  "stats_provenance": "CS:S AK-47 as documented publicly: 600 rounds/min, 30-round magazine, 90 spare; about 36 body damage vs the M4's 33 and Halo's assault rifle's lighter rounds. Damage and spread are expressed relative to the base Halo weapon.",
+  "sounds": {
+    "fire": "sound/weapons/ak47/ak47-1.wav",
+    "reload": "sound/weapons/ak47/ak47_clipout.wav"
+  }
+}

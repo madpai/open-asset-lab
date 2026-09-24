@@ -170,3 +170,81 @@ def placeholder(name, props=None):
         d = digest[i] % 11 - 5
         pixels.extend((*[max(0, min(255, c + d)) for c in base], 255))
     return 4, 4, bytes(pixels)
+
+
+# ---- characters and weapons -------------------------------------------------------
+#
+# A character clip is baked from a base sequence (by activity, the direction
+# picked from its blend grid) plus an optional upper-body layer (by sequence
+# name, `{hold}` filled from the build's hold type). Each role lists recipes
+# for the Source game families; the first one the model can satisfy is used
+# and the report says which. Directions are unit vectors in the model's
+# XY plane (+X forward, +Y left), matched against each blend cell's root
+# motion or, failing that, the move_x/move_y pose parameters.
+CHARACTER_ROLES = {
+    'idle': [
+        {'activity': ['ACT_HL2MP_IDLE_{HOLD}', 'ACT_HL2MP_IDLE']},
+        {'activity': ['ACT_IDLE'], 'layer': ['Idle_Upper_{hold}']},
+    ],
+    'run_front': [
+        {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (1, 0)},
+        {'activity': ['ACT_RUN'], 'move': (1, 0), 'layer': ['Run_Upper_{hold}']},
+    ],
+    'run_back': [
+        {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (-1, 0)},
+        {'activity': ['ACT_RUN'], 'move': (-1, 0), 'layer': ['Run_Upper_{hold}']},
+    ],
+    'run_left': [
+        {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (0, 1)},
+        {'activity': ['ACT_RUN'], 'move': (0, 1), 'layer': ['Run_Upper_{hold}']},
+    ],
+    'run_right': [
+        {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (0, -1)},
+        {'activity': ['ACT_RUN'], 'move': (0, -1), 'layer': ['Run_Upper_{hold}']},
+    ],
+    'crouch_idle': [
+        {'activity': ['ACT_HL2MP_IDLE_CROUCH_{HOLD}', 'ACT_HL2MP_IDLE_CROUCH']},
+        {'activity': ['ACT_CROUCHIDLE'], 'layer': ['Crouch_Idle_Upper_{hold}']},
+    ],
+    'crouch_move': [
+        {'activity': ['ACT_HL2MP_WALK_CROUCH_{HOLD}', 'ACT_HL2MP_WALK_CROUCH'], 'move': (1, 0)},
+        {'activity': ['ACT_RUN_CROUCH'], 'move': (1, 0), 'layer': ['Crouch_Walk_Upper_{hold}']},
+    ],
+    'air': [
+        {'activity': ['ACT_HL2MP_JUMP_{HOLD}', 'ACT_HL2MP_JUMP']},
+        {'activity': ['ACT_HOP'], 'layer': ['Idle_Upper_{hold}']},
+    ],
+    'death': [
+        # Real death animations only. CS:S and GMod players have none (they
+        # ragdoll; ACT_DIE_*SIDE are ragdoll helper poses): the runtime then
+        # topples the body itself.
+        {'activity': ['ACT_DIESIMPLE', 'ACT_DIEBACKWARD', 'ACT_DIEFORWARD']},
+    ],
+}
+# Roles a character must have; without them the package is refused.
+CHARACTER_REQUIRED = ('idle', 'run_front')
+
+# First-person weapon models: clips by viewmodel activity.
+VIEWMODEL_ROLES = {
+    'idle': ['ACT_VM_IDLE'],
+    'fire': ['ACT_VM_PRIMARYATTACK'],
+    'reload': ['ACT_VM_RELOAD'],
+    'draw': ['ACT_VM_DRAW', 'ACT_VM_DEPLOY'],
+}
+VIEWMODEL_REQUIRED = ('idle', 'fire')
+
+# Where a skeleton family holds things: the hand bone or attachment to
+# look for, in order.
+HAND_POINTS = ('anim_attachment_RH', 'ValveBiped.weapon_bone', 'ValveBiped.Bip01_R_Hand')
+
+# Skeleton-family grips: a body that lacks a weapon bone its family's
+# weapons bone-merge to gets one as an attachment on its hand. The ValveBiped
+# grip was measured, not invented: CS:S's weapon_bone relative to
+# Bip01_R_Hand while t_leet holds a rifle (ak_anims_t idle; run and crouch
+# agree within ~1 degree). 3x4 row-major, Source units.
+SYNTH_GRIPS = (
+    {'name': 'ValveBiped.weapon_bone', 'on': 'ValveBiped.Bip01_R_Hand',
+     'local': (-0.1263, -0.0185, 0.9918, 4.716,
+               -0.9619, 0.2467, -0.1179, -0.972,
+               -0.2425, -0.9689, -0.0490, -3.336)},
+)

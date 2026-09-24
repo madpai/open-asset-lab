@@ -4,6 +4,7 @@ Local Source BSP ingestion, conversion and staging for [Open Halo Project](https
 
 ## What works today
 
+- Convert Source characters (skeleton, skin weights, animations baked by role) and weapons (world and view models, clips, sounds, stats) into `.oalasset` packages: `assetlab character` and `assetlab weapon`.
 - Inspect Source BSP v19 and v20, face lump v1, including compressed lumps, entities, static-prop inventory, embedded pakfile and missing material paths.
 - Convert world faces, power 2–4 displacement surfaces and static prop models (MDL v44–48, LOD 0), positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
 - Compile deterministic OALMAP v1 packages with bounds, indexed triangles, RGBA textures, spawn positions and a provenance manifest.

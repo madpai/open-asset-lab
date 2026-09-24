@@ -1,38 +1,38 @@
-# Session handoff — 2026-09-23 (maps on the phone; next: player model + weapon)
+# Session handoff — 2026-09-23 (characters, weapons, custom classes)
 
 ## Start of next session
 
-1. **Next objective (owner, 2026-09-23): import a player model and a weapon.** Candidates the owner named: a CS:S terrorist, "Gordon or something", and the CS:S AK-47. See "Next: player model + weapon" below. Read [GENERALIZATION_AUDIT.md](GENERALIZATION_AUDIT.md) first; the same rules apply (registry and format tables, no per-asset code, report what is lost).
+1. **Characters and weapons are implemented (2026-09-23, late)** -- see "Characters and weapons" below. First phone test pending: player model in Settings, custom classes with the AK-47 in SINGLEPLAYER / CREATE GAME. Ask for the result before extending.
 2. Imported maps on the phone (sandbox build `8c25abc`): **cs_office and gm_construct run at 120 fps and are "almost complete with some problems"**. The owner does not want to work on those problems now. de_aztec has no report yet; dust2 has an earlier phone pass.
 3. The **Garry's Mod Workshop** is the long-term goal but is **not started**. Keep the **Halo sky**. Imported work never goes to Open Halo's GitHub `main` (local branch `halo-sandbox`; a separate repository is planned, name not chosen).
 
-## Next: player model + weapon (not started)
+## Characters and weapons (done 2026-09-23, late)
 
-What exists locally, checked 2026-09-23 (MDL version in brackets; the reader handles v44-48):
-
-- **CS:S client** (`Counter-Strike Source/cstrike/cstrike_pak_dir.vpk`):
-  - players `models/player/t_leet.mdl`, `t_phoenix.mdl`, `ct_urban.mdl` [44]
-  - AK-47 viewmodel `models/weapons/v_rif_ak47.mdl` [44], with CS:S arms baked in
-  - AK-47 world model `models/weapons/w_rif_ak47.mdl` [44]
-- **Garry's Mod** (`garrysmod_dir.vpk`):
-  - players `models/player/kleiner.mdl`, `alyx.mdl`, `breen.mdl`, `gman_high.mdl`, `group01/male_07.mdl` [48]
-  - separate first-person arms `models/weapons/c_arms_hev.mdl` (Gordon's HEV hands), `c_arms_citizen.mdl`, `c_arms_combine.mdl` [48]
-  - a CS AK world model [48]
-- **Gordon Freeman:** no player model in HL2, GMod or Black Mesa's archives, only HEV props and a zombie. The HEV arms are the nearest usable piece.
-
-What this needs beyond the static-prop path (which reads LOD 0 in bind pose only):
-
-1. **Skinned meshes.** Keep VVD bone weights (the 16 bytes skipped today) and the MDL bone table (names, parents, bind pose).
-2. **Animations.** A CS:S player's sequences come from shared animation models via `$includemodel`, e.g. `models/player/cs_player_shared.mdl`, and need resolving through the same search path. Decode the compressed Source animation tracks. Viewmodel sequences (idle, fire, reload, draw) live in the `v_` model itself.
-3. **A package format for characters and weapons.** OALMAP is world-only today. Decide a sibling format (e.g. OALCHAR/OALWEAP), or a model section, together with Open Halo.
-4. **Mapping onto Open Halo.**
-   - Bodies are Halo bipeds driven by Halo's animation graph ("stand rifle idle", "move-front", ...), and weapons are Halo `weap` tags (fire rate, damage, projectile).
-   - A translation registry maps Source sequence names/activities (ACT_MP_RUN, ACT_VM_PRIMARYATTACK, ...) to Halo animation states, and Source weapon scripts (`scripts/weapon_ak47.ctx` in CS:S) to Open Halo weapon parameters.
-   - Unmapped states are reported, the same way the map importer reports what it loses.
-5. **Suggested first slice:**
-   - the AK-47 world model as a pickup/held mesh (static, no animation): closest to what already works
-   - then the viewmodel with its idle/fire sequences
-   - then a terrorist body replacing the cyborg
+- **Commands** (same search-path rules as maps; `--game-dir` per content folder):
+  ```sh
+  .venv/bin/python -m assetlab character models/player/t_leet.mdl --hold ak --output X.oalasset --game-dir ".../Counter-Strike Source/cstrike" --game-dir ".../Counter-Strike Source/hl2"
+  .venv/bin/python -m assetlab character models/player/kleiner.mdl --hold ar2 --output X.oalasset --game-dir ".../GarrysMod/garrysmod" --game-dir ".../GarrysMod/sourceengine"
+  .venv/bin/python -m assetlab weapon assetlab/data/weapons/cs_ak47.json --output X.oalasset --game-dir ...
+  ```
+- **Code:**
+  - `importers/source_studio.py` reads MDL v44-48 skeletons, attachments, pose parameters, include models and `.ani` animation blocks. It decodes RLE/RAWROT/RAWROT2/RAWPOS/ANIMROT/ANIMPOS tracks and handles delta layers and weight lists.
+  - `character.py` bakes clips by role from `translate.CHARACTER_ROLES`:
+    - GMod/HL2MP family: `ACT_HL2MP_*_{HOLD}` full-body sequences.
+    - CS:S family: lower-body activity plus a `{Idle|Run|...}_Upper_{hold}` layer.
+    - Move directions in 3x3 blend grids are picked by each cell's root motion, falling back to the move_x/move_y pose parameters.
+  - Viewmodel clips map by `ACT_VM_*`. Weapon sounds are PCM WAVs decoded into the package.
+- **Format:** OALASSET v1, documented in `character.py`'s docstring.
+  - Characters: one skinned model. Weapons: a world model and a view model, plus the definition's stats relative to a base Halo weapon.
+  - Weapon definitions are data in `assetlab/data/weapons/`. The AK-47's stats are its published CS:S values, stated as provenance.
+- **Grip for bodies without a weapon bone:** `translate.SYNTH_GRIPS` adds `ValveBiped.weapon_bone` as an attachment on the right hand. The value was measured from CS:S's rifle idle.
+- **What's missing, and is reported:**
+  - Death animations: CS:S and GMod ragdoll instead, so Open Halo topples the body.
+  - Gesture layers (fire/reload on the body).
+  - Aim matrices.
+  - Facial flexes.
+  - Viewmodel FOV (CS:S draws at 54 degrees).
+  - LAN sync of characters and classes.
+- **Built packages (private, `~/assetlab-private/bundle/{characters,weapons}`):** `t_leet`, `ct_urban`, `kleiner`, `alyx`, `ak47`. Also available locally but not built: GMod's Breen, G-Man and a citizen; CS:S `t_phoenix` and other skins. There is no Gordon player model anywhere; GMod has only the HEV arms (`c_arms_hev`).
 
 ## Generalization audit (2026-09-23) — summary
 
