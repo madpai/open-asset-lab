@@ -237,37 +237,47 @@ def placeholder(name, props=None):
 # XY plane (+X forward, +Y left), matched against each blend cell's root
 # motion or, failing that, the move_x/move_y pose parameters.
 CHARACTER_ROLES = {
+    # Third in each role: TF2's classes, ACT_MP_*_{HOLD} with hold PRIMARY,
+    # SECONDARY or MELEE (their animations live in <class>_animations.mdl).
     'idle': [
         {'activity': ['ACT_HL2MP_IDLE_{HOLD}', 'ACT_HL2MP_IDLE']},
         {'activity': ['ACT_IDLE'], 'layer': ['Idle_Upper_{hold}']},
+        {'activity': ['ACT_MP_STAND_{HOLD}']},
     ],
     'run_front': [
         {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (1, 0)},
         {'activity': ['ACT_RUN'], 'move': (1, 0), 'layer': ['Run_Upper_{hold}']},
+        {'activity': ['ACT_MP_RUN_{HOLD}'], 'move': (1, 0)},
     ],
     'run_back': [
         {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (-1, 0)},
         {'activity': ['ACT_RUN'], 'move': (-1, 0), 'layer': ['Run_Upper_{hold}']},
+        {'activity': ['ACT_MP_RUN_{HOLD}'], 'move': (-1, 0)},
     ],
     'run_left': [
         {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (0, 1)},
         {'activity': ['ACT_RUN'], 'move': (0, 1), 'layer': ['Run_Upper_{hold}']},
+        {'activity': ['ACT_MP_RUN_{HOLD}'], 'move': (0, 1)},
     ],
     'run_right': [
         {'activity': ['ACT_HL2MP_RUN_{HOLD}', 'ACT_HL2MP_RUN'], 'move': (0, -1)},
         {'activity': ['ACT_RUN'], 'move': (0, -1), 'layer': ['Run_Upper_{hold}']},
+        {'activity': ['ACT_MP_RUN_{HOLD}'], 'move': (0, -1)},
     ],
     'crouch_idle': [
         {'activity': ['ACT_HL2MP_IDLE_CROUCH_{HOLD}', 'ACT_HL2MP_IDLE_CROUCH']},
         {'activity': ['ACT_CROUCHIDLE'], 'layer': ['Crouch_Idle_Upper_{hold}']},
+        {'activity': ['ACT_MP_CROUCH_{HOLD}']},
     ],
     'crouch_move': [
         {'activity': ['ACT_HL2MP_WALK_CROUCH_{HOLD}', 'ACT_HL2MP_WALK_CROUCH'], 'move': (1, 0)},
         {'activity': ['ACT_RUN_CROUCH'], 'move': (1, 0), 'layer': ['Crouch_Walk_Upper_{hold}']},
+        {'activity': ['ACT_MP_CROUCHWALK_{HOLD}'], 'move': (1, 0)},
     ],
     'air': [
         {'activity': ['ACT_HL2MP_JUMP_{HOLD}', 'ACT_HL2MP_JUMP']},
         {'activity': ['ACT_HOP'], 'layer': ['Idle_Upper_{hold}']},
+        {'activity': ['ACT_MP_JUMP_FLOAT_{HOLD}', 'ACT_MP_AIRWALK_{HOLD}']},
     ],
     'death': [
         # Real death animations only. CS:S and GMod players have none (they
@@ -282,7 +292,7 @@ CHARACTER_REQUIRED = ('idle', 'run_front')
 # First-person weapon models: clips by viewmodel activity.
 VIEWMODEL_ROLES = {
     'idle': ['ACT_VM_IDLE'],
-    'fire': ['ACT_VM_PRIMARYATTACK'],
+    'fire': ['ACT_VM_PRIMARYATTACK', 'ACT_VM_HITCENTER', 'ACT_VM_SWINGHARD'],   # a melee weapon's swing
     'reload': ['ACT_VM_RELOAD'],
     'draw': ['ACT_VM_DRAW', 'ACT_VM_DEPLOY'],
 }

@@ -1,0 +1,20 @@
+{
+  "name": "tf2_bat",
+  "display_name": "Bat (TF2)",
+  "base": "pistol",
+  "melee": true,
+  "world_model": "models/weapons/w_models/w_bat.mdl",
+  "view_model": "models/weapons/v_models/v_bat_scout.mdl",
+  "stats": {
+    "rounds_per_second": 2.0,
+    "damage_scale": 0.9
+  },
+  "stats_provenance": "TF2 Scout's stock Bat: a swing every 0.5 s (published). Swung, not fired: each blow is the base Halo pistol's melee damage x0.9 (ours), and a blow from behind still kills as Halo's does.",
+  "sounds": {
+    "fire": "sound/weapons/bat_draw_swoosh1.wav"
+  },
+  "crosshair": "dot",
+  "crosshair_size": 12,
+  "view_model_mirrored": false,
+  "view_model_mirrored_provenance": "TF2 view models are authored right-handed."
+}
