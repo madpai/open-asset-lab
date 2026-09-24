@@ -2,7 +2,9 @@
 
 ## Start of next session
 
-1. **Current private bundle:** 12 characters, 13 weapons, six maps
+1. **Revisions:** game `91a1679` on `halo-sandbox` (private `megamod/main`);
+   importer `d075f13` on public `main`. **Current private bundle:** 12
+   characters, 13 weapons, six maps
    (`de_dust2`, `cs_office`, `de_aztec`, `ctf_2fort`, `gm_construct`,
    `mcdonalds`). Packages stay in `~/assetlab-private/bundle`. The game
    handoff's testing objective is the phone pass. Protocol on the game
