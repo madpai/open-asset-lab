@@ -9,7 +9,8 @@
     "magazine": 6,
     "reserve": 12,
     "damage_scale": 1.6,
-    "spread_scale": 0.8
+    "spread_scale": 0.8,
+    "reload_seconds": 3.7
   },
   "stats_provenance": "Half-Life 2's .357 Magnum as documented publicly: 6-round cylinder, 12 spare, about 0.75 s between shots, 40 damage against the pistol's 5. Relative to Halo's pistol: slower, harder hitting and tighter -- the 1.6 and 0.8 are ours.",
   "sounds": {
@@ -35,5 +36,8 @@
       0.0
     ]
   },
-  "world_grip_provenance": "HL2's w_357 is a pickup with no weapon bone. It lies on its side (barrel +Y, grip +X, flat in Z) where a CS:S or GMod weapon bone expects barrel -Y and up +Z, so the grip is that turn, placed 1.5 units down the grip. Ours, checked by render."
+  "world_grip_provenance": "HL2's w_357 is a pickup with no weapon bone. It lies on its side (barrel +Y, grip +X, flat in Z) where a CS:S or GMod weapon bone expects barrel -Y and up +Z, so the grip is that turn, placed 1.5 units down the grip. Ours, checked by render.",
+  "crosshair": "arms+dot",
+  "crosshair_size": 20,
+  "crosshair_and_reload_provenance": "HL2 .357 reload: its view model's reload clip, 3.7 s. Crosshair size ours."
 }

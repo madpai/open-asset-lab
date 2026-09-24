@@ -9,7 +9,9 @@
     "magazine": 4,
     "reserve": 20,
     "damage_scale": 0.6,
-    "spread_scale": 1.0
+    "spread_scale": 1.0,
+    "reload_rounds": 1,
+    "reload_seconds": 0.8
   },
   "stats_provenance": "TF2 Soldier's stock Rocket Launcher as documented publicly: 4-rocket clip, 20 spare, 0.8 s between shots. Its rockets (90 base damage against 200-health Soldiers) do not one-shot the way Halo's do, so damage is scaled to 0.6 of the Halo rocket's -- that factor is ours.",
   "sounds": {
@@ -17,5 +19,8 @@
     "reload": "sound/weapons/rocket_reload.wav"
   },
   "view_model_mirrored": false,
-  "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default)."
+  "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default).",
+  "crosshair": "ring+dot",
+  "crosshair_size": 24,
+  "crosshair_and_reload_provenance": "TF2 loads one rocket per 0.8 s (published; the first takes 0.92). Crosshair: TF2's default is a small circle; size ours."
 }

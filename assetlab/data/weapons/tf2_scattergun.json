@@ -9,7 +9,9 @@
     "magazine": 6,
     "reserve": 32,
     "damage_scale": 1.0,
-    "spread_scale": 1.2
+    "spread_scale": 1.2,
+    "reload_rounds": 1,
+    "reload_seconds": 0.5
   },
   "stats_provenance": "TF2 Scout's stock Scattergun as documented publicly: 6 shells, 32 spare, 0.625 s between shots, a wider spread than a plain shotgun. Damage against the Halo shotgun's is ours (kept equal).",
   "sounds": {
@@ -17,5 +19,8 @@
     "reload": "sound/weapons/scatter_gun_reload.wav"
   },
   "view_model_mirrored": false,
-  "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default)."
+  "view_model_mirrored_provenance": "TF2 view models are authored right-handed (cl_flipviewmodels 0 is the default).",
+  "crosshair": "ring+dot",
+  "crosshair_size": 34,
+  "crosshair_and_reload_provenance": "TF2 loads one shell per 0.5 s (published; the first takes 0.7). Crosshair: a wider circle for the spread; size ours."
 }

@@ -9,7 +9,8 @@
     "magazine": 30,
     "reserve": 90,
     "damage_scale": 1.6,
-    "spread_scale": 1.3
+    "spread_scale": 1.3,
+    "reload_seconds": 2.5
   },
   "stats_provenance": "CS:S AK-47 as documented publicly: 600 rounds/min, 30-round magazine, 90 spare; about 36 body damage vs the M4's 33 and Halo's assault rifle's lighter rounds. Damage and spread are expressed relative to the base Halo weapon.",
   "sounds": {
@@ -17,5 +18,8 @@
     "reload": "sound/weapons/ak47/ak47_clipout.wav"
   },
   "view_model_mirrored": true,
-  "view_model_mirrored_provenance": "CS:S view models are authored left-handed; the game mirrors them with cl_righthand 1 (its default)."
+  "view_model_mirrored_provenance": "CS:S view models are authored left-handed; the game mirrors them with cl_righthand 1 (its default).",
+  "crosshair": "arms+dot",
+  "crosshair_size": 26,
+  "crosshair_and_reload_provenance": "CS:S AK-47 reload: 2.5 s (published). Crosshair: CS:S draws arms with a gap; the dot and the sizes are ours."
 }
