@@ -32,6 +32,21 @@
 
 - `assetlab sounds <definition.json> --output ui.oalasset --game-dir ...`: an OALASSET of kind `sounds` (no models), sounds by role. `assetlab/data/sounds/tf2_hitsounds.json` packs TF2's hit and kill dings and its freeze-cam sounds; MEGAMOD SHOWDOWN loads `assets/sounds/ui.oalasset` for its hit feedback and killcam.
 
+## Character stats and CS:S M4A1 (2026-09-24)
+
+- `assetlab character --stats KEY=VALUE` writes health, shield, damage,
+  movement speed, flight and ability settings into the character manifest.
+  The game reads these when each character spawns. Current private packages
+  include Goku, Superman, Harry, two CS:S players and three Source players.
+- `assetlab/data/weapons/fists.json` uses an empty world model, TF2 Heavy's
+  first-person fists and a knockback value. `hp_wand.json` has 12 charges and
+  3 charges per second recharge; `hp_broom.json` flies at 3.5 wu/s.
+- `assetlab/data/weapons/cs_m4a1.json` is the CS:S M4A1 for Urban's preset.
+  Its private package has four view clips, two sounds and no missing
+  dependencies. Rate and magazine follow CS:S; damage, spread and reload
+  are stated as game balance in the definition. Silencer switching is not
+  implemented.
+
 ## TF2 and HL2 weapons (2026-09-24)
 
 - `assetlab/data/weapons/tf2_rocketlauncher.json`, `tf2_scattergun.json` (TF2's legacy `v_models/` view models, arms included; right-handed), `hl2_357.json` (GMod's `sourceengine` HL2 content, HEV hands).

@@ -292,7 +292,7 @@ CHARACTER_REQUIRED = ('idle', 'run_front')
 # First-person weapon models: clips by viewmodel activity.
 VIEWMODEL_ROLES = {
     'idle': ['ACT_VM_IDLE'],
-    'fire': ['ACT_VM_PRIMARYATTACK', 'ACT_VM_HITCENTER', 'ACT_VM_SWINGHARD'],   # a melee weapon's swing
+    'fire': ['ACT_VM_PRIMARYATTACK', 'ACT_VM_HITCENTER', 'ACT_VM_SWINGHARD', 'ACT_VM_HITRIGHT'],   # a melee weapon's swing
     'reload': ['ACT_VM_RELOAD'],
     'draw': ['ACT_VM_DRAW', 'ACT_VM_DEPLOY'],
 }

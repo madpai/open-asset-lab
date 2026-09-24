@@ -44,7 +44,9 @@ def main():
     a.add_argument('--name'); a.add_argument('--skin', type=int, default=0)
     a.add_argument('--display', help='its name in menus')
     a.add_argument('--loadout', nargs=2, metavar=('PRIMARY', 'SECONDARY'),
-                   help='its default class: two weapon names as the game shows them'); search_args(a)
+                   help='its default class: two weapon names as the game shows them')
+    a.add_argument('--stats', nargs='*', default=[], metavar='KEY=VALUE',
+                   help='how it plays against the Spartan: health shield damage speed fly fly_speed fly_damage'); search_args(a)
     a = sub.add_parser('weapon', help='a weapon definition (JSON) into an .oalasset')
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
     a = sub.add_parser('gma', help="list or extract a Garry's Mod addon (.gma, or a Workshop *_legacy.bin)")
@@ -86,7 +88,7 @@ def main():
             roots, vpks = search_path(args)
             if args.command == 'character':
                 m = build_character(args.model, args.output, roots, vpks, args.hold, args.name, args.skin,
-                                    args.display, args.loadout)
+                                    args.display, args.loadout, dict(kv.split('=', 1) for kv in args.stats))
             elif args.command == 'sounds':
                 m = build_sounds(args.definition, args.output, roots, vpks)
             else:

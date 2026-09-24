@@ -261,6 +261,22 @@ def _name(text, n):
     return raw + b'\0'*(n-len(raw))
 
 
+def _write_empty_model(f):
+    """A model with nothing to see: one zero-area triangle, a 1x1 clear
+    texture, one bone. A weapon with no world model (fists) carries this
+    in its first slot."""
+    f.write(struct.pack('<8I', 3, 3, 1, 1, 1, 0, 0, 0))
+    f.write(struct.pack('<8f4B3f', 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1.0, 0.0, 0.0) * 3)
+    f.write(struct.pack('<3I', 0, 1, 2))
+    f.write(struct.pack('<4I', 0, 3, 0, 0))
+    f.write(struct.pack('<3I', 1, 1, 4) + bytes(4))
+    f.write(struct.pack('<64si12f3f4f', _name('root', 64), -1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0,
+                        0, 0, 0, 0, 0, 0, 1))
+    return {'path': None, 'kind': 'world', 'vertices': 3, 'triangles': 1, 'bones': ['root'], 'attachments': [],
+            'clips': [], 'missing_roles': [], 'includes': [], 'materials': [], 'alpha_materials': [],
+            'placeholder_materials': [], 'textures_downsampled': {}, 'texture_bytes': 4, 'empty': True}
+
+
 def _write_model(f, entry, resolver, budget):
     main, mesh = entry['studio'], entry['mesh']
     mats = sorted(mesh.groups)
@@ -345,7 +361,7 @@ def build(output, kind, name, models, resolver, extra=None, budget=CHARACTER_TEX
     out = Path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
     buf = io.BytesIO()
-    infos = [_write_model(buf, m, resolver, budget) for m in models]
+    infos = [_write_empty_model(buf) if m is None else _write_model(buf, m, resolver, budget) for m in models]
     for role, rate, ch, pcm in sounds:
         buf.write(struct.pack('<16sIII', _name(role, 16), rate, ch, len(pcm)//ch)); buf.write(pcm.tobytes())
     manifest = {'sounds': [{'role': r, 'rate': rate, 'channels': ch, 'seconds': round(len(pcm)/ch/rate, 3)}
@@ -363,8 +379,15 @@ def build(output, kind, name, models, resolver, extra=None, budget=CHARACTER_TEX
     return manifest
 
 
+BODY_STATS = {'health': 'body_health', 'shield': 'body_shield', 'damage': 'body_damage',
+              'speed': 'body_speed', 'fly': 'can_fly', 'fly_speed': 'fly_speed', 'fly_damage': 'fly_damage',
+              'ability': 'ability_name', 'ability_base': 'ability_base', 'ability_damage': 'ability_damage',
+              'ability_cooldown': 'ability_cooldown'}
+TEXT_STATS = ('ability', 'ability_base')
+
+
 def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None, skin=0,
-                    display=None, loadout=None):
+                    display=None, loadout=None, stats=None):
     """A character. `display` is its name in menus; `loadout` its default
     class, [primary, secondary], by the weapon names the game shows (an
     imported weapon's display_name, or a Halo weapon's own, e.g. "pistol")."""
@@ -374,6 +397,10 @@ def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None,
     extra = {'hold_type': hold, 'hand_points': list(translate.HAND_POINTS)}
     if display:
         extra['display_name'] = display
+    for k, v in (stats or {}).items():
+        if k not in BODY_STATS:
+            raise BSPError(f'unknown character stat {k!r} (known: {", ".join(BODY_STATS)})')
+        extra[BODY_STATS[k]] = str(v) if k in TEXT_STATS else bool(float(v)) if k == 'fly' else float(v)
     if loadout:
         if len(loadout) != 2 or not all(isinstance(w, str) and w for w in loadout):
             raise BSPError('a loadout is two weapon names')
@@ -404,11 +431,12 @@ def build_weapon(definition, output, roots=(), vpks=()):
     resolver = Resolver(None, roots, vpks)
     resolver.aliases = {k.lower().removesuffix('.vmt'): v.lower().removesuffix('.vmt')
                         for k, v in d.get('material_overrides', {}).items()}
-    world = _model_entry(resolver, d['world_model'].lower(), None, 'world')
+    # "none": nothing in the hand (fists); an empty model keeps the slot.
+    world = None if str(d['world_model']).lower() == 'none' else _model_entry(resolver, d['world_model'].lower(), None, 'world')
     # A world model with no weapon bone (a pickup nobody was animated
     # holding, like HL2's .357) takes one from its definition: an
     # attachment the body's weapon bone can merge with.
-    if d.get('world_grip'):
+    if d.get('world_grip') and world is not None:
         add_world_grip(world, d['world_grip'])
     models = [world,
               _model_entry(resolver, d['view_model'].lower(), 'viewmodel', 'view')]

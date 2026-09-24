@@ -3,7 +3,7 @@
   "display_name": "Broomstick",
   "base": "plasma pistol",
   "mount": true,
-  "fly_speed": 5.5,
+  "fly_speed": 3.5,
   "mount_offset": [
     -0.03,
     0.0,

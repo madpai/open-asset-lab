@@ -1,0 +1,20 @@
+{
+  "name": "fists",
+  "display_name": "Fists",
+  "base": "pistol",
+  "melee": true,
+  "world_model": "none",
+  "view_model": "models/weapons/v_models/v_fist_heavy.mdl",
+  "stats": {
+    "rounds_per_second": 2.2,
+    "damage_scale": 1.1,
+    "knockback": 4.0
+  },
+  "stats_provenance": "Ours: a punch every 0.45 s at the base pistol's melee x1.1 that throws the one it hits back 4 wu/s (and a little up). First-person fists are TF2's Heavy's; nothing is drawn in a third-person hand.",
+  "sounds": {
+    "fire": "sound/weapons/boxing_gloves_hit1.wav"
+  },
+  "crosshair": "dot",
+  "crosshair_size": 12,
+  "view_model_mirrored": false
+}

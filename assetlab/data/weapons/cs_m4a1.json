@@ -1,0 +1,24 @@
+{
+  "name": "m4a1",
+  "display_name": "M4A1",
+  "base": "assault rifle",
+  "world_model": "models/weapons/w_rif_m4a1.mdl",
+  "view_model": "models/weapons/v_rif_m4a1.mdl",
+  "stats": {
+    "rounds_per_second": 10.0,
+    "magazine": 30,
+    "reserve": 90,
+    "damage_scale": 1.45,
+    "spread_scale": 1.0,
+    "reload_seconds": 3.1
+  },
+  "stats_provenance": "CS:S M4A1 model and sounds, with its 30-round magazine and 600 rpm firing rate. Damage 1.45x and spread 1.0x are our balance relative to Halo's assault rifle; the 3.1 s reload is timed for this game's animation. The silencer toggle is not implemented.",
+  "sounds": {
+    "fire": "sound/weapons/m4a1/m4a1-1.wav",
+    "reload": "sound/weapons/m4a1/m4a1_clipout.wav"
+  },
+  "view_model_mirrored": true,
+  "view_model_mirrored_provenance": "CS:S view models are authored left-handed; the game mirrors them with cl_righthand 1.",
+  "crosshair": "arms+dot",
+  "crosshair_size": 24
+}

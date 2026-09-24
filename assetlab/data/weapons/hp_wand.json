@@ -6,10 +6,12 @@
   "view_model": "models/weapons/v_magicwandweapon.mdl",
   "stats": {
     "rounds_per_second": 3.0,
-    "damage_scale": 1.2,
-    "spread_scale": 0.7
+    "damage_scale": 1.6,
+    "spread_scale": 0.7,
+    "magazine": 12,
+    "recharge": 3.0
   },
-  "stats_provenance": "Ours: spells are the Halo plasma pistol's bolts, a little harder hitting and tighter. First-person wand and spell sound from the Workshop's '[Harry Potter] Magic Wand (70 spells!)' (410020480); in other hands the wand is HL2's stun baton (no world wand ships).",
+  "stats_provenance": "Ours: spells are the Halo plasma pistol's bolts, hitting 1.6x as hard and tighter; the wand holds 12 charges and regains 3 a second, never reloading. First-person wand and spell sound from the Workshop's '[Harry Potter] Magic Wand (70 spells!)' (410020480); in other hands the wand is HL2's stun baton.",
   "sounds": {
     "fire": "sound/spells/spell1.wav"
   },
