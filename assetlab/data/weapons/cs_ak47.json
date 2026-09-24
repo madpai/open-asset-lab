@@ -15,5 +15,7 @@
   "sounds": {
     "fire": "sound/weapons/ak47/ak47-1.wav",
     "reload": "sound/weapons/ak47/ak47_clipout.wav"
-  }
+  },
+  "view_model_mirrored": true,
+  "view_model_mirrored_provenance": "CS:S view models are authored left-handed; the game mirrors them with cl_righthand 1 (its default)."
 }
