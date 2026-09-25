@@ -675,7 +675,8 @@ class SourceBSP:
             if team is not None and p is not None and not any(f['team'] == team for f in flags):
                 flags.append({'team': team, 'position': vec3(p)})
         split[0] = False
-        return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags, breakable_brushes)
+        return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags,
+                     breakable_brushes=breakable_brushes)
 
     def _displacement(self, fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri):
         if di >= len(disp)//176:
