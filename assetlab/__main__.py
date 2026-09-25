@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from .importers.source_bsp import SourceBSP, BSPError
 from .package import DEFAULT_TEXTURE_BUDGET, Resolver, compile_map, read_manifest
@@ -47,6 +48,58 @@ def _addon(args):
     return ws.fetch(items[0], args.dest, sc), items[0]
 
 
+def import_collection(args):
+    """Every item of a collection, one after another, each into its own
+    folder under --output-dir; one failure never stops the rest."""
+    from . import workshop as ws
+    from .workshop_jobs import SKIP_KINDS, MAX_ITEM_BYTES
+    api = ws.WorkshopAPI()
+    ids = api.collection(args.collection)
+    if not ids:
+        raise ws.WorkshopError(f'{args.collection}: not a collection, or empty or private')
+    kinds = tuple(k.strip() for k in args.only.split(',') if k.strip())
+    sc = ws.SteamCMD(args.steamcmd)
+    summary = {'collection': ws.parse_id(args.collection), 'items': len(ids), 'built': [], 'failed': [], 'skipped': []}
+    for n, it in enumerate(api.details(ids)[:args.limit], 1):
+        why = ('private or removed' if not it['ok'] else 'banned' if it['banned'] else
+               SKIP_KINDS.get(it['kind']) or ('too large' if it['size'] > MAX_ITEM_BYTES else None))
+        print(f"[{n}/{min(len(ids), args.limit)}] {it['id']} {it['title'][:60]}" + (f' -- skipped: {why}' if why else ''),
+              file=sys.stderr)
+        if why:
+            summary['skipped'].append({'id': it['id'], 'title': it['title'], 'reason': why})
+            continue
+        try:
+            if not it['file_url'] and not sc.installed():
+                if not args.install_steamcmd:
+                    raise ws.WorkshopError('needs SteamCMD; pass --install-steamcmd or --steamcmd DIR')
+                sc.install()
+            path = ws.fetch(it, args.dest, sc)
+            a = ws.analyze(path)
+            if not a.buildable():
+                raise ws.WorkshopError('nothing to build: ' + '; '.join(a.warnings[:2]))
+            if args.dry_run:
+                summary['built'].append({'id': it['id'], 'title': it['title'], 'would_build': {
+                    'characters': [c['display'] for c in a.characters], 'weapons': [w['display_name'] for w in a.weapons],
+                    'maps': a.maps}})
+                continue
+            out = args.output_dir / it['id']
+            root = ws.extract(path, args.dest / f"{it['id']}_files")
+            report = ws.import_addon(a, root, out, [*args.game_dir, *args.material_root], args.vpk, kinds)
+            report['item'] = it
+            (out / 'workshop_report.json').write_text(json.dumps(report, indent=2) + '\n')
+            for b in report['built']:
+                summary['built'].append({'id': it['id'], **{k: b.get(k) for k in ('kind', 'name', 'package')},
+                                         'path': str(out / b['package']) if b.get('package') else None})
+            for f in report['failed']:
+                summary['failed'].append({'id': it['id'], 'name': f.get('name'), 'error': f.get('error')})
+        except (ws.WorkshopError, OSError, ValueError) as e:
+            summary['failed'].append({'id': it['id'], 'name': it['title'], 'error': str(e)})
+    if not args.dry_run:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+        (args.output_dir / 'collection_report.json').write_text(json.dumps(summary, indent=2) + '\n')
+    print(json.dumps(summary, indent=2))
+
+
 def workshop_command(args):
     from . import workshop as ws
     if args.ws == 'search':
@@ -63,7 +116,15 @@ def workshop_command(args):
               '\n'.join(f"{i['id']}: {i['title']} [{i['kind']}; {', '.join(i['tags'])}] "
                         f"{'direct download' if i['file_url'] else 'SteamCMD'}" for i in items))
     elif args.ws == 'collection':
-        print('\n'.join(ws.WorkshopAPI().collection(args.collection)))
+        api = ws.WorkshopAPI()
+        items = api.details(api.collection(args.collection))
+        if args.json:
+            print(json.dumps(items, indent=2)); return
+        for i in items:
+            print(f"{i['id']:>11}  {i['kind']:<9} {i['size'] / 2**20:7.1f} MB  "
+                  f"{i['title'][:70] if i['ok'] else '(private or removed)'}")
+    elif args.ws == 'import-collection':
+        import_collection(args)
     elif args.ws == 'fetch':
         path, _ = _addon(args)
         print(path)
@@ -126,6 +187,17 @@ def main():
     x.add_argument('--page', type=int, default=1); x.add_argument('--json', action='store_true')
     x = wsub.add_parser('info', help='details of items (IDs or URLs)'); x.add_argument('items', nargs='+'); x.add_argument('--json', action='store_true')
     x = wsub.add_parser('collection', help='the items in a collection'); x.add_argument('collection')
+    x.add_argument('--json', action='store_true')
+    x = wsub.add_parser('import-collection', help='fetch and build every item of a collection')
+    x.add_argument('collection')
+    x.add_argument('--output-dir', type=Path, required=True, help='one folder per item under here')
+    x.add_argument('--only', default='characters,weapons,maps', help='comma list: characters, weapons, maps')
+    x.add_argument('--limit', type=int, default=200, help='at most this many items')
+    x.add_argument('--dry-run', action='store_true', help='fetch and analyze, build nothing')
+    x.add_argument('--dest', type=Path, default=DEFAULT_ROOT/'workshop/downloads', help='where downloads go')
+    x.add_argument('--steamcmd', type=Path, default=Path(os.environ.get('ASSETLAB_STEAMCMD', DEFAULT_ROOT/'steamcmd')))
+    x.add_argument('--install-steamcmd', action='store_true', help="fetch Valve's SteamCMD if it is missing")
+    search_args(x)
     for name, hlp in (('fetch', 'download an item'), ('analyze', 'what an addon contains (item, archive or folder)'),
                       ('import', 'fetch, analyze and build packages')):
         x = wsub.add_parser(name, help=hlp)

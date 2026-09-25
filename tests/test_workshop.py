@@ -384,9 +384,6 @@ class JobTests(unittest.TestCase):
             self.assertIn('nothing', j.job(jid)['error'])
 
 
-if __name__ == '__main__':
-    unittest.main()
-
 
 class ModernModelTests(unittest.TestCase):
     def test_vtx_strip_group_stride(self):
@@ -420,3 +417,60 @@ class ModernModelTests(unittest.TestCase):
         self.assertTrue(translate.material_outline('models/x/eyes', {'$basetexture': 'models/x/fp_outlinematerial'}, black))
         self.assertFalse(translate.material_outline('models/x/outline_suit', {}, blue))     # a named, coloured costume
         self.assertFalse(translate.material_outline('models/x/boots', {}, black))           # black, but not an outline
+
+
+def collections_json(tree):
+    """A GetCollectionDetails route over {collection id: [(child, filetype)]}."""
+    def answer(d):
+        cid = d['publishedfileids[0]']
+        kids = [{'publishedfileid': k, 'filetype': t} for k, t in tree.get(cid, [])]
+        return json.dumps({'response': {'collectiondetails': [{'publishedfileid': cid, 'children': kids}]}}).encode()
+    return answer
+
+
+class CollectionTests(unittest.TestCase):
+    def test_nested_collections_open_once_and_dedupe(self):
+        tree = {'9': [('1', 0), ('50', 2), ('2', 0), ('1', 0)],
+                '50': [('3', 0), ('9', 2), ('2', 0)]}           # 9 inside 50 inside 9: once
+        api = ws.WorkshopAPI(FakeHttp({'GetCollectionDetails': collections_json(tree)}), api_key='')
+        self.assertEqual(api.collection('9'), ['1', '3', '2'])
+        self.assertEqual(api.collection('9', depth=1), ['1', '2'])
+
+    def test_a_collection_queues_what_is_worth_importing(self):
+        tree = {'9': [(str(i), 0) for i in (1, 2, 3, 4, 5, 6)]}
+
+        def details(d):
+            n = d['itemcount']
+            ids = [int(d[f'publishedfileids[{i}]']) for i in range(n)]
+            doc = json.loads(details_json(*[(i, {1: 'Model', 2: 'Weapon', 3: 'Gamemode', 4: 'Map', 5: 'Model', 6: 'Map'}[i], '')
+                                              for i in ids if i != 5]))
+            doc['response']['publishedfiledetails'].append({'publishedfileid': '5', 'result': 9})   # removed
+            for x in doc['response']['publishedfiledetails']:
+                if x['publishedfileid'] == '6':
+                    x['file_size'] = str(5 * 1024**3)
+            return json.dumps(doc).encode()
+        api = ws.WorkshopAPI(FakeHttp({'GetCollectionDetails': collections_json(tree),
+                                       'GetPublishedFileDetails': details}), api_key='')
+        with tempfile.TemporaryDirectory() as t:
+            j = WorkshopJobs(Path(t) / 'lib', api=api, start=False)
+            j.submit('4')                                     # already queued
+            r = j.submit_collection('https://steamcommunity.com/sharedfiles/filedetails/?id=9', limit=1)
+            self.assertEqual(r['items'], 6)
+            self.assertEqual([q['id'] for q in r['queued']], ['1'])
+            why = {x['id']: x['reason'] for x in r['skipped']}
+            self.assertIn('limit', why['2'])
+            self.assertIn('gamemode', why['3'])
+            self.assertIn('already', why['4'])
+            self.assertIn('private', why['5'])
+            self.assertIn('too large', why['6'])
+            self.assertEqual(j.jobs()[0]['title'], 'Item 1')
+            # Again: item 1 is now queued too; item 2 goes in.
+            r = j.submit_collection('9')
+            self.assertEqual([q['id'] for q in r['queued']], ['2'])
+            with self.assertRaises(ValueError):
+                WorkshopJobs(Path(t) / 'lib2', api=ws.WorkshopAPI(FakeHttp({'GetCollectionDetails': collections_json({})}),
+                                                                  api_key=''), start=False).submit_collection('77')
+
+
+if __name__ == '__main__':
+    unittest.main()

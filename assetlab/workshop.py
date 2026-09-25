@@ -193,15 +193,36 @@ class WorkshopAPI:
             out += [_item(d) for d in doc.get('response', {}).get('publishedfiledetails', [])]
         return out
 
-    def collection(self, cid) -> list[str]:
-        cid = parse_id(cid)
-        raw = self.http.post(f'{API}/ISteamRemoteStorage/GetCollectionDetails/v1/',
-                             {'collectioncount': 1, 'publishedfileids[0]': cid})
-        doc = json.loads(raw)
-        kids = []
-        for c in doc.get('response', {}).get('collectiondetails', []):
-            kids += [str(k.get('publishedfileid')) for k in c.get('children', []) if k.get('publishedfileid')]
-        return kids
+    def collection(self, cid, depth=3) -> list[str]:
+        """The items a collection holds, in its order. A collection inside
+        it (Steam's file type 2) is opened in turn, `depth` deep, each
+        collection once; an item listed twice appears once."""
+        seen, out, done = set(), [], set()
+
+        def walk(c, d):
+            if c in done:
+                return
+            done.add(c)
+            raw = self.http.post(f'{API}/ISteamRemoteStorage/GetCollectionDetails/v1/',
+                                 {'collectioncount': 1, 'publishedfileids[0]': c})
+            try:
+                doc = json.loads(raw)
+            except json.JSONDecodeError as e:
+                raise WorkshopError(f'Steam returned something that is not JSON: {e}') from e
+            for col in doc.get('response', {}).get('collectiondetails', []):
+                for k in col.get('children', []):
+                    kid = str(k.get('publishedfileid') or '')
+                    if not kid.isdigit():
+                        continue
+                    if int(k.get('filetype') or 0) == 2:
+                        if d > 1:
+                            walk(kid, d - 1)
+                    elif kid not in seen:
+                        seen.add(kid)
+                        out.append(kid)
+
+        walk(parse_id(cid), max(1, depth))
+        return out
 
     def search(self, text='', tags=(), page=1, sort='relevance', per_page=30) -> dict:
         """One page of results, in Steam's order."""

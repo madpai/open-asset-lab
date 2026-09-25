@@ -18,6 +18,12 @@ from . import workshop as ws
 
 STATES = ('QUEUED', 'FETCHING', 'ANALYZING', 'CONVERTING', 'VALIDATING', 'STAGED', 'FAILED')
 KINDS = ('characters', 'weapons', 'maps')
+# Unfinished jobs the queue holds at once: a whole collection fits.
+MAX_ACTIVE = 64
+# Collection items not worth a download: they hold nothing we build.
+SKIP_KINDS = {'gamemode': 'a gamemode (Lua, nothing to build)',
+              'entity': 'an entity, tool or effects addon (import it by itself to try)'}
+MAX_ITEM_BYTES = 4 * 1024**3
 ARTIFACT = re.compile(r'[a-z0-9][a-z0-9_.-]{0,120}\.(oalasset|oalmap|json|png)')
 
 
@@ -64,17 +70,68 @@ class WorkshopJobs:
 
     def submit(self, item, kinds=KINDS, title=None) -> str:
         iid = ws.parse_id(item)
+        kinds = self._kinds(kinds)
+        with self.lock, self.connect() as db:
+            if self._active(db) >= MAX_ACTIVE:
+                raise ValueError('queue is full')
+            return self._insert(db, iid, kinds, title)
+
+    def submit_collection(self, collection, kinds=KINDS, limit=50) -> dict:
+        """Queue every item of a collection worth importing. Skips what is
+        private or removed, banned, a gamemode, over 4 GiB, or already
+        queued or staged; stops at `limit` or when the queue is full, and
+        says which it did not reach."""
+        cid = ws.parse_id(collection)
+        kinds = self._kinds(kinds)
+        ids = self.api.collection(cid)
+        if not ids:
+            raise ValueError(f'{cid} is not a collection, or it is empty or private')
+        info = {i['id']: i for i in self.api.details(ids)}
+        queued, skipped = [], []
+        with self.lock, self.connect() as db:
+            have = {r['item'] for r in db.execute("SELECT item FROM workshop_jobs WHERE state!='FAILED'")}
+            room = MAX_ACTIVE - self._active(db)
+            for iid in ids:
+                it = info.get(iid)
+                title = (it or {}).get('title') or iid
+                why = None
+                if not it or not it['ok']:
+                    why = 'private or removed'
+                elif it['banned']:
+                    why = 'banned on the Workshop'
+                elif it['kind'] in SKIP_KINDS:
+                    why = SKIP_KINDS[it['kind']]
+                elif it['size'] > MAX_ITEM_BYTES:
+                    why = f"too large ({it['size'] / 2**30:.1f} GiB)"
+                elif iid in have:
+                    why = 'already queued or imported'
+                elif len(queued) >= min(limit, room):
+                    why = 'queue is full' if len(queued) >= room else f'past the limit of {limit}'
+                if why:
+                    skipped.append({'id': iid, 'title': title, 'reason': why})
+                    continue
+                queued.append({'id': iid, 'title': title, 'kind': it['kind'],
+                               'job_id': self._insert(db, iid, kinds, title)})
+                have.add(iid)
+        return {'collection': cid, 'items': len(ids), 'queued': queued, 'skipped': skipped}
+
+    @staticmethod
+    def _kinds(kinds):
         kinds = [k for k in kinds if k in KINDS]
         if not kinds:
             raise ValueError('choose at least one of characters, weapons, maps')
-        with self.lock, self.connect() as db:
-            n = db.execute("SELECT count(*) FROM workshop_jobs WHERE state NOT IN ('STAGED','FAILED')").fetchone()[0]
-            if n >= 16:
-                raise ValueError('queue is full')
-            jid = uuid.uuid4().hex
-            now = time.time()
-            db.execute('INSERT INTO workshop_jobs VALUES (?,?,?,?,?,?,?,?,?,?)',
-                       (jid, iid, title or iid, ','.join(kinds), 'QUEUED', now, now, 'Queued', None, None))
+        return kinds
+
+    @staticmethod
+    def _active(db):
+        return db.execute("SELECT count(*) FROM workshop_jobs WHERE state NOT IN ('STAGED','FAILED')").fetchone()[0]
+
+    @staticmethod
+    def _insert(db, iid, kinds, title):
+        jid = uuid.uuid4().hex
+        now = time.time()
+        db.execute('INSERT INTO workshop_jobs VALUES (?,?,?,?,?,?,?,?,?,?)',
+                   (jid, iid, title or iid, ','.join(kinds), 'QUEUED', now, now, 'Queued', None, None))
         return jid
 
     def jobs(self):

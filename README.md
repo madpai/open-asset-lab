@@ -81,13 +81,17 @@ The saved lavapipe ICD is needed on this desktop because the native NVIDIA Vulka
 python -m assetlab workshop search "harry potter" --tag Model            # Model, Weapon, Map, NPC, Vehicle
 python -m assetlab workshop search ak47 --tag Weapon --sort popular      # relevance, popular, recent, subscribed, rated
 python -m assetlab workshop info https://steamcommunity.com/sharedfiles/filedetails/?id=3563673673
-python -m assetlab workshop collection <collection id>
+python -m assetlab workshop collection <collection id>                    # what it holds (nested collections too)
+python -m assetlab workshop import-collection <collection id> --install-steamcmd --output-dir /private/out \
+    --game-dir "<GarrysMod>/garrysmod" --game-dir "<GarrysMod>/sourceengine" [--limit 50] [--dry-run]
 python -m assetlab workshop analyze <id | .gma | _legacy.bin | folder> --install-steamcmd
 python -m assetlab workshop import <id> --install-steamcmd --output-dir /private/out \
     --game-dir "<GarrysMod>/garrysmod" --game-dir "<GarrysMod>/sourceengine" [--only characters,weapons,maps] [--pick NAME] [--dry-run]
 ```
 
 Search reads the Workshop's public browse page (no key); set `STEAM_WEB_API_KEY` to use `IPublishedFileService/QueryFiles` instead. Items that still carry a direct file URL (older ones) download over HTTPS; the rest need SteamCMD, which `--install-steamcmd` fetches from Valve (it is 32-bit: Debian/Ubuntu need `lib32gcc-s1`). Garry's Mod playermodels take their animations from the game, so mount its `garrysmod` and `sourceengine` folders. Weapon definitions drafted from a SWEP's Lua are written beside each package for review; their numbers are estimates. `workshop_report.json` lists what was built, what failed and why.
+
+A collection imports item by item, each into its own folder under `--output-dir`, with `collection_report.json` summing up; one broken item never stops the rest. Gamemodes and entity/tool/effects addons are skipped (they hold nothing to build, and some are gigabytes); import one by itself to try it anyway. In the web service, **Import collection** queues the same way (up to 50 items, at most 64 unfinished jobs), skipping private, banned, oversized (4 GiB) and already-imported items and saying why.
 
 ## Private web service
 

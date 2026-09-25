@@ -17,7 +17,7 @@ HTML=r'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewpo
 <h1>Open Asset Lab</h1><p id="status">Connecting…</p><section><h2>Registered maps</h2><ul id="sources"></ul><label>Upload Source BSP <input type="file" id="file" accept=".bsp"></label><button onclick="upload()">Upload</button></section>
 <section id="ws"><h2>Steam Workshop</h2><p><small>Garry's Mod addons: search, then Import builds characters, weapons and maps from them. Your downloads and packages stay on this machine.</small></p>
 <form onsubmit="wsSearch(1);return false"><input id="wq" placeholder="Search (e.g. superman, ak47, gm_)" size="28"><select id="wtag"><option value="">Any type</option><option>Model</option><option>Weapon</option><option>Map</option><option>NPC</option><option>Vehicle</option></select><select id="wsort"><option value="relevance">Relevance</option><option value="popular">Popular now</option><option value="subscribed">Most subscribed</option><option value="recent">Newest</option></select><button>Search</button></form>
-<form onsubmit="wsImport(document.getElementById('wid').value);return false"><input id="wid" placeholder="…or a Workshop ID / URL" size="28"><button>Import</button></form>
+<form onsubmit="wsImport(document.getElementById('wid').value);return false"><input id="wid" placeholder="…or a Workshop ID / URL" size="28"><button>Import</button> <button type="button" onclick="wsCollection(document.getElementById('wid').value)">Import collection</button></form>
 <p id="wstatus"></p><div id="wresults" class="grid"></div><p id="wpager"></p><h3>Imports</h3><ul id="wjobs"></ul><div id="wdetail"></div></section>
 <section><h2>Jobs</h2><ul id="jobs"></ul><div id="detail"></div></section><section><h2>Staged maps</h2><ul id="staged"></ul></section>
 <script>
@@ -31,6 +31,7 @@ async function upload(){let f=document.getElementById('file').files[0];if(!f)ret
 let wpage=1;function el(t,txt){let e=document.createElement(t);if(txt!==undefined)e.textContent=txt;return e}
 async function wsSearch(p){wpage=p;let q=document.getElementById('wq').value,t=document.getElementById('wtag').value,so=document.getElementById('wsort').value;let st=document.getElementById('wstatus');st.textContent='Searching…';try{let r=await api('workshop/search?'+new URLSearchParams({q:q,tag:t,sort:so,page:p}));st.textContent=`${r.total} results · page ${r.page}`;let g=document.getElementById('wresults');g.replaceChildren();for(let i of r.items){let c=el('div');c.className='card';let im=el('img');im.loading='lazy';im.alt='';im.onerror=()=>{im.style.visibility='hidden'};if(i.preview)im.src=i.preview+(i.preview.includes('?')?'&':'?')+'imw=256&imh=256&ima=fit';c.append(im);let a=el('a',i.title);a.href=i.url;a.target='_blank';a.rel='noopener';let t=el('div');t.append(a);c.append(t);let k=el('div',`${i.kind} · ${(i.size/1048576).toFixed(1)} MB · ${i.subscriptions.toLocaleString()} subs`);k.className='kind';c.append(k);let b=el('button','Import');b.onclick=()=>wsImport(i.id,i.title);c.append(b);g.append(c)}let pg=document.getElementById('wpager');pg.replaceChildren();if(p>1){let b=el('button','◀ Prev');b.onclick=()=>wsSearch(p-1);pg.append(b)}if(r.items.length){let b=el('button','Next ▶');b.onclick=()=>wsSearch(p+1);pg.append(b)}}catch(e){st.textContent=e.message}}
 async function wsImport(id,title){if(!id)return;try{await api('workshop/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:String(id)})});document.getElementById('wstatus').textContent=`Queued ${title||id}`;wsJobs()}catch(e){alert(e.message)}}
+async function wsCollection(id){if(!id)return;let st=document.getElementById('wstatus');st.textContent='Reading the collection…';try{let r=await api('workshop/collection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:String(id)})});st.textContent=`Collection ${r.collection}: queued ${r.queued.length} of ${r.items}`+(r.skipped.length?` · skipped ${r.skipped.length}: `+r.skipped.slice(0,6).map(x=>`${x.title} (${x.reason})`).join('; ')+(r.skipped.length>6?'…':''):'');wsJobs()}catch(e){st.textContent=e.message}}
 async function wsJobs(){try{let js=await api('workshop/jobs');let u=document.getElementById('wjobs');u.replaceChildren();for(let j of js){let li=el('li');let b=el('button',`${j.title}: ${j.state}`);b.onclick=()=>wsDetail(j.id);li.append(b);for(let x of j.built||[]){let a=el('a',` · ${x.kind} ${x.name}`);a.href=`/api/workshop/jobs/${j.id}/${x.package}`;li.append(a);if(x.preview){let p=el('a',' (preview)');p.href=`/api/workshop/jobs/${j.id}/${x.preview}`;li.append(p)}}if((j.failed||[]).length)li.append(el('small',` · ${j.failed.length} failed`));u.append(li)}}catch(e){}}
 async function wsDetail(id){let x=await api('workshop/jobs/'+id);let d=document.getElementById('wdetail');d.replaceChildren();d.append(el('h3',x.title+' · '+x.state));let p=el('pre');p.textContent=x.log+(x.error?'\nERROR: '+x.error:'')+(x.report?'\n'+JSON.stringify({built:x.report.built,failed:x.report.failed},null,1):'');d.append(p);for(let f of ['report.json','analysis.json']){let a=el('a',' '+f);a.href=`/api/workshop/jobs/${id}/${f}`;d.append(a)}}
 refresh();setInterval(refresh,3000);if(document.getElementById('ws'))setInterval(wsJobs,3000);
@@ -99,8 +100,9 @@ def serve(library,host='127.0.0.1',port=8762,workshop=None):
             self._error(404,'not found')
         def do_POST(self):
             if not self._pre(True):return
-            if urlsplit(self.path).path=='/api/workshop/import':
+            if urlsplit(self.path).path in ('/api/workshop/import','/api/workshop/collection'):
                 if not workshop:return self._error(404,'the Workshop is not enabled on this server')
+                from .workshop import WorkshopError
                 try:
                     n=int(self.headers.get('Content-Length','0'))
                     if n<1 or n>2048:raise ValueError('invalid request size')
@@ -108,8 +110,11 @@ def serve(library,host='127.0.0.1',port=8762,workshop=None):
                     if not isinstance(body,dict) or 'id' not in body or set(body)-{'id','kinds'}:raise ValueError('invalid request fields')
                     kinds=body.get('kinds') or ['characters','weapons','maps']
                     if not isinstance(kinds,list):raise ValueError('kinds must be a list')
+                    if urlsplit(self.path).path=='/api/workshop/collection':
+                        return self._send(202,workshop.submit_collection(str(body['id']),kinds))
                     return self._send(202,{'job_id':workshop.submit(str(body['id']),kinds)})
-                except (ValueError,TypeError,json.JSONDecodeError) as e:return self._error(400,str(e))
+                except (ValueError,TypeError,json.JSONDecodeError,WorkshopError) as e:return self._error(400,str(e))
+                except OSError as e:return self._error(502,f'Steam could not be reached: {e}')
             if urlsplit(self.path).path!='/api/jobs':return self._error(404,'not found')
             try:
                 n=int(self.headers.get('Content-Length','0'))
