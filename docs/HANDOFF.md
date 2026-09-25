@@ -43,7 +43,14 @@ there, so re-run the owner's usual conversions on the desktop.
   flagged (group bit 2, index + 1 in bits 8..23), out of static collision,
   and listed in the manifest's `breakables`; `func_precipitation` becomes
   `weather`. **Re-convert maps** to get them (older packages have none and
-  still load). `func_breakable` brushes are still unbroken.
+  still load). `func_breakable` (by its `material`; health 0, spawnflag 1
+  "break on trigger" and unbreakable glass stay plain solid walls) and
+  `func_breakable_surf` (always glass) break too, from 2026-09-25; tested
+  on a synthetic BSP only -- no real map with them has been converted yet.
+- **Collections:** `workshop import-collection ID` (CLI) and **Import
+  collection** (web) queue a whole collection, nested ones included,
+  skipping gamemodes, entity/tool/effects addons, private/banned, >4 GiB
+  and already-imported items with a reason each.
 - **Proof run:** 'Superman: The Animated Series' (3563673673): SteamCMD
   fetch, v49 model, GMod animations, built with 0 missing dependencies,
   rendered textured and animated in `open-halo-asset-test`.

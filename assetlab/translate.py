@@ -35,8 +35,10 @@ BRUSH_CLASSES = {
     'func_wall_toggle': {'solid': True},
     'func_illusionary': {'solid': False},
     'func_lod': {'solid': True},
-    'func_breakable': {'solid': True, 'note': 'imported unbroken'},
-    'func_breakable_surf': {'solid': True, 'note': 'imported unbroken'},
+    # These two break in Megamod (see brush_breakable); one that never
+    # breaks from damage is imported as a plain solid brush.
+    'func_breakable': {'solid': True},
+    'func_breakable_surf': {'solid': True},
     'func_physbox': {'solid': True, 'note': 'imported static at its spawn pose'},
     'func_physbox_multiplayer': {'solid': True, 'note': 'imported static at its spawn pose'},
     # Nothing opens a door in Open Halo, so a sliding door is placed where
@@ -69,6 +71,47 @@ MODEL_CLASSES = {
 # shatter them (Megamod's destructible props). Everything else about them
 # is as MODEL_CLASSES says.
 BREAKABLE_MODEL_CLASSES = ('prop_physics', 'prop_physics_multiplayer', 'prop_physics_override')
+
+# Brush entities that break, and func_breakable's `material` keyvalue
+# (Source's Materials enum) as ours. Flesh has no counterpart and shatters
+# like wood; 7 is "unbreakable glass".
+BREAKABLE_BRUSH_CLASSES = ('func_breakable', 'func_breakable_surf')
+FUNC_BREAKABLE_MATERIAL = {'0': 'glass', '1': 'wood', '2': 'metal', '3': 'wood', '4': 'concrete',
+                           '5': 'concrete', '6': 'metal', '8': 'concrete'}
+
+
+def brush_breakable(entity):
+    """{'material', 'health', 'explosive'[, 'blast_damage', 'blast_radius']}
+    for a breakable brush that damage can break, or None: a func_breakable
+    with no health ("0 means don't break"), flagged to break only on a
+    trigger (spawnflag 1), or of unbreakable glass."""
+    c = entity.get('classname', '').lower()
+    if c not in BREAKABLE_BRUSH_CLASSES:
+        return None
+    kv = {k.lower(): v for k, v in entity.items()}
+
+    def num(key):
+        try:
+            return float(kv.get(key, '0') or 0)
+        except ValueError:
+            return 0.0
+    try:
+        flags = int(float(kv.get('spawnflags', '0') or 0))
+    except ValueError:
+        flags = 0
+    if c == 'func_breakable_surf':
+        # Panes: always glass, and any real hit breaks them.
+        return {'material': 'glass', 'health': max(0.0, num('health')), 'explosive': False}
+    health = num('health')
+    mat = FUNC_BREAKABLE_MATERIAL.get(kv.get('material', '1').strip())
+    if health <= 0 or flags & 1 or mat is None:
+        return None
+    rec = {'material': mat, 'health': health, 'explosive': num('explodemagnitude') > 0}
+    if rec['explosive']:
+        rec['blast_damage'] = min(num('explodemagnitude'), 300.0)
+        rec['blast_radius'] = 3.0            # wu, ours
+    return rec
+
 
 # What a breakable is made of, from its model and material paths (Source
 # keeps the real answer in the model's compiled propdata, which is not read

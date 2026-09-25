@@ -432,6 +432,18 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
             rec['blast_damage'] = 150.0      # ours: a Halo frag grenade's order of magnitude
             rec['blast_radius'] = 3.0        # wu
         breakables.append(rec)
+    # Breakable brushes (windows, glass panes, boarded doors): the importer
+    # kept each one's faces in groups of their own.
+    for brk, e, g0, g1 in world.breakable_brushes:
+        b = len(breakables)
+        idx = [i for g in world.groups[g0:g1] for i in world.indices[g[1]:g[1]+g[2]]]
+        if not idx:
+            continue
+        blo = [min(world.vertices[i][0][k] for i in idx) for k in range(3)]
+        bhi = [max(world.vertices[i][0][k] for i in idx) for k in range(3)]
+        world.groups[g0:g1] = [(*g[:3], False, b) for g in world.groups[g0:g1]]
+        breakables.append({'index': b, 'classname': e.get('classname', '').lower(), 'model': e.get('model', ''),
+                           **brk, 'bounds': {'min': [round(x, 5) for x in blo], 'max': [round(x, 5) for x in bhi]}})
 
     mats = sorted(set(g[0] for g in world.groups))
     textures = {}; params = {}; placeholders = []; dropped = Counter(); nonsolid_materials = []
@@ -513,7 +525,7 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
                       'texture_bytes': sum(len(t[2]) for t in textures.values())},
         'breakables': {'count': len(breakables), 'explosive': sum(b['explosive'] for b in breakables),
                        'by_material': dict(Counter(b['material'] for b in breakables)),
-                       'not_yet': 'func_breakable brushes are imported unbroken'},
+                       'brushes': sum(b['model'].startswith('*') for b in breakables)},
         'weather': translate.map_weather(bsp.entities),
         'static_props': {'lump_version': r['static_props']['version'], 'in_bsp': r['static_props']['count'],
                          'placed': placed.get('static_prop', 0), 'model_entities_placed': sum(v for k, v in placed.items() if k != 'static_prop'),

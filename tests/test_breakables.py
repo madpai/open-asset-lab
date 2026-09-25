@@ -50,6 +50,40 @@ class BreakableTests(unittest.TestCase):
                 if g[3] & GROUP_BREAKABLE:
                     self.assertTrue(g[3] & GROUP_NO_COLLISION)
 
+    def test_breakable_brushes(self):
+        # One brush model, placed four times: a window, a glass pane, a
+        # wall that never breaks and one of unbreakable glass.
+        ents = (b'{ "classname" "info_player_start" "origin" "60 60 8" }'
+                b'{ "classname" "func_breakable" "model" "*1" "origin" "240 0 0" "material" "0" "health" "20" }'
+                b'{ "classname" "func_breakable_surf" "model" "*1" "origin" "480 0 0" }'
+                b'{ "classname" "func_breakable" "model" "*1" "origin" "720 0 0" "health" "0" }'
+                b'{ "classname" "func_breakable" "model" "*1" "origin" "960 0 0" "material" "7" "health" "5" }')
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            (t / 'map.bsp').write_bytes(fixture(ents=ents, brush_model=True))
+            m, r = compile_map(t / 'map.bsp', t / 'map.oalmap', [])
+            b = m['breakables']
+            self.assertEqual([(x['classname'], x['material'], x['health']) for x in b],
+                             [('func_breakable', 'glass', 20.0), ('func_breakable_surf', 'glass', 0.0)])
+            self.assertEqual(r['compatibility']['breakables']['brushes'], 2)
+            # Each sits where its entity put it, well apart.
+            self.assertLess(b[0]['bounds']['max'][0], b[1]['bounds']['min'][0])
+            groups = groups_of(t / 'map.oalmap')
+            tagged = sorted({(g[3] >> 8) & 0xFFFF for g in groups if g[3] & GROUP_BREAKABLE})
+            self.assertEqual(tagged, [1, 2])
+            # The two that never break are world geometry: solid, untagged,
+            # with the world's own faces (1 + 2 brush copies' worth).
+            plain = sum(g[2] for g in groups if not g[3] & GROUP_BREAKABLE)
+            broken = sum(g[2] for g in groups if g[3] & GROUP_BREAKABLE)
+            self.assertEqual(plain, broken * 3 // 2)
+
+    def test_brush_rules(self):
+        self.assertIsNone(translate.brush_breakable({'classname': 'func_breakable', 'health': '10', 'spawnflags': '1'}))
+        self.assertIsNone(translate.brush_breakable({'classname': 'func_wall', 'health': '10'}))
+        r = translate.brush_breakable({'classname': 'func_breakable', 'health': '50', 'material': '2', 'explodemagnitude': '90'})
+        self.assertEqual((r['material'], r['explosive'], r['blast_damage']), ('metal', True, 90.0))
+        self.assertEqual(translate.brush_breakable({'classname': 'func_breakable', 'Health': '5'})['material'], 'wood')
+
     def test_material_words_and_weather(self):
         self.assertEqual(translate.breakable_material('models/props_c17/oildrum001.mdl'), 'metal')
         self.assertEqual(translate.breakable_material('models/props_junk/glassbottle01a.mdl'), 'glass')

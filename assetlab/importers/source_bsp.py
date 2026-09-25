@@ -154,6 +154,9 @@ class World:
     entities: list
     report: dict = field(default_factory=dict)
     flags: list = field(default_factory=list)   # [{'team', 'position'}] runtime units
+    # Breakable brushes: (record from translate.brush_breakable, entity,
+    # first group, end group); their groups hold only their triangles.
+    breakable_brushes: list = field(default_factory=list)
 
 
 class SourceBSP:
@@ -470,6 +473,8 @@ class SourceBSP:
             raise BSPError('world model missing')
         vertices = []; indices = []; groups = []; warnings = []
         stats = Counter(); excluded = Counter(); material_tri = Counter()
+        split = [False]           # the next triangle starts a group of its own
+        breakable_brushes = []
 
         def point(index):
             if index < 0 or index >= len(vdata)//12:
@@ -491,7 +496,10 @@ class SourceBSP:
                 vertices.append((rp, normal, uvfn(p)))
             indices.extend((start, start+1, start+2)); material_tri[mat] += 1
             key = (mat, solid)
-            if groups and groups[-1][0] == mat and groups[-1][3] == solid and groups[-1][1]+groups[-1][2] == len(indices)-3:
+            if split[0]:
+                split[0] = False
+                groups.append((mat, len(indices)-3, 3, solid))
+            elif groups and groups[-1][0] == mat and groups[-1][3] == solid and groups[-1][1]+groups[-1][2] == len(indices)-3:
                 m, s, n0, so = groups[-1]; groups[-1] = (m, s, n0+3, so)
             else:
                 groups.append((mat, len(indices)-3, 3, solid))
@@ -594,7 +602,15 @@ class SourceBSP:
             m = angle_matrix(*angles)
             xf = lambda p, m=m, o=origin: tuple(r + oo for r, oo in zip(rotate(m, p), o))
             rot = lambda v, m=m: rotate(m, v)
+            brk = translate.brush_breakable(e)
+            g0 = len(groups)
+            split[0] = brk is not None
             convert_faces(models[mi][0], models[mi][1], xf, rot, solid)
+            split[0] = False
+            if brk is not None and len(groups) > g0:
+                breakable_brushes.append((brk, e, g0, len(groups)))
+                # Whatever follows starts afresh too, not inside its groups.
+                split[0] = True
             stats['brush_entities'] += 1
             if note:
                 brush_notes[f"{e.get('classname', '').lower()}: {note}"] += 1
@@ -658,7 +674,8 @@ class SourceBSP:
             p = parse_vector(e.get('origin', ''))
             if team is not None and p is not None and not any(f['team'] == team for f in flags):
                 flags.append({'team': team, 'position': vec3(p)})
-        return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags)
+        split[0] = False
+        return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags, breakable_brushes)
 
     def _displacement(self, fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri):
         if di >= len(disp)//176:
