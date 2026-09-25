@@ -1,0 +1,38 @@
+# Every push and pull request: the importer's tests on the Python versions
+# it supports, and a guard that no game content is ever committed (every
+# test builds its own synthetic BSPs, models and addons).
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  no-game-content:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Nothing converted or downloaded is tracked
+        run: |
+          bad=$(git ls-files | grep -iE '\.(map|wav|ogg|mp3|oalmap|oalasset|bsp|vpk|gma|mdl|vtf|vvd|vtx|ppm)$' || true)
+          if [ -n "$bad" ]; then echo "::error::game content is tracked:"; echo "$bad"; exit 1; fi
+      - name: Nor anywhere in history
+        run: |
+          bad=$(git rev-list --all --objects | grep -iE '\.(map|wav|ogg|oalmap|oalasset|bsp|vpk|gma|mdl)$' || true)
+          if [ -n "$bad" ]; then echo "::error::found in history:"; echo "$bad"; exit 1; fi
+
+  tests:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '${{ matrix.python }}' }
+      - run: pip install -q "Pillow>=10,<13" "srctools>=2.7,<3"
+      - run: python -m unittest discover -s tests -v
