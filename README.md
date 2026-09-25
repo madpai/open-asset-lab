@@ -2,7 +2,7 @@
 
 Local Source content ingestion, conversion and staging for
 [Open Halo Project](https://github.com/madpai/open-halo-project) and the
-private Megamod Showdown game. It converts Source BSP v19/v20 maps into
+public Megamod Showdown game. It converts Source BSP v19/v20 maps into
 `.oalmap` packages and Source characters and weapons into `.oalasset`
 packages. The host Vulkan tools render and validate packages, and Megamod
 plays matches on the owner's privately converted content.
@@ -21,11 +21,11 @@ plays matches on the owner's privately converted content.
 
 ## Limits
 
-Megamod Showdown is in a separate private repository; Open Halo's public
+Megamod Showdown is in a separate public repository; Open Halo's public
 `main` stays Halo-only. Megamod's published 2026-09-24 personal build has
 five imported maps, 12 characters and 11 imported weapons. Its latest hero
 roster and two-device rules still need phone feedback. BSP v21+ is refused
-with a reason. Source lightmaps, overlays, clip brushes, live moving brushes,
+with a reason. Static LDR Source lightmaps are available through `convert --lightmaps` (OALMAP v2). Overlays, clip brushes, live moving brushes,
 game logic and most shader features are not implemented;
 alpha-test/translucent surfaces are supported in the current map packages.
 Each map's `compatibility.md` lists what it lost. Collision uses visible

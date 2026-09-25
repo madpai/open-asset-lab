@@ -1,5 +1,18 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## Merged importer checkpoint
+
+The cloud Workshop, breakable-prop and weather work is merged with the local
+static LDR lightmap importer. `convert --lightmaps` writes OALMAP v2 when
+light samples exist; v1 remains the default. Grouping retains both the
+breakable ID and lightmap page. The synthetic suite passed 57 tests. A private
+McRonalds conversion produced two atlas pages; Megamod's host map tool loaded
+and rendered it, with 4/4 usable spawns and no bodies falling out. The image
+has not been assessed on a phone, so the bundled map has not been replaced.
+All source BSPs, reports, rendered previews and packages remain outside this
+public repository. Megamod itself is also public; its converted content is
+private.
+
 ## This session (cloud container, branch `claude/vibrant-euler-xwhpy5`)
 
 Merge into `main` after reading this. Verified in the container against the
@@ -60,7 +73,7 @@ there, so re-run the owner's usual conversions on the desktop.
 
 ## Start of next session
 
-1. **Revisions:** game `91a1679` on `halo-sandbox` (private `megamod/main`);
+1. **Revisions:** game `91a1679` on `halo-sandbox` (public `megamod/main`);
    importer `d075f13` on public `main`. **Current private bundle:** 12
    characters, 13 weapons, six maps
    (`de_dust2`, `cs_office`, `de_aztec`, `ctf_2fort`, `gm_construct`,
@@ -243,7 +256,7 @@ there, so re-run the owner's usual conversions on the desktop.
 ## Where things are
 
 - **This repo** (public, `madpai/open-asset-lab`, branch `main`): importer, packager, no-login portal. Tests: `.venv/bin/python -m unittest discover -s tests -v` (36 pass; synthetic fixtures only).
-- **Megamod Showdown game** (`~/projects/halo-trial-android`, branch **`halo-sandbox`**, private `madpai/megamod-showdown` / remote `megamod`): imported-map matches and the hero roster. Never push this branch or its private packages to Open Halo's public `origin`. The public `fp-animated-guns`/Open Halo `main` remains strictly Halo. See the game repo's `docs/HANDOFF.md` and `CLAUDE.md` before editing.
+- **Megamod Showdown game** (`~/projects/halo-trial-android`, branch **`halo-sandbox`**, public `madpai/megamod-showdown` / remote `megamod`): imported-map matches and the hero roster. Never push this branch or its private packages to Open Halo's public `origin`. The public `fp-animated-guns`/Open Halo `main` remains strictly Halo. See the game repo's `docs/HANDOFF.md` and `CLAUDE.md` before editing.
 - **Portal**: user systemd `open-asset-lab.service`, `http://100.89.1.14:8762/`, bound to Tailscale only, **no login** (removed at the owner's request; the tailnet is the boundary). Mutations still need the `X-OAL-Request` header and a same-origin `Origin`. Linked from Open Halo's sideload page. The service's VPK list is TF2 server + the CS:S server's `cstrike_pak_dir.vpk`. The owner has since installed the CS:S client, Garry's Mod and Black Mesa under `~/.local/share/Steam/steamapps/common/`; they may be used as **test inputs** (conversions to scratch, not bulk-staged). The CS:S client's `hl2/` has HL2's texture archives, unlike the server install.
 - **Private data** (never commit): `~/assetlab-private/` — `css-server/`, `maps/`, `workshop/`, SteamCMD installs and `bundle/` (`.oalmap` and `.oalasset` packages for the personal APK). The owner-supplied CS:S, TF2, GMod and HL2 content remains outside both Git repositories.
 
