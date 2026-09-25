@@ -6,3 +6,5 @@
 - Run `python -m unittest discover -s tests -v` after importer or package changes. For Open Halo changes run its `scripts/verify.sh` with the owner's existing Trial data.
 - Verify a real Source map with Open Halo's `open-halo-map-test` before claiming end-to-end map rendering. A standalone converter output is insufficient.
 - Preserve source material paths and warnings. Unsupported features should fail explicitly or appear in the report.
+- Procedures as skills (`.claude/skills/`, readable by any agent): `workshop-import` for Workshop items and collections. Map conversion and publishing live in Megamod's `.claude/skills/` (`convert-map`, `publish`).
+- CI runs the tests and a no-game-content guard on every push; a red run is a real failure to root-cause, not to re-run away.
