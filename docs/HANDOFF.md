@@ -1,5 +1,29 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## Owner map v2 review, 2026-09-25
+
+All six maps in the owner's active Megamod bundle were re-imported with
+`convert --lightmaps` from the installed game content. The private `-v2`
+packages sit beside the old packages. Megamod's `open-halo-map-test` loaded
+all six, found every spawn usable and no bodies falling out. All dependencies
+resolved. The v2 manifests contain:
+
+| Map | Breakable props | Breakable brushes | Weather | Lightmap pages | Usable spawns | Same-spawn brightness |
+|---|---:|---:|---|---:|---:|---:|
+| de_dust2 | 75 | 0 | none | 2 | 40/40 | -52% |
+| cs_office | 226 | 14 windows | none | 2 | 40/40 | -47% |
+| de_aztec | 16 | 0 | rain | 3 | 40/40 | -37% |
+| cs_compound | 113 | 7, including 3 windows | none | 2 | 33/33 | -42% |
+| ctf_2fort | 14 | 0 | none | 6 | 32/32 | -48% |
+| gm_construct | 4 | 0 | none | 3 | 33/33 | -45% |
+
+The rendered lighting is too dark under the owner's approximately 25%
+threshold; some surfaces also have sharp dark edges. None of these packages
+replaced its old bundled version. Investigate lightmap intensity and atlas
+edge artifacts before trying another phone build. Render comparisons and
+conversion reports remain private under `~/assetlab-private/v2-validation/`
+and `~/assetlab-private/*-v2-convert.json`; do not commit them.
+
 ## Merged importer checkpoint
 
 **Owner feedback, 2026-09-25:** the published Megamod LAN v9 session
