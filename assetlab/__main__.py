@@ -97,6 +97,7 @@ def main():
     sub = p.add_subparsers(dest='command', required=True)
     a = sub.add_parser('inspect'); a.add_argument('source'); a.add_argument('--json', action='store_true'); search_args(a)
     a = sub.add_parser('convert'); a.add_argument('source'); a.add_argument('--output', required=True); search_args(a)
+    a.add_argument('--lightmaps', action='store_true', help='preserve static Source LDR lightmaps in OALMAP v2')
     a.add_argument('--texture-budget-mib', type=float, default=DEFAULT_TEXTURE_BUDGET/2**20)
     a.add_argument('--report-dir', type=Path, help='write compatibility.json/.md here')
     a.add_argument('--prop-lod', type=int, default=0,
@@ -165,7 +166,7 @@ def main():
         elif args.command == 'convert':
             roots, vpks = search_path(args)
             m, r = compile_map(args.source, args.output, roots, vpks=vpks, texture_budget=int(args.texture_budget_mib*2**20),
-                               prop_lod=args.prop_lod)
+                               prop_lod=args.prop_lod, lightmaps=args.lightmaps)
             if args.report_dir:
                 args.report_dir.mkdir(parents=True, exist_ok=True); write(r['compatibility'], args.report_dir)
             print(json.dumps({'package': args.output, 'manifest': m, 'report': r}, indent=2))

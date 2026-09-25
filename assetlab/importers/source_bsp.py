@@ -154,6 +154,8 @@ class World:
     entities: list
     report: dict = field(default_factory=dict)
     flags: list = field(default_factory=list)   # [{'team', 'position'}] runtime units
+    light_uv: dict = field(default_factory=dict)  # vertex -> (face, luxel s, luxel t)
+    light_samples: dict = field(default_factory=dict)  # face -> (width, height, RGBExp32 bytes)
 
 
 class SourceBSP:
@@ -469,6 +471,8 @@ class SourceBSP:
         if not models:
             raise BSPError('world model missing')
         vertices = []; indices = []; groups = []; warnings = []
+        light_uv = {}; light_samples = {}; active_light = [None]
+        lighting = self.lump(8)
         stats = Counter(); excluded = Counter(); material_tri = Counter()
 
         def point(index):
@@ -488,6 +492,8 @@ class SourceBSP:
                 b, c = c, b; pb, pc = pc, pb
             start = len(vertices)
             for p, rp in ((a, pa), (b, pb), (c, pc)):
+                if active_light[0] is not None:
+                    light_uv[len(vertices)] = active_light[0](p)
                 vertices.append((rp, normal, uvfn(p)))
             indices.extend((start, start+1, start+2)); material_tri[mat] += 1
             key = (mat, solid)
@@ -532,6 +538,19 @@ class SourceBSP:
                 # defined there), before the entity transform.
                 uvfn = lambda p, u=uvec, v=vvec, w=width, h=height: (
                     (p[0]*u[0]+p[1]*u[1]+p[2]*u[2]+u[3])/w, (p[0]*v[0]+p[1]*v[1]+p[2]*v[2]+v[3])/h)
+                active_light[0] = None
+                lightofs = unpack('<i', faces, o+20)[0]
+                mins = unpack('<2i', faces, o+28)
+                sizes = unpack('<2i', faces, o+36)
+                lw, lh = sizes[0]+1, sizes[1]+1
+                if lightofs >= 0 and 0 < lw <= 1022 and 0 < lh <= 1022 and lightofs+lw*lh*4 <= len(lighting):
+                    lu = unpack('<4f', texinfo, to+32); lv = unpack('<4f', texinfo, to+48)
+                    light_samples[fi] = (lw, lh, lighting[lightofs:lightofs+lw*lh*4])
+                    active_light[0] = lambda p, f=fi, u=lu, v=lv, mi=mins: (f,
+                        sum(p[k]*u[k] for k in range(3))+u[3]-mi[0],
+                        sum(p[k]*v[k] for k in range(3))+v[3]-mi[1])
+                elif lightofs >= 0 and lighting:
+                    warnings.append(f'face {fi}: invalid or oversized lightmap; unlit fallback')
                 polygon = []
                 for k in range(numedges):
                     ei = unpack('<i', surf, (firstedge+k)*4)[0]
@@ -658,7 +677,7 @@ class SourceBSP:
             p = parse_vector(e.get('origin', ''))
             if team is not None and p is not None and not any(f['team'] == team for f in flags):
                 flags.append({'team': team, 'position': vec3(p)})
-        return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags)
+        return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags, light_uv, light_samples)
 
     def _displacement(self, fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri):
         if di >= len(disp)//176:

@@ -246,8 +246,37 @@ class BSPTests(unittest.TestCase):
         self.assertIn('materials/test/checker.vmt',m['missing_dependencies'])
         self.assertEqual(m['placeholder_materials'],['test/checker'])
         self.assertEqual(r['resolved_textures'],0)
-        bad=bytearray(a.read_bytes());struct.pack_into('<I',bad,4,2);b.write_bytes(bad)
+        bad=bytearray(a.read_bytes());struct.pack_into('<I',bad,4,3);b.write_bytes(bad)
         with self.assertRaises(BSPError):read_manifest(b)
+    def test_baked_lightmap_package(self):
+        ti=bytearray(72)
+        struct.pack_into('<4f',ti,0,1,0,0,0);struct.pack_into('<4f',ti,16,0,1,0,0)
+        struct.pack_into('<4f',ti,32,1/60,0,0,0);struct.pack_into('<4f',ti,48,0,1/60,0,0)
+        face=bytearray(56);struct.pack_into('<HBBihhh',face,0,0,0,1,0,4,0,-1)
+        struct.pack_into('<2i',face,36,2,2)
+        samples=bytes([255,255,255,0])*9
+        self.path.write_bytes(fixture(extra={6:ti,7:face,8:samples}))
+        world=SourceBSP(self.path).convert()
+        self.assertEqual(len(world.light_samples),1)
+        from assetlab.lightmap import lightmap_atlases
+        atlas,uv=lightmap_atlases(world,size=8)
+        self.assertEqual(len(atlas),1)
+        self.assertEqual(atlas[0][2][:4],bytes([128,128,128,255]))
+        self.assertTrue(all(0 < u < 1 and 0 < v < 1 for _,u,v in uv.values()))
+        out=self.root/'lit.oalmap'
+        manifest,_=compile_map(self.path,out,lightmaps=True)
+        self.assertEqual(manifest['package_version'],2)
+        self.assertEqual(manifest['baked_lightmap_pages'],1)
+        self.assertEqual(read_manifest(out)['package_version'],2)
+        raw=out.read_bytes(); ml,vc,ic=struct.unpack_from('<3I',raw,8)
+        group=64+ml+vc*40+ic*4
+        self.assertEqual(struct.unpack_from('<I',raw,group+16)[0],1)
+        # Negative RGBExp exponents must dim rather than wrap to huge light.
+        world.light_samples={0:(1,1,bytes([255,255,255,255]))};world.light_uv={0:(0,0,0)}
+        atlas,_=lightmap_atlases(world,size=4)
+        sample=atlas[0][2][(1*4+1)*4]
+        self.assertGreater(sample,0);self.assertLess(sample,128)
+
     def test_vpk_material_resolution(self):
         archive=self.root/'materials_dir.vpk'
         vtf=bytearray(80+16)

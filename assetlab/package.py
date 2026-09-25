@@ -17,6 +17,7 @@ from collections import Counter
 from pathlib import Path
 from PIL import Image
 from srctools.vpk import VPK
+from .lightmap import lightmap_atlases
 from . import translate
 from .coords import TRANSFORM, angle_matrix, cross, norm, rotate, sub, to_runtime
 from .importers.source_bsp import BSPError, SourceBSP
@@ -381,7 +382,7 @@ def fit_textures(textures, budget):
 # ---- compile ----------------------------------------------------------------------
 
 def compile_map(source, output, material_roots=(), identifier=None, vpks=(), texture_budget=DEFAULT_TEXTURE_BUDGET,
-                prop_lod=0):
+                prop_lod=0, lightmaps=False):
     bsp = SourceBSP(source)
     world = bsp.convert()
     resolver = Resolver(bsp, material_roots, vpks)
@@ -452,7 +453,12 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         else:
             placeholders.append(name); textures[name] = translate.placeholder(name, p)
     mats = [m for m in mats if m not in hidden]
-    downsampled = fit_textures(textures, min(texture_budget, RUNTIME_TEXTURE_CAP))
+    atlases, light_uv = lightmap_atlases(world) if lightmaps else ([], {})
+    version = 2 if atlases else VERSION
+    atlas_bytes = sum(len(a[2]) for a in atlases)
+    if atlas_bytes >= min(texture_budget, RUNTIME_TEXTURE_CAP):
+        raise BSPError('lightmaps leave no room in the texture budget')
+    downsampled = fit_textures(textures, min(texture_budget, RUNTIME_TEXTURE_CAP)-atlas_bytes)
     tex_index = {m: i for i, m in enumerate(mats)}
 
     buckets = {}
@@ -462,14 +468,18 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         if mat in hidden:
             continue
         solid = solid and mat not in nonsolid_materials
-        buckets.setdefault((mat, solid, brk), []).extend(world.indices[first:first+count])
+        for start in range(first, first+count, 3):
+            tri = world.indices[start:start+3]
+            page = light_uv.get(tri[0], (-1, 0, 0))[0]
+            buckets.setdefault((mat, solid, brk, page), []).extend(tri)
     indices = []; groups = []; collision_triangles = 0
-    for mat, solid, brk in sorted(buckets, key=lambda k: (k[2], k[0], not k[1])):
-        first = len(indices); indices.extend(buckets[(mat, solid, brk)])
+    for mat, solid, brk, page in sorted(buckets, key=lambda k: (k[2], k[0], not k[1], k[3])):
+        first = len(indices); indices.extend(buckets[(mat, solid, brk, page)])
         flags = (0 if solid else GROUP_NO_COLLISION) | (GROUP_ALPHA if translate.material_alpha(params[mat]) else 0)
         if brk >= 0:
             flags |= GROUP_BREAKABLE | ((brk + 1) << 8)
-        groups.append((first, len(indices)-first, tex_index[mat], flags))
+        group = (first, len(indices)-first, tex_index[mat], flags)
+        groups.append(group + (len(mats)+page if page >= 0 else 0xffffffff,) if version == 2 else group)
         if solid:
             collision_triangles += (len(indices)-first)//3
 
@@ -479,7 +489,8 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
     packed, remap = [], {}
     for k, i in enumerate(indices):
         pos, nrm, uv = world.vertices[i]
-        key = struct.pack('<10f', *pos, *nrm, *uv, 0., 0.)
+        lm=light_uv.get(i,(-1,0.,0.))
+        key = struct.pack('<10f', *pos, *nrm, *uv, lm[1], lm[2])
         j = remap.get(key)
         if j is None:
             j = remap[key] = len(packed); packed.append(key)
@@ -510,7 +521,7 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         'materials': {'used': len(mats), 'resolved': len(mats)-len(placeholders), 'placeholder': len(placeholders),
                       'non_solid': len(nonsolid_materials), 'features_not_reproduced': dict(sorted(dropped.items())),
                       'textures_downsampled': len(downsampled),
-                      'texture_bytes': sum(len(t[2]) for t in textures.values())},
+                      'texture_bytes': sum(len(t[2]) for t in textures.values()) + atlas_bytes},
         'breakables': {'count': len(breakables), 'explosive': sum(b['explosive'] for b in breakables),
                        'by_material': dict(Counter(b['material'] for b in breakables)),
                        'not_yet': 'func_breakable brushes are imported unbroken'},
@@ -532,10 +543,10 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         'warnings': r['warnings'] + resolver.warnings,
     }
     manifest = {
-        'package_version': VERSION, 'importer_version': 'source_bsp-0.2.0', 'map_id': identifier, 'display_name': src.stem,
+        'package_version': version, 'importer_version': 'source_bsp-0.2.0', 'map_id': identifier, 'display_name': src.stem,
         'source_format': 'Source BSP', 'source_bsp_version': bsp.version, 'source_sha256': source_hash,
         'source_reference': src.name, 'coordinate_transform': TRANSFORM,
-        'required_open_halo_runtime': 'external-map-v1',
+        'required_open_halo_runtime': f'external-map-v{version}',
         'geometry': {'vertices': len(packed), 'triangles': len(indices)//3, 'collision_triangles': collision_triangles,
                      'displacements': r['converted_displacements']},
         'material_paths': mats, 'missing_dependencies': sorted(set(resolver.missing)),
@@ -552,7 +563,7 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         'breakables': breakables,
         'weather': translate.map_weather(bsp.entities),
         'rejected_spawn_points': r['rejected_spawns'],
-        'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats), 'compatibility': compat,
+        'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats)+len(atlases), 'baked_lightmap_pages': len(atlases), 'compatibility': compat,
         'source_provenance': 'user supplied; redistribution rights not inferred',
     }
     manifest_bytes = json.dumps(manifest, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
@@ -561,17 +572,19 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
     out = Path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open('wb') as f:
-        f.write(struct.pack(HEADER, MAGIC, VERSION, len(manifest_bytes), len(packed), len(indices), len(groups),
-                            len(mats), len(world.spawns), 0, *lo, *hi, 0))
+        f.write(struct.pack(HEADER, MAGIC, version, len(manifest_bytes), len(packed), len(indices), len(groups),
+                            len(mats)+len(atlases), len(world.spawns), 0, *lo, *hi, 0))
         f.write(manifest_bytes)
         f.write(b''.join(packed))
         for i in indices:
             f.write(struct.pack('<I', i))
         for group in groups:
-            f.write(struct.pack('<4I', *group))
+            f.write(struct.pack('<5I' if version==2 else '<4I', *group))
         for name in mats:
             w, h, pixels = textures[name]
             f.write(struct.pack('<3I', w, h, len(pixels))); f.write(pixels)
+        for w,h,rgba in atlases:
+            f.write(struct.pack('<3I',w,h,len(rgba))); f.write(rgba)
         for sp in world.spawns:
             f.write(struct.pack('<4f', *sp['position'], math.radians(sp['yaw_degrees'])))
     size = out.stat().st_size
@@ -592,7 +605,7 @@ def read_manifest(package):
         if len(h) != 64:
             raise BSPError('truncated package header')
         magic, version, mlen, vc, ic, gc, tc, sc, flags, *_ = struct.unpack(HEADER, h)
-        if magic != MAGIC or version != VERSION:
+        if magic != MAGIC or version not in (1,2):
             raise BSPError('invalid or unsupported package version')
         if mlen > 4*1024*1024 or vc > 5000000 or ic > 15000000 or gc > 100000 or tc > 10000 or sc > 100000:
             raise BSPError('package counts out of range')
