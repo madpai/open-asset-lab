@@ -2,6 +2,11 @@
 
 ## Merged importer checkpoint
 
+**Owner feedback, 2026-09-25:** the published Megamod LAN v9 session
+"seems to work fine." No importer-specific phone result was supplied.
+The optional OALMAP v2 McRonalds lightmap remains host-validated only and
+is not in the current personal APK. Converted packages stay private.
+
 The second cloud pass (Workshop collections and breakable brushes) is now on
 public `main`; the local synthetic suite passes 61/61. A private de_dust2
 conversion with the current importer has 75 breakables, zero missing
@@ -21,9 +26,10 @@ private.
 
 ## This session (cloud container, branch `claude/vibrant-euler-xwhpy5`)
 
-Merge into `main` after reading this. Verified in the container against the
-live Steam Workshop; the owner's private bundle and GMod install were not
-there, so re-run the owner's usual conversions on the desktop.
+This cloud work is merged into `main`. It was verified in the container
+against the live Steam Workshop. The owner's private bundle and GMod install
+were not there; the later local de_dust2 conversion above used the owner's
+installed content.
 
 - **Workshop search, fetch, analyze, import** (`assetlab/workshop.py`):
   ```sh
