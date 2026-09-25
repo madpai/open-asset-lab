@@ -30,6 +30,7 @@ MAX_TEXTURE = 4096
 HEADER = '<4s8I6fI'  # 64 bytes
 GROUP_NO_COLLISION = 1  # group record flags: drawn but not solid
 GROUP_ALPHA = 2         # drawn blended by the texture's alpha ($alphatest, $translucent)
+GROUP_BREAKABLE = 4     # one breakable prop's triangles; its index + 1 in bits 8..23
 # Open Halo's loader refuses more RGBA texture data than this (external_map.c).
 RUNTIME_TEXTURE_CAP = 128 * 1024 * 1024
 RUNTIME_FILE_CAP = 256 * 1024 * 1024
@@ -312,10 +313,11 @@ class Resolver:
 
 # ---- models ---------------------------------------------------------------------
 
-def add_models(world, placements, resolver, lod=0):
+def add_models(world, placements, resolver, lod=0, cache=None):
     """Static props and model entities into the world triangles. Returns
     (placed count by source, model paths that could not be read)."""
-    cache = {}; failed = set(); placed = Counter()
+    cache = {} if cache is None else cache
+    failed = set(); placed = Counter()
     exists = resolver.has_material
     for path, origin, angles, skin, solid, source in placements:
         key = (path, skin)
@@ -388,10 +390,48 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         placements = [(*p, 'static_prop') for p in bsp.static_prop_placements()]
     except BSPError as e:
         placements = []; prop_warning = str(e)
-    placements += [(m, o, a, sk, so, f'entity:{c}') for m, o, a, sk, so, c in bsp.model_entity_placements()]
+    placements += [(m, o, a, sk, so, f'entity:{c}') for m, o, a, sk, so, c in bsp.model_entity_placements()
+                   if c not in translate.BREAKABLE_MODEL_CLASSES]
     in_sky = [p for p in placements if bsp.in_skybox(p[1])]
     placements = [p for p in placements if not bsp.in_skybox(p[1])]
-    placed, models_failed = add_models(world, placements, resolver, prop_lod)
+    model_cache = {}
+    placed, models_failed = add_models(world, placements, resolver, prop_lod, model_cache)
+    # Breakables, one at a time so their triangles can be told apart: each
+    # gets its own groups, left out of static collision (the engine gives
+    # a whole prop its own collision, and takes it away when it breaks).
+    breakables = []
+    # The entity behind each placement, in the same order and by the same
+    # filter model_entity_placements uses: its keyvalues (health, explosion).
+    placed_entities = [e for e in bsp.entities
+                       if translate.MODEL_CLASSES.get(e.get('classname', '').lower()) is not None
+                       and e.get('model', '').replace('\\', '/').lower().endswith('.mdl')]
+    for (m, o, a, sk, so, c), kv in zip(bsp.model_entity_placements(), placed_entities):
+        if c not in translate.BREAKABLE_MODEL_CLASSES or bsp.in_skybox(o):
+            continue
+        g0 = len(world.groups)
+        p2, f2 = add_models(world, [(m, o, a, sk, so, f'entity:{c}')], resolver, prop_lod, model_cache)
+        placed.update(p2)
+        models_failed = sorted(set(models_failed) | set(f2))
+        if len(world.groups) == g0:
+            continue
+        b = len(breakables)
+        mats_here = sorted({g[0] for g in world.groups[g0:]})
+        idx = [i for g in world.groups[g0:] for i in world.indices[g[1]:g[1]+g[2]]]
+        blo = [min(world.vertices[i][0][k] for i in idx) for k in range(3)]
+        bhi = [max(world.vertices[i][0][k] for i in idx) for k in range(3)]
+        world.groups[g0:] = [(*g[:3], False, b) for g in world.groups[g0:]]
+        kv = {k.lower(): v for k, v in kv.items()}
+        try:
+            health = max(0.0, float(kv.get('health', '0') or 0))
+        except ValueError:
+            health = 0.0
+        rec = {'index': b, 'classname': c, 'model': m, 'material': translate.breakable_material(m, mats_here),
+               'health': health, 'explosive': translate.breakable_explosive(m, kv),
+               'bounds': {'min': [round(x, 5) for x in blo], 'max': [round(x, 5) for x in bhi]}}
+        if rec['explosive']:
+            rec['blast_damage'] = 150.0      # ours: a Halo frag grenade's order of magnitude
+            rec['blast_radius'] = 3.0        # wu
+        breakables.append(rec)
 
     mats = sorted(set(g[0] for g in world.groups))
     textures = {}; params = {}; placeholders = []; dropped = Counter(); nonsolid_materials = []
@@ -416,15 +456,19 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
     tex_index = {m: i for i, m in enumerate(mats)}
 
     buckets = {}
-    for mat, first, count, solid in world.groups:
+    for g in world.groups:
+        mat, first, count, solid = g[:4]
+        brk = g[4] if len(g) > 4 else -1
         if mat in hidden:
             continue
         solid = solid and mat not in nonsolid_materials
-        buckets.setdefault((mat, solid), []).extend(world.indices[first:first+count])
+        buckets.setdefault((mat, solid, brk), []).extend(world.indices[first:first+count])
     indices = []; groups = []; collision_triangles = 0
-    for mat, solid in sorted(buckets, key=lambda k: (k[0], not k[1])):
-        first = len(indices); indices.extend(buckets[(mat, solid)])
+    for mat, solid, brk in sorted(buckets, key=lambda k: (k[2], k[0], not k[1])):
+        first = len(indices); indices.extend(buckets[(mat, solid, brk)])
         flags = (0 if solid else GROUP_NO_COLLISION) | (GROUP_ALPHA if translate.material_alpha(params[mat]) else 0)
+        if brk >= 0:
+            flags |= GROUP_BREAKABLE | ((brk + 1) << 8)
         groups.append((first, len(indices)-first, tex_index[mat], flags))
         if solid:
             collision_triangles += (len(indices)-first)//3
@@ -467,6 +511,10 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
                       'non_solid': len(nonsolid_materials), 'features_not_reproduced': dict(sorted(dropped.items())),
                       'textures_downsampled': len(downsampled),
                       'texture_bytes': sum(len(t[2]) for t in textures.values())},
+        'breakables': {'count': len(breakables), 'explosive': sum(b['explosive'] for b in breakables),
+                       'by_material': dict(Counter(b['material'] for b in breakables)),
+                       'not_yet': 'func_breakable brushes are imported unbroken'},
+        'weather': translate.map_weather(bsp.entities),
         'static_props': {'lump_version': r['static_props']['version'], 'in_bsp': r['static_props']['count'],
                          'placed': placed.get('static_prop', 0), 'model_entities_placed': sum(v for k, v in placed.items() if k != 'static_prop'),
                          'models_unresolved': models_failed, 'left_out_in_3d_skybox': len(in_sky),
@@ -501,6 +549,8 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         'static_prop_models': r['static_props']['models'],
         'entity_translation': r['entities'], 'entities': world.entities, 'spawn_points': world.spawns,
         'flag_points': world.flags,
+        'breakables': breakables,
+        'weather': translate.map_weather(bsp.entities),
         'rejected_spawn_points': r['rejected_spawns'],
         'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats), 'compatibility': compat,
         'source_provenance': 'user supplied; redistribution rights not inferred',

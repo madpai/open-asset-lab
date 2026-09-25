@@ -36,7 +36,7 @@ class Model:
         if mdl[:4] != b"IDST":
             raise BSPError("invalid MDL magic")
         version = _u("<i", mdl, 4)[0]
-        if not 44 <= version <= 48:
+        if not 44 <= version <= 49:
             raise BSPError(f"unsupported MDL version {version}")
         if vvd[:4] != b"IDSV" or _u("<i", vvd, 4)[0] != 4:
             raise BSPError("unsupported VVD")
@@ -105,8 +105,9 @@ class Model:
                 tris = self.groups.setdefault(name, [])
                 vme = vl + vmesh_i + m * 9
                 nsg, sgi = _u("<ii", vtx, vme)
+                stride = vtx_strip_group_stride(vtx, vme, nsg, sgi, version)
                 for g in range(nsg):
-                    sg = vme + sgi + g * 25
+                    sg = vme + sgi + g * stride
                     nv, vo, ni, io = _u("<iiii", vtx, sg)
                     if ni % 3 or ni > 600000:
                         continue  # a strip, not a list; CS:S props compile to lists
@@ -132,4 +133,23 @@ class Model:
         # studiomdl searches $cdmaterials in order; the first that exists wins.
         return next((n for n in names if exists and exists(n)), names[0])
 
-
+def vtx_strip_group_stride(vtx, vme, nsg, sgi, mdl_version):
+    """Bytes per VTX StripGroupHeader_t: 25, or 33 in files compiled for
+    MDL v49 and later (two more ints: topology indices and offset). The
+    MDL version says which to try first; each candidate must put every
+    strip group's vertices and indices inside the file, or it is wrong."""
+    order = (33, 25) if mdl_version >= 49 else (25, 33)
+    for stride in order:
+        ok = True
+        for g in range(nsg):
+            sg = vme + sgi + g * stride
+            if sg < 0 or sg + 16 > len(vtx):
+                ok = False
+                break
+            nv, vo, ni, io = struct.unpack_from("<iiii", vtx, sg)
+            if nv < 0 or ni < 0 or sg + vo + nv * 9 > len(vtx) or sg + io + ni * 2 > len(vtx) or vo <= 0 or io <= 0:
+                ok = False
+                break
+        if ok:
+            return stride
+    raise BSPError("VTX strip groups do not fit the file at either known layout")

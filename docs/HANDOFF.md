@@ -1,4 +1,55 @@
-# Session handoff — 2026-09-24 (McRonalds, citizen fists, Workshop scan)
+# Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
+
+## This session (cloud container, branch `claude/vibrant-euler-xwhpy5`)
+
+Merge into `main` after reading this. Verified in the container against the
+live Steam Workshop; the owner's private bundle and GMod install were not
+there, so re-run the owner's usual conversions on the desktop.
+
+- **Workshop search, fetch, analyze, import** (`assetlab/workshop.py`):
+  ```sh
+  python -m assetlab workshop search superman --tag Model           # no key needed
+  python -m assetlab workshop search ak47 --tag Weapon --sort popular
+  python -m assetlab workshop info 3563673673
+  python -m assetlab workshop analyze 3563673673 --install-steamcmd  # what is inside
+  python -m assetlab workshop import 3563673673 --install-steamcmd \
+      --output-dir ~/assetlab-private/bundle/new \
+      --game-dir ~/.local/share/Steam/steamapps/common/GarrysMod/garrysmod \
+      --game-dir ~/.local/share/Steam/steamapps/common/GarrysMod/sourceengine
+  python -m assetlab workshop import 853797162 --only weapons --dry-run
+  ```
+  Downloads go to `~/.local/share/open-asset-lab/workshop/downloads` (a
+  cache, trimmed past 8 GiB by the service); SteamCMD to
+  `~/.local/share/open-asset-lab/steamcmd` (`ASSETLAB_STEAMCMD` or
+  `--steamcmd` for the existing `~/assetlab-private/steamcmd`). SteamCMD is
+  32-bit: a fresh machine needs `lib32gcc-s1`.
+- **What analysis finds:** playermodels with their registered names and
+  hands; NPC registrations (recognised as variants of a registered body,
+  not extra characters); SWEPs drafted into `data/weapons`-format JSON
+  (stock, M9K, TFA, CW, ArcCW names; RPM or Delay; sound scripts; bases and
+  grenades skipped) -- **drafts: review the numbers before shipping**, the
+  JSON sits beside each package; maps.
+- **Web UI** (`serve`): a Steam Workshop panel -- search with thumbnails,
+  type and sort, Import by ID/URL, queued jobs that fetch, analyze, build,
+  validate with `open-halo-asset-test`/`open-halo-map-test` and stage.
+  `--no-workshop` turns it off.
+- **MDL v49** is read (modern Workshop playermodels). Its VTX strip-group
+  headers are 33 bytes; the stride is chosen per file by what fits.
+- **Cel-shading outline shells** (`outline` material with a black base
+  texture) are dropped and listed in the package as
+  `outline_materials_dropped` -- Open Halo draws both faces, so the shell
+  hid the body. When the engine gets per-submesh culling, keep them.
+- **Breakables and weather for Megamod:** `prop_physics*` are kept apart,
+  flagged (group bit 2, index + 1 in bits 8..23), out of static collision,
+  and listed in the manifest's `breakables`; `func_precipitation` becomes
+  `weather`. **Re-convert maps** to get them (older packages have none and
+  still load). `func_breakable` brushes are still unbroken.
+- **Proof run:** 'Superman: The Animated Series' (3563673673): SteamCMD
+  fetch, v49 model, GMod animations, built with 0 missing dependencies,
+  rendered textured and animated in `open-halo-asset-test`.
+- Tests 56/56 (`test_workshop.py`, `test_breakables.py` new).
+
+## Previous: 2026-09-24 (McRonalds, citizen fists, Workshop scan)
 
 ## Start of next session
 

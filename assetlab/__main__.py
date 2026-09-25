@@ -29,6 +29,68 @@ def search_path(args):
     return [*args.material_root, *roots], [*args.vpk, *vpks]
 
 
+def _addon(args):
+    """An existing archive/folder, or a Workshop item fetched now."""
+    from . import workshop as ws
+    p = Path(args.item).expanduser()
+    if p.exists():
+        return p, None
+    api = ws.WorkshopAPI()
+    items = api.details([args.item])
+    if not items or not items[0]['ok']:
+        raise ws.WorkshopError(f'{args.item}: no such Workshop item (or it is private)')
+    sc = ws.SteamCMD(args.steamcmd)
+    if not items[0]['file_url'] and not sc.installed():
+        if not args.install_steamcmd:
+            raise ws.WorkshopError(f'{items[0]["id"]} needs SteamCMD; pass --install-steamcmd or --steamcmd DIR')
+        sc.install()
+    return ws.fetch(items[0], args.dest, sc), items[0]
+
+
+def workshop_command(args):
+    from . import workshop as ws
+    if args.ws == 'search':
+        r = ws.WorkshopAPI().search(args.query, args.tag, args.page, args.sort)
+        if args.json:
+            print(json.dumps(r, indent=2)); return
+        print(f"{r['total']} results (page {r['page']}, via {r['source']})")
+        for i in r['items']:
+            mb = i['size'] / 2**20
+            print(f"{i['id']:>11}  {i['kind']:<9} {mb:7.1f} MB  {i['subscriptions']:>8} subs  {i['title'][:70]}")
+    elif args.ws == 'info':
+        items = ws.WorkshopAPI().details(args.items)
+        print(json.dumps(items, indent=2) if args.json else
+              '\n'.join(f"{i['id']}: {i['title']} [{i['kind']}; {', '.join(i['tags'])}] "
+                        f"{'direct download' if i['file_url'] else 'SteamCMD'}" for i in items))
+    elif args.ws == 'collection':
+        print('\n'.join(ws.WorkshopAPI().collection(args.collection)))
+    elif args.ws == 'fetch':
+        path, _ = _addon(args)
+        print(path)
+    elif args.ws == 'analyze':
+        path, item = _addon(args)
+        a = ws.analyze(path)
+        print(json.dumps({'source': str(path), 'item': item, 'analysis': a.to_json()}, indent=2))
+    elif args.ws == 'import':
+        path, item = _addon(args)
+        a = ws.analyze(path)
+        kinds = tuple(k.strip() for k in args.only.split(',') if k.strip())
+        if args.dry_run:
+            print(json.dumps({'source': str(path), 'would_build': {
+                'characters': [c['display'] for c in a.characters] if 'characters' in kinds else [],
+                'weapons': [w['display_name'] for w in a.weapons] if 'weapons' in kinds else [],
+                'maps': a.maps if 'maps' in kinds else []}, 'warnings': a.warnings}, indent=2))
+            return
+        root = ws.extract(path, args.dest / f'{(item or {}).get("id") or Path(path).stem}_files')
+        # The addon first, then the games' own content (their VPKs too).
+        report = ws.import_addon(a, root, args.output_dir, [*args.game_dir, *args.material_root], args.vpk,
+                                 kinds, pick=args.pick)
+        report['item'] = item
+        report['analysis'] = a.to_json()
+        (args.output_dir / 'workshop_report.json').write_text(json.dumps(report, indent=2) + '\n')
+        print(json.dumps({k: report[k] for k in ('addon', 'built', 'failed')}, indent=2))
+
+
 def main():
     p = argparse.ArgumentParser(prog='assetlab')
     p.add_argument('--library', type=Path, default=DEFAULT_ROOT)
@@ -55,10 +117,34 @@ def main():
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
     a = sub.add_parser('report', help='compatibility report of one or more packages')
     a.add_argument('packages', nargs='+'); a.add_argument('--json', action='store_true')
+    w = sub.add_parser('workshop', help="Steam Workshop: search, fetch, analyze and import (Garry's Mod by default)")
+    wsub = w.add_subparsers(dest='ws', required=True)
+    x = wsub.add_parser('search', help='search the Workshop')
+    x.add_argument('query', nargs='?', default=''); x.add_argument('--tag', action='append', default=[],
+                   help='required tag, e.g. Model, Weapon, Map, NPC, Vehicle (repeatable)')
+    x.add_argument('--sort', default='relevance', help='relevance, popular, recent, subscribed, rated')
+    x.add_argument('--page', type=int, default=1); x.add_argument('--json', action='store_true')
+    x = wsub.add_parser('info', help='details of items (IDs or URLs)'); x.add_argument('items', nargs='+'); x.add_argument('--json', action='store_true')
+    x = wsub.add_parser('collection', help='the items in a collection'); x.add_argument('collection')
+    for name, hlp in (('fetch', 'download an item'), ('analyze', 'what an addon contains (item, archive or folder)'),
+                      ('import', 'fetch, analyze and build packages')):
+        x = wsub.add_parser(name, help=hlp)
+        x.add_argument('item')
+        x.add_argument('--dest', type=Path, default=DEFAULT_ROOT/'workshop/downloads', help='where downloads go')
+        x.add_argument('--steamcmd', type=Path, default=Path(os.environ.get('ASSETLAB_STEAMCMD', DEFAULT_ROOT/'steamcmd')))
+        x.add_argument('--install-steamcmd', action='store_true', help="fetch Valve's SteamCMD if it is missing")
+        if name == 'import':
+            x.add_argument('--output-dir', type=Path, required=True)
+            x.add_argument('--only', default='characters,weapons,maps', help='comma list: characters, weapons, maps')
+            x.add_argument('--pick', action='append', help='only candidates whose name contains this (repeatable)')
+            x.add_argument('--dry-run', action='store_true', help='analyze and list, build nothing')
+            search_args(x)
     sub.add_parser('staged')
     a = sub.add_parser('serve'); a.add_argument('--source-dir', action='append', default=[]); search_args(a)
     a.add_argument('--port', type=int, default=8762); a.add_argument('--tailscale', action='store_true')
     a.add_argument('--host-test', type=Path, default=DEFAULT_ENGINE); a.add_argument('--icd', type=Path, default=DEFAULT_ICD)
+    a.add_argument('--steamcmd', type=Path, default=Path(os.environ.get('ASSETLAB_STEAMCMD', DEFAULT_ROOT/'steamcmd')))
+    a.add_argument('--no-workshop', action='store_true', help='leave the Workshop panel and its downloads off')
     args = p.parse_args()
     try:
         if args.command == 'inspect':
@@ -109,6 +195,8 @@ def main():
                 print(json.dumps(compats, indent=2))
             else:
                 print(table(compats)); print('\n'.join(markdown(c) for c in compats))
+        elif args.command == 'workshop':
+            workshop_command(args)
         elif args.command == 'staged':
             idx = args.library/'staged/index.json'
             print(idx.read_text() if idx.exists() else '[]')
@@ -122,8 +210,14 @@ def main():
                     p.error('no Tailscale IPv4 address available')
             roots, vpks = search_path(args)
             lib = Library(args.library, args.source_dir, args.host_test, args.icd if args.icd.is_file() else None, roots, vpks)
-            serve(lib, host, args.port)
-    except (BSPError, ValueError, FileNotFoundError, KeyError) as e:
+            wsjobs = None
+            if not args.no_workshop:
+                from .workshop_jobs import WorkshopJobs
+                wsjobs = WorkshopJobs(args.library, steamcmd_dir=args.steamcmd, game_dirs=[*args.game_dir, *args.material_root],
+                                      vpks=args.vpk, asset_test=args.host_test.parent / 'open-halo-asset-test',
+                                      map_test=args.host_test, icd=args.icd if args.icd.is_file() else None)
+            serve(lib, host, args.port, wsjobs)
+    except (BSPError, ValueError, FileNotFoundError, KeyError, OSError) as e:
         p.exit(1, f'assetlab: {e}\n')
 
 

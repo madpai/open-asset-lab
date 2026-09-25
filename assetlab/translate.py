@@ -65,6 +65,58 @@ MODEL_CLASSES = {
     'prop_door_rotating': {'solid': True, 'note': 'imported closed, does not open'},
 }
 
+# Model entities that break: kept apart in the package so the engine can
+# shatter them (Megamod's destructible props). Everything else about them
+# is as MODEL_CLASSES says.
+BREAKABLE_MODEL_CLASSES = ('prop_physics', 'prop_physics_multiplayer', 'prop_physics_override')
+
+# What a breakable is made of, from its model and material paths (Source
+# keeps the real answer in the model's compiled propdata, which is not read
+# here). First match wins; wood is the commonest breakable.
+BREAKABLE_MATERIAL_WORDS = (
+    ('glass', ('glass', 'bottle', 'window', 'jar')),
+    ('metal', ('metal', 'barrel', 'oildrum', 'canister', 'gascan', 'propane', 'tank', 'can0', 'locker', 'vent')),
+    ('concrete', ('concrete', 'cinder', 'brick', 'rock', 'stone', 'pot0', 'terracotta', 'ceramic')),
+    ('wood', ('wood', 'crate', 'pallet', 'box', 'plank', 'chair', 'table', 'drawer', 'shelf')),
+)
+EXPLOSIVE_WORDS = ('explosive', 'gascan', 'propane', 'oildrum001_explosive', 'gas_canister')
+
+
+def breakable_material(model, materials=()):
+    text = ' '.join([model, *materials]).lower()
+    for mat, words in BREAKABLE_MATERIAL_WORDS:
+        if any(w in text for w in words):
+            return mat
+    return 'wood'
+
+
+def breakable_explosive(model, keyvalues):
+    try:
+        if float(keyvalues.get('explodedamage', '0') or 0) > 0:
+            return True
+    except ValueError:
+        pass
+    return any(w in model.lower() for w in EXPLOSIVE_WORDS)
+
+
+# func_precipitation's preciptype -> a weather the engine draws.
+PRECIPITATION = {'0': 'rain', '1': 'snow', '2': 'ash', '3': 'snow', '4': 'rain', '5': 'ash', '6': 'storm', '7': 'snow'}
+
+
+def map_weather(entities):
+    """The map's own weather from its func_precipitation, or None."""
+    for e in entities:
+        if e.get('classname', '').lower() != 'func_precipitation':
+            continue
+        kind = PRECIPITATION.get(str(e.get('preciptype', '0')).strip(), 'rain')
+        try:
+            amt = float(e.get('renderamt', '100') or 100) / 100.0
+        except ValueError:
+            amt = 1.0
+        return {'kind': kind, 'intensity': round(min(max(amt, 0.1), 1.0), 3), 'source': 'func_precipitation'}
+    return None
+
+
 # Entities that are deliberately not geometry: invisible volumes, logic and
 # effects. They are counted as "not needed", distinct from "unsupported".
 NOT_GEOMETRY_PREFIXES = ('trigger_', 'logic_', 'env_', 'info_', 'point_', 'ambient_', 'filter_',
@@ -213,6 +265,25 @@ def material_hidden(props):
     is behind it. Open Halo draws it opaque -- a black or white slab in the
     air -- so it is left out."""
     return props.get('$additive', '0').strip() not in ('0', '')
+
+
+def material_outline(name, props, decoded):
+    """A cel-shading outline: an inflated, inside-out copy of a body in
+    flat black, which Source culls down to a rim around the silhouette.
+    Open Halo draws both faces of everything, so the shell would swallow the
+    body. Both signs are required -- "outline" in the material's name or
+    base texture, and a base texture that is nearly black -- so a black
+    costume named outline-anything is kept."""
+    base = (props or {}).get('$basetexture', '')
+    if 'outline' not in name.lower() and 'outline' not in base.lower():
+        return False
+    if not decoded:
+        return True
+    w, h, px = decoded
+    n = max(1, len(px) // 4)
+    step = max(1, n // 4096)
+    lum = sum(px[i*4] + px[i*4+1] + px[i*4+2] for i in range(0, n, step)) / (3 * 255 * len(range(0, n, step)))
+    return lum < 0.08
 
 
 def placeholder(name, props=None):
