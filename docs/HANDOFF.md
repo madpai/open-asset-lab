@@ -1,5 +1,43 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## Gameplay bundle and corrected lightmap review, 2026-09-25
+
+The six owner maps were re-imported without `--lightmaps` and replaced in
+the private Megamod bundle. All dependencies resolved; all spawns passed
+`open-halo-map-test` without falls. Same-spawn brightness is unchanged.
+Breakables and rain are now in the owner's personal APK. Previous packages
+remain under `~/assetlab-private/fallback-pre-breakables-20260925/`.
+
+The cloud's Source overbright correction (`c33a600`) passed 61 tests. A
+second importer fix now follows Valve's displacement lightmap mapping:
+the ordered base quad corners are `(0,0)`, `(0,height)`,
+`(width,height)`, `(width,0)`; displaced vertices interpolate those UVs.
+Projecting lightmap texinfo onto the displaced mesh clamped Dust2 faces
+6081/6089 to atlas edges and drew a hard dark seam. The corrected crop no
+longer has that seam. Two synthetic tests cover deformed vertices and rotated
+displacement extents; the full suite passes 63 tests. The source mapping is
+in Valve's `vbsp/disp_vbsp.cpp` (`DispMapToCoreDispInfo`).
+
+All six private `-lit.oalmap` packages load, render and have usable spawns.
+Whole-frame grayscale means at spawn 0, against each unlit package:
+
+| Map | Lightmap pages | Spawns | Unlit → lit mean | Change |
+|---|---:|---:|---:|---:|
+| de_dust2 | 2 | 40/40 | 126.8 → 80.5 | -36.6% |
+| cs_office | 2 | 40/40 | 120.5 → 87.4 | -27.5% |
+| de_aztec | 3 | 40/40 | 69.1 → 65.3 | -5.5% |
+| cs_compound | 2 | 33/33 | 117.6 → 79.6 | -32.3% |
+| ctf_2fort | 6 | 32/32 | 186.0 → 130.0 | -30.1% |
+| gm_construct | 3 | 33/33 | 77.2 → 55.0 | -28.8% |
+
+Dust2's first spawn remains darker than the expected 25–30% range, so it
+stays private for further review; Compound is slightly beyond that range.
+Aztec's outdoor frame includes much unchanged sky. The office indoor views
+look coherent: other spawn means are -23.3% and -27.5%. One copy of
+`cs_office-lit.oalmap` is bundled under `cs_office_lit.oalmap` for a phone
+comparison with normal `cs_office`. The other five lit packages stay outside
+the bundle. Keep all private maps, renders and reports out of Git.
+
 ## Owner map v2 review, 2026-09-25
 
 All six maps in the owner's active Megamod bundle were re-imported with

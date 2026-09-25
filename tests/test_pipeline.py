@@ -226,6 +226,42 @@ class BSPTests(unittest.TestCase):
         for t in range(0,len(w.indices),3):
             a,b,c=(w.vertices[w.indices[t+j]][0] for j in range(3))
             self.assertGreater((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),0)
+    def test_displacement_light_uv_uses_flat_face(self):
+        data=fixture(True,extra={8:bytes([128,128,128,0])*9})
+        ti=struct.unpack_from('<I',data,8+6*16)[0]
+        face=struct.unpack_from('<I',data,8+7*16)[0]
+        dv=struct.unpack_from('<I',data,8+33*16)[0]
+        struct.pack_into('<4f',data,ti+32,1/60,0,0,0)
+        struct.pack_into('<4f',data,ti+48,0,1/60,0,0)
+        struct.pack_into('<i',data,face+20,0)
+        struct.pack_into('<2i',data,face+36,2,2)
+        # Center is pushed sideways 30 inches and raised 30 inches.
+        # Its rendered position is (90,60,30), but its luxel is (1,1).
+        struct.pack_into('<5f',data,dv+12*20,1,0,1,30,0)
+        self.path.write_bytes(data)
+        world=SourceBSP(self.path).convert()
+        apex=max(range(len(world.vertices)),key=lambda i:world.vertices[i][0][2])
+        self.assertAlmostEqual(world.vertices[apex][0][0],.75)
+        self.assertEqual(world.light_uv[apex][0],0)
+        self.assertAlmostEqual(world.light_uv[apex][1],1,places=6)
+        self.assertAlmostEqual(world.light_uv[apex][2],1,places=6)
+    def test_displacement_lightmap_extents_can_swap_axes(self):
+        data=fixture(True,extra={8:bytes([128,128,128,0])*6})
+        ti=struct.unpack_from('<I',data,8+6*16)[0]
+        face=struct.unpack_from('<I',data,8+7*16)[0]
+        verts=struct.unpack_from('<I',data,8+3*16)[0]
+        struct.pack_into('<3f',data,verts+2*12,120,60,0)
+        struct.pack_into('<3f',data,verts+3*12,0,60,0)
+        struct.pack_into('<4f',data,ti+32,1/60,0,0,0)
+        struct.pack_into('<4f',data,ti+48,0,1/60,0,0)
+        struct.pack_into('<i',data,face+20,0)
+        struct.pack_into('<2i',data,face+36,1,2)
+        self.path.write_bytes(data)
+        world=SourceBSP(self.path).convert()
+        i=next(i for i,v in enumerate(world.vertices) if v[0]==(.25,0.,0.))
+        _,s,t=world.light_uv[i]
+        self.assertAlmostEqual(s,0)
+        self.assertAlmostEqual(t,.5)
     def test_invalid_input(self):
         cases=[]
         b=fixture();b[:4]=b'IBSP';cases.append(bytes(b))

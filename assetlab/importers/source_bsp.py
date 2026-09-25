@@ -485,7 +485,7 @@ class SourceBSP:
                 raise BSPError(f'invalid vertex index {index}')
             return unpack('<3f', vdata, index*12)
 
-        def addtri(a, b, c, mat, uvfn, normal, solid, xf, fixed=False):
+        def addtri(a, b, c, mat, uvfn, normal, solid, xf, fixed=False, light_coords=None):
             pa, pb, pc = (vec3(xf(p)) for p in (a, b, c))
             n = norm(cross(sub(pb, pa), sub(pc, pa)))
             if n == (0., 0., 0.):
@@ -495,10 +495,12 @@ class SourceBSP:
                 normal = n
             elif dot(n, normal) < 0:
                 b, c = c, b; pb, pc = pc, pb
+                if light_coords is not None:
+                    light_coords = (light_coords[0], light_coords[2], light_coords[1])
             start = len(vertices)
-            for p, rp in ((a, pa), (b, pb), (c, pc)):
+            for j, (p, rp) in enumerate(((a, pa), (b, pb), (c, pc))):
                 if active_light[0] is not None:
-                    light_uv[len(vertices)] = active_light[0](p)
+                    light_uv[len(vertices)] = light_coords[j] if light_coords else active_light[0](p)
                 vertices.append((rp, normal, uvfn(p)))
             indices.extend((start, start+1, start+2)); material_tri[mat] += 1
             key = (mat, solid)
@@ -579,7 +581,8 @@ class SourceBSP:
                     continue
                 base = rot(base)
                 if di >= 0:
-                    self._displacement(fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri)
+                    self._displacement(fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri,
+                                       sizes if active_light[0] is not None else None)
                     stats['converted_displacements'] += 1
                 else:
                     for j in range(1, len(polygon)-1):
@@ -697,7 +700,7 @@ class SourceBSP:
         return World(vertices, indices, groups, spawns, self.materials, self.entities, report, flags,
                      light_uv=light_uv, light_samples=light_samples, breakable_brushes=breakable_brushes)
 
-    def _displacement(self, fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri):
+    def _displacement(self, fi, di, polygon, disp, dv, numedges, mat, uvfn, base, solid, xf, addtri, light_size=None):
         if di >= len(disp)//176:
             raise BSPError(f'face {fi} invalid displacement index')
         if numedges != 4:
@@ -720,7 +723,12 @@ class SourceBSP:
                 t = x/(side_n-1)
                 basepos = tuple((1-s)*(1-t)*p0[k]+s*(1-t)*p1[k]+s*t*p2[k]+(1-s)*t*p3[k] for k in range(3))
                 vv = unpack('<5f', dv, (dvstart+y*side_n+x)*20)
-                row.append(tuple(basepos[k]+vv[k]*vv[3] for k in range(3)))
+                # Valve's DispMapToCoreDispInfo sets ordered quad corners to
+                # (0,0), (0,height), (width,height), (width,0), independent
+                # of texinfo projection. The displacement start corner is p0.
+                # See Source SDK's vbsp/disp_vbsp.cpp.
+                lm = (fi, t*light_size[0], s*light_size[1]) if light_size else None
+                row.append((tuple(basepos[k]+vv[k]*vv[3] for k in range(3)), lm))
             grid.append(row)
         # One winding for the whole surface, from the flat base quad.
         flip = dot(cross(sub(p1, p0), sub(p3, p0)), base) < 0
@@ -731,9 +739,12 @@ class SourceBSP:
                     b, d = d, b
                 # Alternate diagonals like Source to avoid directional creases.
                 if (x+y) % 2:
-                    addtri(a, b, c, mat, uvfn, base, solid, xf, True); addtri(a, c, d, mat, uvfn, base, solid, xf, True)
+                    pairs = ((a, b, c), (a, c, d))
                 else:
-                    addtri(a, b, d, mat, uvfn, base, solid, xf, True); addtri(b, c, d, mat, uvfn, base, solid, xf, True)
+                    pairs = ((a, b, d), (b, c, d))
+                for tri in pairs:
+                    addtri(*(v[0] for v in tri), mat, uvfn, base, solid, xf, True,
+                           light_coords=tuple(v[1] for v in tri) if light_size else None)
 
     @staticmethod
     def _ground_spawns(spawns, vertices, indices, groups, warnings):
@@ -767,4 +778,3 @@ class SourceBSP:
             else:
                 sp['rejected'] = 'no walkable ground within 1.5 wu below'
                 warnings.append(f"start at {x:.2f},{y:.2f},{z:.2f} rejected: no walkable ground within 1.5 wu below")
-
