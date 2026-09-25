@@ -215,6 +215,25 @@ def material_hidden(props):
     return props.get('$additive', '0').strip() not in ('0', '')
 
 
+def material_outline(name, props, decoded):
+    """A cel-shading outline: an inflated, inside-out copy of a body in
+    flat black, which Source culls down to a rim around the silhouette.
+    Open Halo draws both faces of everything, so the shell would swallow the
+    body. Both signs are required -- "outline" in the material's name or
+    base texture, and a base texture that is nearly black -- so a black
+    costume named outline-anything is kept."""
+    base = (props or {}).get('$basetexture', '')
+    if 'outline' not in name.lower() and 'outline' not in base.lower():
+        return False
+    if not decoded:
+        return True
+    w, h, px = decoded
+    n = max(1, len(px) // 4)
+    step = max(1, n // 4096)
+    lum = sum(px[i*4] + px[i*4+1] + px[i*4+2] for i in range(0, n, step)) / (3 * 255 * len(range(0, n, step)))
+    return lum < 0.08
+
+
 def placeholder(name, props=None):
     """A muted 4x4 diagnostic texture for an unresolved material."""
     surface = (props or {}).get('$surfaceprop', '').lower()

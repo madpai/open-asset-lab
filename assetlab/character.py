@@ -325,9 +325,11 @@ def _write_empty_model(f):
 def _write_model(f, entry, resolver, budget):
     main, mesh = entry['studio'], entry['mesh']
     mats = sorted(mesh.groups)
-    textures, placeholders, alpha = {}, [], set()
+    textures, placeholders, alpha, outlines = {}, [], set(), set()
     for m in mats:
         decoded, params = resolver.material(m)
+        if translate.material_outline(m, params or {}, decoded):
+            outlines.add(m)                  # see translate.material_outline: not drawn
         textures[m] = decoded if decoded else translate.placeholder(m, params)
         if translate.material_alpha(params or {}):
             alpha.add(m)                     # hair cards, lace: see-through where the texture is
@@ -337,7 +339,7 @@ def _write_model(f, entry, resolver, budget):
     verts, remap, indices, groups = [], {}, [], []
     for ti, m in enumerate(mats):
         first = len(indices)
-        tris = mesh.groups[m]
+        tris = mesh.groups[m] if m not in outlines else []
         for t in range(0, len(tris) - len(tris) % 3, 3):
             for pos, nrm, uv, bones in tris[t:t+3]:
                 b = [bi for bi, _ in bones] + [0, 0, 0]
@@ -380,6 +382,7 @@ def _write_model(f, entry, resolver, budget):
                        'source': entry['notes'].get(c['role'])} for c in entry['clips']],
             'missing_roles': entry['missing_roles'], 'includes': entry['includes'],
             'materials': mats, 'alpha_materials': sorted(alpha), 'placeholder_materials': placeholders, 'textures_downsampled': downsampled,
+            'outline_materials_dropped': sorted(outlines),
             'texture_bytes': sum(len(t[2]) for t in textures.values())}
 
 

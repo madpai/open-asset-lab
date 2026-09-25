@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 import struct
 from .source_bsp import BSPError
+from .source_mdl import vtx_strip_group_stride
 
 MAX_MODEL = 64 * 1024 * 1024
 STUDIO_DELTA = 0x0004          # sequence/animdesc flag: additive
@@ -109,7 +110,7 @@ class Studio:
             raise BSPError(f'{name}: not an MDL')
         self.d, self.ani, self.name = data, ani, name
         self.version = _u('<i', data, 4)[0]
-        if not 44 <= self.version <= 48:
+        if not 44 <= self.version <= 49:
             raise BSPError(f'{name}: unsupported MDL version {self.version}')
         self.checksum = _u('<i', data, 8)[0]
         d = data
@@ -304,8 +305,9 @@ class Skinned:
                 tris = self.groups.setdefault(name, [])
                 vme = vl + vmesh_i + m*9
                 nsg, sgi = _u('<ii', vtx, vme)
+                stride = vtx_strip_group_stride(vtx, vme, nsg, sgi, studio.version)
                 for g in range(nsg):
-                    sg = vme + sgi + g*25
+                    sg = vme + sgi + g*stride
                     nv, vo, ni, io = _u('<iiii', vtx, sg)
                     if ni % 3:
                         continue
