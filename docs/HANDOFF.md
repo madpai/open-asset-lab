@@ -37,6 +37,11 @@ look coherent: other spawn means are -23.3% and -27.5%. One copy of
 `cs_office-lit.oalmap` is bundled under `cs_office_lit.oalmap` for a phone
 comparison with normal `cs_office`. The other five lit packages stay outside
 the bundle. Keep all private maps, renders and reports out of Git.
+Additional same-spawn checks show that the Dust2 lit candidate ranges from
+-36.6% at spawn 0 to +37.3% at spawn 20; Compound ranges from -39.7% to
+-11.2% across checked spawns. These candidates need further lightmap review
+before bundling. The displacement seam fix does not establish that every
+lighting value is correct.
 
 ## Owner map v2 review, 2026-09-25
 
