@@ -4,6 +4,21 @@ from PIL import Image
 from .importers.source_bsp import BSPError
 
 
+# Source's LDR lighting lump stores light at half its value (a surface in
+# full light reads 0.5; vrad's "overbright" factor) and the engine doubles
+# it back in linear space. Measured on gm_construct: the 99th percentile of
+# 750k luxels is exactly 0.500. Leaving the x2 out drew every lit surface
+# ~27% darker (2**(1/2.2) in display terms).
+SOURCE_OVERBRIGHT = 2.0
+
+
+def _texel(linear):
+    """One channel for the runtime's lightmap texture: gamma-encoded, then
+    halved for mesh.frag's x2, so up to twice full light survives."""
+    lit = max(0.0, linear * SOURCE_OVERBRIGHT)
+    return min(255, round(lit ** (1 / 2.2) * 127.5))
+
+
 def lightmap_atlases(world, size=1024):
     pages = []; placement = {}; x = y = row = 0
     for face, (w, h, data) in sorted(world.light_samples.items()):
@@ -17,9 +32,7 @@ def lightmap_atlases(world, size=1024):
         rgba=bytearray()
         for r,g,b,e in struct.iter_unpack('<4B',data):
             exponent=e if e<128 else e-256
-            # Gamma-encode linear irradiance for the existing legacy texture
-            # pipeline, then half brightness for mesh.frag's lightmap x2.
-            rgba.extend((*[round(min(1.0,max(0.0,c*2.0**exponent/255.0))**(1/2.2)*127.5) for c in (r,g,b)],255))
+            rgba.extend((*[_texel(c*2.0**exponent/255.0) for c in (r,g,b)],255))
         tile=Image.frombytes('RGBA',(w,h),bytes(rgba))
         atlas=pages[-1]; atlas.paste(tile,(x+1,y+1))
         atlas.paste(tile.crop((0,0,w,1)),(x+1,y))

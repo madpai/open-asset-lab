@@ -261,7 +261,13 @@ class BSPTests(unittest.TestCase):
         from assetlab.lightmap import lightmap_atlases
         atlas,uv=lightmap_atlases(world,size=8)
         self.assertEqual(len(atlas),1)
-        self.assertEqual(atlas[0][2][:4],bytes([128,128,128,255]))
+        # Source stores light at half: raw 1.0 is twice full light, drawn
+        # at (2.0)**(1/2.2) after mesh.frag's x2 -- not clipped to 1.0.
+        self.assertEqual(atlas[0][2][:4],bytes([175,175,175,255]))
+        from assetlab.lightmap import _texel
+        self.assertEqual(_texel(0.5),128)            # full light: the texture's neutral
+        self.assertEqual(_texel(0.0),0)
+        self.assertEqual(_texel(10.0),255)           # hotter than the texture holds: capped
         self.assertTrue(all(0 < u < 1 and 0 < v < 1 for _,u,v in uv.values()))
         out=self.root/'lit.oalmap'
         manifest,_=compile_map(self.path,out,lightmaps=True)
@@ -275,7 +281,7 @@ class BSPTests(unittest.TestCase):
         world.light_samples={0:(1,1,bytes([255,255,255,255]))};world.light_uv={0:(0,0,0)}
         atlas,_=lightmap_atlases(world,size=4)
         sample=atlas[0][2][(1*4+1)*4]
-        self.assertGreater(sample,0);self.assertLess(sample,128)
+        self.assertGreater(sample,0);self.assertLessEqual(sample,128)   # 0.5: full light, not a wrapped 255
 
     def test_vpk_material_resolution(self):
         archive=self.root/'materials_dir.vpk'
