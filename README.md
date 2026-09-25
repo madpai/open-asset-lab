@@ -11,6 +11,8 @@ plays matches on the owner's privately converted content.
 
 - Convert Source characters (skeleton, skin weights, animations baked by role) and weapons (world and view models, clips, sounds, stats) into `.oalasset` packages: `assetlab character` and `assetlab weapon`.
 - Read exact Garry's Mod Workshop addon archives with `assetlab gma`, including `.gma` and supported `_legacy.bin` files. Workshop downloads and converted packages stay outside this public repository.
+- **Search, fetch and import from the Steam Workshop** (Garry's Mod by default) with `assetlab workshop`, or from the web UI's Workshop panel: search needs no API key; items download directly or through anonymous SteamCMD; each addon is analyzed for playermodels (with the names and hands it registers), SWEPs (drafted into weapon definitions), NPCs and maps; import builds the packages and reports what failed and why.
+- Modern playermodels: MDL v44-v49.
 - Inspect Source BSP v19 and v20, face lump v1, including compressed lumps, entities, static-prop inventory, embedded pakfile and missing material paths.
 - Convert world faces, power 2–4 displacement surfaces and static prop models (MDL v44–48, LOD 0), positions, winding, UVs and supported player spawns. Resolve VMT/VTF from the BSP pakfile, explicitly configured material directories or read-only VPK archives. Unresolved materials display muted, material-specific placeholders and remain listed in diagnostics.
 - Compile deterministic OALMAP v1 packages with bounds, indexed triangles, RGBA textures, spawn positions and a provenance manifest.
@@ -24,7 +26,7 @@ Megamod Showdown is in a separate private repository; Open Halo's public
 five imported maps, 12 characters and 11 imported weapons. Its latest hero
 roster and two-device rules still need phone feedback. BSP v21+ is refused
 with a reason. Source lightmaps, overlays, clip brushes, live moving brushes,
-game logic, Workshop browsing and most shader features are not implemented;
+game logic and most shader features are not implemented;
 alpha-test/translucent surfaces are supported in the current map packages.
 Each map's `compatibility.md` lists what it lost. Collision uses visible
 world triangles, solid brush entities and solid props. Textures are
@@ -72,6 +74,20 @@ VK_ICD_FILENAMES=$PWD/scratch/lvp/usr/share/vulkan/icd.d/lvp_icd.json \
 ```
 
 The saved lavapipe ICD is needed on this desktop because the native NVIDIA Vulkan instance creation currently fails. On a working GPU, omit `VK_ICD_FILENAMES`.
+
+## Steam Workshop
+
+```sh
+python -m assetlab workshop search "harry potter" --tag Model            # Model, Weapon, Map, NPC, Vehicle
+python -m assetlab workshop search ak47 --tag Weapon --sort popular      # relevance, popular, recent, subscribed, rated
+python -m assetlab workshop info https://steamcommunity.com/sharedfiles/filedetails/?id=3563673673
+python -m assetlab workshop collection <collection id>
+python -m assetlab workshop analyze <id | .gma | _legacy.bin | folder> --install-steamcmd
+python -m assetlab workshop import <id> --install-steamcmd --output-dir /private/out \
+    --game-dir "<GarrysMod>/garrysmod" --game-dir "<GarrysMod>/sourceengine" [--only characters,weapons,maps] [--pick NAME] [--dry-run]
+```
+
+Search reads the Workshop's public browse page (no key); set `STEAM_WEB_API_KEY` to use `IPublishedFileService/QueryFiles` instead. Items that still carry a direct file URL (older ones) download over HTTPS; the rest need SteamCMD, which `--install-steamcmd` fetches from Valve (it is 32-bit: Debian/Ubuntu need `lib32gcc-s1`). Garry's Mod playermodels take their animations from the game, so mount its `garrysmod` and `sourceengine` folders. Weapon definitions drafted from a SWEP's Lua are written beside each package for review; their numbers are estimates. `workshop_report.json` lists what was built, what failed and why.
 
 ## Private web service
 
