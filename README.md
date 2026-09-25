@@ -2,7 +2,7 @@
 
 Local Source content ingestion, conversion and staging for
 [Open Halo Project](https://github.com/madpai/open-halo-project) and the
-private Megamod Showdown game. It converts Source BSP v19/v20 maps into
+public Megamod Showdown game. It converts Source BSP v19/v20 maps into
 `.oalmap` packages and Source characters and weapons into `.oalasset`
 packages. The host Vulkan tools render and validate packages, and Megamod
 plays matches on the owner's privately converted content.
