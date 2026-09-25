@@ -2,6 +2,12 @@
 
 ## Merged importer checkpoint
 
+The second cloud pass (Workshop collections and breakable brushes) is now on
+public `main`; the local synthetic suite passes 61/61. A private de_dust2
+conversion with the current importer has 75 breakables, zero missing
+dependencies, and passed Megamod's real-map host render and 40/40 spawn
+checks. Its package and previews remain outside both repositories.
+
 The cloud Workshop, breakable-prop and weather work is merged with the local
 static LDR lightmap importer. `convert --lightmaps` writes OALMAP v2 when
 light samples exist; v1 remains the default. Grouping retains both the
