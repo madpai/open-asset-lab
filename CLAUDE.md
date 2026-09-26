@@ -8,7 +8,10 @@ Read, in order:
    representations, generic output, provenance).
 2. **`docs/ASSET_LAB_VISION.md`**: what this project is becoming. Read it
    before major architectural work. Open Asset Lab is the content
-   compiler for **MegaMod**, a native content-driven engine; Source/GMod
+   compiler for **MegaMod Engine**, a reusable native runtime. **MegaMod
+   Showdown** is its official reference game and stress test, not the
+   Engine API; future original games are separate consumers. **Showdown
+   can be ridiculous. The engine must remain clean.** Source/GMod
    is the first importer family and Steam Workshop the first provider,
    not the identity. The shared north star is MegaMod's
    `docs/MEGAMOD_VISION.md`

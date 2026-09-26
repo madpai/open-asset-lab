@@ -1,5 +1,12 @@
 # Roadmap
 
+Open Asset Lab is the compiler/toolchain for **MegaMod Engine**, not a
+Showdown-specific importer. MegaMod Showdown is the Engine's continuing
+integration and stress test; future original games are independent
+consumers. Original workflows should become as strong as foreign-content
+imports. Keep the output generic even when Showdown supplies the first
+concrete feature need.
+
 The direction is [ASSET_LAB_VISION.md](ASSET_LAB_VISION.md) (§15 has the
 priority order, §2 the current state). This file keeps the short list and
 what is done.

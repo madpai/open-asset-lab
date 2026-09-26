@@ -1,13 +1,22 @@
 # Open Asset Lab
 
+**Open Asset Lab → MegaMod Engine → MegaMod Showdown / original games.**
+Open Asset Lab ingests, normalizes, validates and compiles foreign **and
+original** content into Engine-ready packages. MegaMod Engine is the
+reusable native runtime; MegaMod Showdown is its official reference game,
+playground and stress test, not the engine itself. Future original games
+are independent Engine consumers. **Showdown can be ridiculous. The engine
+must remain clean.**
+
 The comparative engine/mod research that informs future importers, normalization, provenance, packages, and dependency resolution is mapped in [docs/RESEARCH_CONNECTIONS.md](docs/RESEARCH_CONNECTIONS.md). The full corpus lives in [MegaMod's research index](https://github.com/madpai/megamod-showdown/blob/main/docs/research/README.md); it proposes architecture and does not change the current package contract.
 
 A local content **ingestion, analysis, normalization, conversion,
 validation and packaging** environment that turns heterogeneous game
 assets into clean runtime content for
-[MegaMod](https://github.com/madpai/megamod-showdown), the native
-content-driven engine behind MEGAMOD SHOWDOWN. It is growing into a
-general content compiler and, eventually, creator tooling.
+[MegaMod Engine](https://github.com/madpai/megamod-showdown), the native
+content-driven engine currently developed in the same repository as
+MegaMod Showdown. Asset Lab is growing into a general content compiler
+and, eventually, creator tooling.
 
 **Today** its content family is **Source and Garry's Mod**: it converts
 Source BSP v19/v20 maps into `.oalmap` packages and Source characters and

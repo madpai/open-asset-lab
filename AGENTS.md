@@ -1,10 +1,17 @@
 # Working in Open Asset Lab
 
+**Product model:** Open Asset Lab compiles foreign and original content
+for **MegaMod Engine**. **MegaMod Showdown** is the Engine's official
+reference game and stress test; future original games are independent
+Engine consumers. **Showdown can be ridiculous. The engine must remain
+clean.** Keep game-specific assumptions out of normalized definitions.
+This conceptual boundary does not require a repository split.
+
 **Before major architectural work, read `docs/ASSET_LAB_VISION.md`** (and,
 for the engine side, MegaMod's `docs/MEGAMOD_VISION.md`). Open Asset Lab is
-becoming a general content compiler for MegaMod, not a Source converter.
-It should understand the messiness of external content, so that MegaMod
-only ever sees clean, generic MegaMod content. In practice:
+becoming a general content compiler for MegaMod Engine, not a Source
+converter. It should understand the messiness of external content, so
+the Engine sees clean, generic content. In practice:
 
 - **Providers acquire; importers interpret.** A provider returns local
   files plus provenance and never parses. Steam Workshop is one provider

@@ -33,17 +33,27 @@ stands alone, then goes deep on what Asset Lab is becoming.
    │  COMPILE     MegaMod packages, with provenance
    └──────────────────────────────────────────────────────────────────┘
             │
-      MEGAMOD PACKAGES  →  MEGAMOD ENGINE  →  experiences  →  native multiplayer
+      ENGINE-READY PACKAGES → MEGAMOD ENGINE
+                                ├── MEGAMOD SHOWDOWN (reference game)
+                                ├── ORIGINAL GAME #1 / FUTURE GAMES
+                                └── CREATOR EXPERIENCES
 ```
 
-- **MegaMod** is becoming a native, content-driven game runtime.
+- **MegaMod Engine** is becoming a reusable native, content-driven game
+  runtime. It must eventually serve a completely original game without
+  Halo or Source dependencies.
+- **MegaMod Showdown** is the official reference game, playground,
+  compatibility showcase and aggressive stress test of the Engine. It
+  remains maintained after original games exist. Showdown can mix
+  incompatible-looking content; it must not define game-specific Engine
+  APIs. **Showdown can be ridiculous. The engine must remain clean.**
 - **Open Asset Lab** is becoming the universal content compiler,
   content-intelligence platform and, eventually, creator tooling that
   turns heterogeneous assets into clean runtime content.
 - **Halo is one compatibility layer** (inside MegaMod). **Source/GMod is one
   importer family** (here). **Steam Workshop is one provider** (here).
 
-**The rule:** *MegaMod should understand MegaMod content. Open Asset Lab
+**The rule:** *MegaMod Engine should understand generic Engine-ready content. Open Asset Lab
 should understand the messiness of external content.* Every foreign
 format, entity class, unit system and material convention stops here;
 what leaves is generic.
@@ -197,12 +207,23 @@ test in both repositories. Details in MegaMod vision §10.
 
 ## 13. Original content first-class [Next]
 
+Original authoring workflows should become as capable and well validated
+as foreign-content import workflows. Showdown can expose weaknesses in
+both, while an independent original game proves there is no hidden Halo
+or Source requirement.
+
 ```
-Blender → glTF → Open Asset Lab → character / weapon / map metadata
-        → validate → preview → compile → MegaMod
+Blender → glTF / original assets → Open Asset Lab
+        → validate → preview → compile → MegaMod Engine → original game
 ```
-No Halo, no Source, no Garry's Mod. This workflow is how MegaMod proves it
-is its own engine, and how anything shareable gets made.
+No Halo, no Source, no Garry's Mod. This workflow helps prove that MegaMod
+Engine can serve an independent original game, and how shareable original
+content gets made. A separate original game can begin once the content
+pipeline, generic interactive worlds, stable definitions, scripting,
+reliable package compatibility, generic character/weapon/ability systems,
+desktop and Android runtimes, and one original test experience have been
+demonstrated. This is a readiness guide, not an arbitrary "engine complete"
+milestone or a claim that those capabilities exist now.
 
 **Procedural worlds [Someday]:** with enough semantic understanding, Asset
 Lab could assemble a world from modular content ("abandoned mall, medium,
@@ -261,7 +282,9 @@ The pipeline works: six maps, 14 characters and 11 weapons in the owner's
 bundle, eight structurally different maps through one path. For every
 change: a real limitation first, the minimum change, synthetic-fixture
 tests, the host-tool render/collision check on real content, and a note of
-the coupling that remains. No abstractions that solve no concrete problem.
+the coupling that remains. Let a real product need drive a small reusable
+capability; generalize after a second use shows what should be shared. No
+abstractions that solve no concrete problem.
 
 ## 18. Content, legal and provenance rules: unchanged, and stronger
 
