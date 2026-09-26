@@ -17,16 +17,19 @@ what is done.
 
 ## Next, by dependency (directional, not a sprint list)
 
-1. Split the Workshop client into a `Provider` (acquisition + provenance)
+MegaMod's planned v10 LAN content fingerprint is an engine-side prerequisite to safe cross-peer testing, not an OAL format migration. OAL's current N2 work is a read-only audit of proposed `namespace:type/name` IDs. For X1, first make a tiny original normalized-world test builder pass through the ordinary OAL validator/compiler; a glTF importer and editor can follow that proof. See [research connections](RESEARCH_CONNECTIONS.md).
+
+1. Finish N2's read-only ID/collision audit, then support the X1 original synthetic world through a shared normalized-world validator/compiler seam after MegaMod's v10 compatibility gate lands. This is a narrow dependency for the joint world-event proof.
+2. Split the Workshop client into a `Provider` (acquisition + provenance)
    and a GMod addon importer.
-2. Carry surface semantics (wood, metal, glass, …) into packages.
-3. Translate world entities (doors, buttons, triggers, teleports) into
+3. Carry surface semantics (wood, metal, glass, …) into packages.
+4. Translate world entities (doors, buttons, triggers, teleports) into
    MegaMod's generic concepts once the runtime has them.
-4. A glTF/GLB importer: forces shared Mesh / Material / Skeleton
+5. A glTF/GLB importer: forces shared Mesh / Material / Skeleton
    representations and opens original content.
-5. Humanoid normalization and animation retargeting; weapon normalization
+6. Humanoid normalization and animation retargeting; weapon normalization
    with labelled inference.
-6. Chunked packages when a new data kind needs one; then a library /
+7. Chunked packages when a new data kind needs one; then a library /
    project model and experience packages.
 
 Imported content is now mainly a stress test: don't prioritize importing
