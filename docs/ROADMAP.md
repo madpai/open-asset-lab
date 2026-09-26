@@ -14,19 +14,24 @@ what is done.
   breakable brushes; static Source lightmaps (OALMAP v2) and the
   displacement lightmap mapping fix. Details and exact dates in
   [HANDOFF.md](HANDOFF.md) and [PROGRESS.md](PROGRESS.md).
+- 2026-09-26: read-only N2 audit of proposed `namespace:type/name` IDs,
+  collisions and legacy references; see [CONTENT_IDS.md](CONTENT_IDS.md).
 
 ## Next, by dependency (directional, not a sprint list)
 
-1. Split the Workshop client into a `Provider` (acquisition + provenance)
+MegaMod's v10 LAN content check is implemented; it is an engine-side prerequisite to safe cross-peer testing, not an OAL format migration. OAL's N2 read-only ID audit is complete. For X1, pass a tiny programmatically built ORIGINAL normalized world through the ordinary OAL validator/compiler, then load the compiled package in MegaMod. Exercise stable placed IDs, target/reference validation, generic event links, a moving collider, trigger and teleport target. A glTF importer and editor can follow that proof. See [research connections](RESEARCH_CONNECTIONS.md).
+
+1. Support the X1 original synthetic world through a shared normalized-world validator/compiler seam. The fixture constructs Button → Relay → Door and Trigger → Teleport destination; it must reach real OAL compilation and MegaMod package loading. MegaMod may separately use a small C world fixture for unit tests.
+2. Split the Workshop client into a `Provider` (acquisition + provenance)
    and a GMod addon importer.
-2. Carry surface semantics (wood, metal, glass, …) into packages.
-3. Translate world entities (doors, buttons, triggers, teleports) into
+3. Carry surface semantics (wood, metal, glass, …) into packages.
+4. Translate world entities (doors, buttons, triggers, teleports) into
    MegaMod's generic concepts once the runtime has them.
-4. A glTF/GLB importer: forces shared Mesh / Material / Skeleton
+5. A glTF/GLB importer: forces shared Mesh / Material / Skeleton
    representations and opens original content.
-5. Humanoid normalization and animation retargeting; weapon normalization
+6. Humanoid normalization and animation retargeting; weapon normalization
    with labelled inference.
-6. Chunked packages when a new data kind needs one; then a library /
+7. Chunked packages when a new data kind needs one; then a library /
    project model and experience packages.
 
 Imported content is now mainly a stress test: don't prioritize importing
