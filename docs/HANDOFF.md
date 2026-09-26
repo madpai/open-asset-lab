@@ -1,5 +1,11 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+> **Direction (2026-09-26):** Open Asset Lab is becoming the general
+> content compiler for MegaMod, not a Source converter; Source/GMod is the
+> first importer family and Steam Workshop the first provider. **Before
+> major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
+> This handoff records the current state as it is.
+
 ## Gameplay bundle and corrected lightmap review, 2026-09-25
 
 The six owner maps were re-imported without `--lightmaps` and replaced in

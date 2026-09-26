@@ -1,11 +1,23 @@
 # Open Asset Lab
 
-Local Source content ingestion, conversion and staging for
-[Open Halo Project](https://github.com/madpai/open-halo-project) and the
-public Megamod Showdown game. It converts Source BSP v19/v20 maps into
-`.oalmap` packages and Source characters and weapons into `.oalasset`
-packages. The host Vulkan tools render and validate packages, and Megamod
-plays matches on the owner's privately converted content.
+A local content **ingestion, analysis, normalization, conversion,
+validation and packaging** environment that turns heterogeneous game
+assets into clean runtime content for
+[MegaMod](https://github.com/madpai/megamod-showdown), the native
+content-driven engine behind MEGAMOD SHOWDOWN. It is growing into a
+general content compiler and, eventually, creator tooling.
+
+**Today** its content family is **Source and Garry's Mod**: it converts
+Source BSP v19/v20 maps into `.oalmap` packages and Source characters and
+weapons into `.oalasset` packages. Steam Workshop is its first
+**acquisition provider**. The host Vulkan tools render and validate
+packages, and MEGAMOD SHOWDOWN plays matches on the owner's privately
+converted content. Source is the first importer family, not the permanent
+identity: next come original content (glTF from Blender) and other formats.
+**The direction, with what exists now versus what is planned, is
+[`docs/ASSET_LAB_VISION.md`](docs/ASSET_LAB_VISION.md)**, the companion to
+MegaMod's canonical
+[`MEGAMOD_VISION.md`](https://github.com/madpai/megamod-showdown/blob/main/docs/MEGAMOD_VISION.md).
 
 ## What works today
 
@@ -21,8 +33,10 @@ plays matches on the owner's privately converted content.
 
 ## Limits
 
-Megamod Showdown is in a separate public repository; Open Halo's public
-`main` stays Halo-only. Megamod's published 2026-09-24 personal build has
+MEGAMOD SHOWDOWN is in a separate public repository; Open Halo's public
+`main` stays Halo-only. Only Source-family formats are imported so far,
+and Workshop acquisition is not yet separated from GMod addon
+interpretation (see the vision's current-state table). Megamod's published 2026-09-24 personal build has
 five imported maps, 12 characters and 11 imported weapons. Its latest hero
 roster and two-device rules still need phone feedback. BSP v21+ is refused
 with a reason. Static LDR Source lightmaps are available through `convert --lightmaps` (OALMAP v2). Overlays, clip brushes, live moving brushes,

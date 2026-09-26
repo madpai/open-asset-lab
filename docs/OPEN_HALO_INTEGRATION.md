@@ -1,5 +1,10 @@
 # Open Halo audit and integration
 
+*Historical (2026-09-23): the first integration audit, when the runtime was
+still framed as Open Halo. The engine side is now MegaMod
+(megamod-showdown); see [ASSET_LAB_VISION.md](ASSET_LAB_VISION.md) for the
+current relationship.*
+
 Audited current `fp-animated-guns` branch, `README.md`, `CLAUDE.md`, `docs/HANDOFF.md`, `docs/INVADER_ASSET_PIPELINE.md`, CMake, tests and relevant source. Open Halo's `hta_bsp_mesh` has `hta_vertex` (position, normal, base/lightmap UV), indexed triangles, `hta_submesh`, optional RGBA textures, bounds and lighting. The world renderer calls `hta_gfx_mesh_upload`; host offscreen mode and Android swapchain mode share `gfx_vulkan.c`. Lightmaps are per submesh textures. With no lightmap, the renderer's neutral light texture displays the albedo; OALMAP v1 currently uses this path.
 
 `hta_collision_build` in `src/engine/player.c` builds a uniform XY triangle grid from a mesh. Ground queries, wall depenetration and rays already work with geometry independent of Halo cache tags. `src/game/nav.c` builds a navigation grid from collision. Player physics are otherwise portable. Halo scenario parsing supplies spawn points, object palettes, weapon/item starts and mode data to `src/game/game.c`; the Android `platform_android.c` currently searches for a Halo `.map`, opens its cache, loads a scenario and initializes the Trial coordinator. It cannot safely activate an OALMAP yet without a new map selection and mode bootstrap path.
