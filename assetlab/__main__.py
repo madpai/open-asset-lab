@@ -181,6 +181,8 @@ def main():
     a.add_argument('paths', nargs='+', help='.oalmap/.oalasset files or folders (searched recursively)')
     a.add_argument('--namespace', help='owner to assume for packages that declare none')
     a.add_argument('--json', action='store_true')
+    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab) into an .oalmap')
+    a.add_argument('name'); a.add_argument('--output', required=True)
     a = sub.add_parser('report', help='compatibility report of one or more packages')
     a.add_argument('packages', nargs='+'); a.add_argument('--json', action='store_true')
     w = sub.add_parser('workshop', help="Steam Workshop: search, fetch, analyze and import (Garry's Mod by default)")
@@ -270,6 +272,13 @@ def main():
             from .ids import audit, text_report
             result = audit(args.paths, args.namespace)
             print(json.dumps(result, indent=2) if args.json else text_report(result))
+        elif args.command == 'fixture':
+            from .fixtures import FIXTURES
+            from .world import compile_world
+            if args.name not in FIXTURES:
+                p.error(f"unknown fixture {args.name!r} (one of {', '.join(sorted(FIXTURES))})")
+            _, report = compile_world(FIXTURES[args.name](), args.output)
+            print(json.dumps(report, indent=2))
         elif args.command == 'report':
             compats = [read_manifest(x)['compatibility'] for x in args.packages]
             if args.json:

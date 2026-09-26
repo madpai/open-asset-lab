@@ -6,6 +6,22 @@
 > major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
 > This handoff records the current state as it is.
 
+## X1: original worlds and world entities, 2026-09-26
+
+`assetlab/world.py` builds an original world (boxes, starts, five generic
+entity kinds: interactable, relay, mover, trigger, teleport) and compiles
+it through the packaging stage now shared with `compile_map`
+(`build_groups`/`pack_vertices`/`write_package`; Source output is
+byte-identical). `validate()` names every problem by placed ID. Output is
+**OALMAP v3** (v2 layout + manifest `world_entities`). `assetlab fixture
+x1_event_lab --output ...` writes MegaMod's X1 test world
+(`assetlab/fixtures.py`); MegaMod's `scripts/test_x1.sh` builds it from
+here and plays it host + two joiners. The ID registry gained type `entity`.
+`tests/test_world.py` (17 tests; suite 93/93). Docs:
+[ORIGINAL_WORLDS.md](ORIGINAL_WORLDS.md), [RUNTIME_PACKAGE.md](RUNTIME_PACKAGE.md) v3.
+No text authoring format and no Source entity import yet (MegaMod
+`docs/WORLD_ENTITIES.md` has the mapping notes).
+
 ## Stable-ID audit (N2, read-only), 2026-09-26
 
 `assetlab ids <packages or folders> [--namespace OWNER] [--json]` proposes a

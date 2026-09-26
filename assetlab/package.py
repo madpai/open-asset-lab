@@ -473,41 +473,18 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
     downsampled = fit_textures(textures, min(texture_budget, RUNTIME_TEXTURE_CAP)-atlas_bytes)
     tex_index = {m: i for i, m in enumerate(mats)}
 
-    buckets = {}
+    kept = []
     for g in world.groups:
         mat, first, count, solid = g[:4]
-        brk = g[4] if len(g) > 4 else -1
         if mat in hidden:
             continue
-        solid = solid and mat not in nonsolid_materials
-        for start in range(first, first+count, 3):
-            tri = world.indices[start:start+3]
-            page = light_uv.get(tri[0], (-1, 0, 0))[0]
-            buckets.setdefault((mat, solid, brk, page), []).extend(tri)
-    indices = []; groups = []; collision_triangles = 0
-    for mat, solid, brk, page in sorted(buckets, key=lambda k: (k[2], k[0], not k[1], k[3])):
-        first = len(indices); indices.extend(buckets[(mat, solid, brk, page)])
-        flags = (0 if solid else GROUP_NO_COLLISION) | (GROUP_ALPHA if translate.material_alpha(params[mat]) else 0)
-        if brk >= 0:
-            flags |= GROUP_BREAKABLE | ((brk + 1) << 8)
-        group = (first, len(indices)-first, tex_index[mat], flags)
-        groups.append(group + (len(mats)+page if page >= 0 else 0xffffffff,) if version == 2 else group)
-        if solid:
-            collision_triangles += (len(indices)-first)//3
-
-    # Share identical vertices (at the float32 precision they are stored in):
-    # every triangle was emitted with its own three. First occurrence order,
-    # so the output stays deterministic.
-    packed, remap = [], {}
-    for k, i in enumerate(indices):
-        pos, nrm, uv = world.vertices[i]
-        lm=light_uv.get(i,(-1,0.,0.))
-        key = struct.pack('<10f', *pos, *nrm, *uv, lm[1], lm[2])
-        j = remap.get(key)
-        if j is None:
-            j = remap[key] = len(packed); packed.append(key)
-        indices[k] = j
-    del remap
+        brk = g[4] if len(g) > 4 else -1
+        kept.append((mat, first, count, solid and mat not in nonsolid_materials,
+                     (GROUP_BREAKABLE, brk) if brk >= 0 else None))
+    indices, groups, collision_triangles = build_groups(
+        kept, world.indices, tex_index, lambda mat: translate.material_alpha(params[mat]),
+        light_uv, len(mats), version)
+    packed = pack_vertices(indices, world.vertices, light_uv)
 
     src = Path(source)
     source_hash = hashlib.sha256(src.read_bytes()).hexdigest()
@@ -578,27 +555,10 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
         'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats)+len(atlases), 'baked_lightmap_pages': len(atlases), 'compatibility': compat,
         'source_provenance': 'user supplied; redistribution rights not inferred',
     }
-    manifest_bytes = json.dumps(manifest, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
-    if len(manifest_bytes) > 4*1024*1024:
-        raise BSPError('runtime manifest exceeds 4 MiB limit')
+    manifest_bytes = manifest_json(manifest)
     out = Path(output)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open('wb') as f:
-        f.write(struct.pack(HEADER, MAGIC, version, len(manifest_bytes), len(packed), len(indices), len(groups),
-                            len(mats)+len(atlases), len(world.spawns), 0, *lo, *hi, 0))
-        f.write(manifest_bytes)
-        f.write(b''.join(packed))
-        for i in indices:
-            f.write(struct.pack('<I', i))
-        for group in groups:
-            f.write(struct.pack('<5I' if version==2 else '<4I', *group))
-        for name in mats:
-            w, h, pixels = textures[name]
-            f.write(struct.pack('<3I', w, h, len(pixels))); f.write(pixels)
-        for w,h,rgba in atlases:
-            f.write(struct.pack('<3I',w,h,len(rgba))); f.write(rgba)
-        for sp in world.spawns:
-            f.write(struct.pack('<4f', *sp['position'], math.radians(sp['yaw_degrees'])))
+    write_package(out, version, manifest_bytes, packed, indices, groups,
+                  [textures[name] for name in mats] + list(atlases), world.spawns, lo, hi)
     size = out.stat().st_size
     if size > RUNTIME_FILE_CAP:
         compat['warnings'].append(f'package is {size} bytes; Open Halo refuses more than {RUNTIME_FILE_CAP}')
@@ -611,13 +571,87 @@ def compile_map(source, output, material_roots=(), identifier=None, vpks=(), tex
     return manifest, report
 
 
+# ---- the packaging stage: shared by every world source ---------------------
+# The Source importer and original worlds (assetlab.world) both end here: a
+# world's triangles in groups, its textures and starts become one OALMAP.
+
+def build_groups(groups, src_indices, tex_index, is_alpha, light_uv, n_textures, version):
+    """Runtime group records from (material, first, count, solid, owner)
+    runs over `src_indices`. `owner` is None or (flag, index): the
+    breakable or world entity the triangles belong to, carried as flag |
+    (index + 1) << 8 and kept out of static collision by the runtime.
+    Returns (indices, group records, collision triangle count)."""
+    buckets = {}
+    for mat, first, count, solid, owner in groups:
+        oflag, oidx = owner if owner else (0, -1)
+        for start in range(first, first+count, 3):
+            tri = src_indices[start:start+3]
+            page = light_uv.get(tri[0], (-1, 0, 0))[0]
+            buckets.setdefault((mat, solid, oidx, oflag, page), []).extend(tri)
+    indices = []; records = []; collision_triangles = 0
+    for key in sorted(buckets, key=lambda k: (k[2], k[3], k[0], not k[1], k[4])):
+        mat, solid, oidx, oflag, page = key
+        first = len(indices); indices.extend(buckets[key])
+        flags = (0 if solid else GROUP_NO_COLLISION) | (GROUP_ALPHA if is_alpha(mat) else 0)
+        if oidx >= 0:
+            flags |= oflag | ((oidx + 1) << 8)
+        record = (first, len(indices)-first, tex_index[mat], flags)
+        records.append(record + (n_textures+page if page >= 0 else 0xffffffff,) if version >= 2 else record)
+        if solid:
+            collision_triangles += (len(indices)-first)//3
+    return indices, records, collision_triangles
+
+
+def pack_vertices(indices, vertices, light_uv):
+    """Share identical vertices (at the float32 precision they are stored
+    in): every triangle was emitted with its own three. First occurrence
+    order, so the output stays deterministic. Rewrites `indices`."""
+    packed, remap = [], {}
+    for k, i in enumerate(indices):
+        pos, nrm, uv = vertices[i]
+        lm = light_uv.get(i, (-1, 0., 0.))
+        key = struct.pack('<10f', *pos, *nrm, *uv, lm[1], lm[2])
+        j = remap.get(key)
+        if j is None:
+            j = remap[key] = len(packed); packed.append(key)
+        indices[k] = j
+    return packed
+
+
+def manifest_json(manifest):
+    data = json.dumps(manifest, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+    if len(data) > 4*1024*1024:
+        raise BSPError('runtime manifest exceeds 4 MiB limit')
+    return data
+
+
+def write_package(out, version, manifest_bytes, packed, indices, groups, textures, spawns, lo, hi):
+    """The OALMAP bytes (docs/RUNTIME_PACKAGE.md). `textures` are (w, h,
+    rgba) in index order; `spawns` carry position and yaw_degrees."""
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open('wb') as f:
+        f.write(struct.pack(HEADER, MAGIC, version, len(manifest_bytes), len(packed), len(indices), len(groups),
+                            len(textures), len(spawns), 0, *lo, *hi, 0))
+        f.write(manifest_bytes)
+        f.write(b''.join(packed))
+        for i in indices:
+            f.write(struct.pack('<I', i))
+        for group in groups:
+            f.write(struct.pack('<5I' if version >= 2 else '<4I', *group))
+        for w, h, pixels in textures:
+            f.write(struct.pack('<3I', w, h, len(pixels))); f.write(pixels)
+        for sp in spawns:
+            f.write(struct.pack('<4f', *sp['position'], math.radians(sp['yaw_degrees'])))
+
+
 def read_manifest(package):
     with Path(package).open('rb') as f:
         h = f.read(64)
         if len(h) != 64:
             raise BSPError('truncated package header')
         magic, version, mlen, vc, ic, gc, tc, sc, flags, *_ = struct.unpack(HEADER, h)
-        if magic != MAGIC or version not in (1,2):
+        if magic != MAGIC or version not in (1,2,3):
             raise BSPError('invalid or unsupported package version')
         if mlen > 4*1024*1024 or vc > 5000000 or ic > 15000000 or gc > 100000 or tc > 10000 or sc > 100000:
             raise BSPError('package counts out of range')

@@ -29,7 +29,10 @@ from pathlib import Path
 
 from .package import read_manifest
 
-TYPES = ('world', 'character', 'weapon', 'sounds')
+# `entity` is a placed world entity (assetlab.world): unique within its
+# world and in the world's namespace, e.g. x1:entity/door_main. It names a
+# placement, not a reusable definition.
+TYPES = ('world', 'character', 'weapon', 'sounds', 'entity')
 _SEGMENT = re.compile(r'[a-z][a-z0-9_]*\Z')
 LIMITS = {'namespace': 40, 'type': 24, 'name': 48, 'total': 96}
 # Built-in content the runtime provides without a package (the Halo Trial's
@@ -163,6 +166,15 @@ def audit(paths, namespace=None):
             e['proposed_id'] = None
             if e.get('type'):
                 e['status'].append('no valid ID: empty name')
+        declared = m.get('id') if isinstance(m, dict) else None
+        if declared is not None:            # an original world says its own ID
+            ok, why = valid_id(declared)
+            if ok and declared.partition(':')[0] == m.get('namespace') and \
+                    declared.partition(':')[2].partition('/')[0] == e.get('type'):
+                e['proposed_id'] = declared
+                e['status'] = [s for s in e['status'] if 'needs an alias' not in s]
+            else:
+                e['status'].append(f'declared id {declared!r} is invalid: {why or "wrong namespace or type"}')
         entries.append(e)
 
     # Duplicates and normalisation collisions.

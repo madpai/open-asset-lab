@@ -282,7 +282,7 @@ class BSPTests(unittest.TestCase):
         self.assertIn('materials/test/checker.vmt',m['missing_dependencies'])
         self.assertEqual(m['placeholder_materials'],['test/checker'])
         self.assertEqual(r['resolved_textures'],0)
-        bad=bytearray(a.read_bytes());struct.pack_into('<I',bad,4,3);b.write_bytes(bad)
+        bad=bytearray(a.read_bytes());struct.pack_into('<I',bad,4,4);b.write_bytes(bad)
         with self.assertRaises(BSPError):read_manifest(b)
     def test_baked_lightmap_package(self):
         ti=bytearray(72)
