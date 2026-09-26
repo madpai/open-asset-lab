@@ -1,5 +1,7 @@
 # Open Asset Lab
 
+The comparative engine/mod research that informs future importers, normalization, provenance, packages, and dependency resolution is mapped in [docs/RESEARCH_CONNECTIONS.md](docs/RESEARCH_CONNECTIONS.md). The full corpus lives in [MegaMod's research index](https://github.com/madpai/megamod-showdown/blob/main/docs/research/README.md); it proposes architecture and does not change the current package contract.
+
 A local content **ingestion, analysis, normalization, conversion,
 validation and packaging** environment that turns heterogeneous game
 assets into clean runtime content for

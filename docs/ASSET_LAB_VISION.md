@@ -1,5 +1,7 @@
 # Open Asset Lab vision
 
+The [comparative research map](RESEARCH_CONNECTIONS.md) links engine/mod findings to this project's importers, normalized content, provenance, package design, skeletons/animation, materials, and dependency resolution. It marks proposals separately from the capabilities described below.
+
 **Read this before any major architectural decision in this repository.**
 It is Open Asset Lab's half of the north star set by the owner on
 2026-09-26. The canonical, shared document is MegaMod's
