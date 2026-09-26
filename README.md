@@ -74,6 +74,8 @@ python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap
 # Mount a game's content the way Source does (the folder and every *_dir.vpk in it), and write a compatibility report:
 python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap --game-dir "/path/to/Counter-Strike Source/cstrike" --game-dir "/path/to/Counter-Strike Source/hl2" --report-dir /private/path/report
 python -m assetlab report /private/path/*.oalmap
+# Read-only: proposed stable IDs and what stands in their way (docs/CONTENT_IDS.md):
+python -m assetlab ids /private/path/bundle --namespace owner
 # Optional unpacked materials directory; must contain materials/... paths:
 python -m assetlab convert /path/to/map.bsp --output /private/path/map.oalmap --material-root /path/to/game
 # Optional VPK directory files; include both material and texture archives as needed:

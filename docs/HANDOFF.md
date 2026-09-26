@@ -6,6 +6,18 @@
 > major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
 > This handoff records the current state as it is.
 
+## Stable-ID audit (N2, read-only), 2026-09-26
+
+`assetlab ids <packages or folders> [--namespace OWNER] [--json]` proposes a
+`namespace:type/name` ID per package and reports duplicates, normalisation
+collisions, invalid names, map files named unlike their `map_id`, missing
+namespaces and legacy label/tag-path references (`assetlab/ids.py`,
+`tests/test_ids.py`, 13 tests; suite 76/76). It never writes. On the owner's
+bundle: no package declares a namespace; `cs_office_lit` repeats
+`cs_office`'s `map_id`; the other 33 names are already canonical; 53 legacy
+references all resolve. The grammar and findings are `docs/CONTENT_IDS.md`.
+No package format or runtime identity changed.
+
 ## Gameplay bundle and corrected lightmap review, 2026-09-25
 
 The six owner maps were re-imported without `--lightmaps` and replaced in

@@ -177,6 +177,10 @@ def main():
     a.add_argument('archive'); a.add_argument('--extract', type=Path, help='unpack under this folder (then pass it as --game-dir)')
     a = sub.add_parser('sounds', help='a sound pack definition (JSON) into an .oalasset')
     a.add_argument('definition'); a.add_argument('--output', required=True); search_args(a)
+    a = sub.add_parser('ids', help='read-only audit: proposed stable IDs for existing packages')
+    a.add_argument('paths', nargs='+', help='.oalmap/.oalasset files or folders (searched recursively)')
+    a.add_argument('--namespace', help='owner to assume for packages that declare none')
+    a.add_argument('--json', action='store_true')
     a = sub.add_parser('report', help='compatibility report of one or more packages')
     a.add_argument('packages', nargs='+'); a.add_argument('--json', action='store_true')
     w = sub.add_parser('workshop', help="Steam Workshop: search, fetch, analyze and import (Garry's Mod by default)")
@@ -262,6 +266,10 @@ def main():
                               'player_models': g.player_models(),
                               'models': sorted(n for n in g.files if n.endswith('.mdl')),
                               'extracted_to': str(args.extract) if args.extract else None}, indent=2))
+        elif args.command == 'ids':
+            from .ids import audit, text_report
+            result = audit(args.paths, args.namespace)
+            print(json.dumps(result, indent=2) if args.json else text_report(result))
         elif args.command == 'report':
             compats = [read_manifest(x)['compatibility'] for x in args.packages]
             if args.json:
