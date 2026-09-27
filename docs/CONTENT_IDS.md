@@ -3,7 +3,7 @@
 **Status:** 2026-09-26. The grammar below is the one recommendation. IDs are
 **proposed and audited only** -- except original worlds (X1): an OALMAP v3
 from `assetlab.world` declares its world `id`/`namespace` and uses placed
-`entity` IDs and (X2) `mover` definition IDs, which MegaMod resolves at load. Otherwise no package carries them, MegaMod does not
+`entity` IDs, (X2) `mover` definition IDs and (X3) `script` IDs, which MegaMod resolves at load. Otherwise no package carries them, MegaMod does not
 load or send them, and no save or network message depends on them. What the
 runtime actually matches on today is MegaMod's
 [`docs/CONTENT_COMPATIBILITY.md`](https://github.com/madpai/megamod-showdown/blob/main/docs/CONTENT_COMPATIBILITY.md)
@@ -15,7 +15,7 @@ gameplay fingerprint).
 | Part | Rule |
 |---|---|
 | namespace | `[a-z][a-z0-9_]*`, at most 40 bytes. The owning package lineage; one owner per namespace in a resolved package set. Stays the same across versions of the same package. |
-| type | one of `world`, `character`, `weapon`, `sounds`, `entity`, `mover` (a registry category; new ones are added deliberately), at most 24 bytes. `entity` (added for X1, 2026-09-26) is a **placed** world entity, unique within its world and in the world's namespace -- a placement, not a reusable definition ([ORIGINAL_WORLDS.md](ORIGINAL_WORLDS.md)). `mover` (added for X2, 2026-09-26) is a **reusable mover definition** inside a world (`x2:mover/basic_slide_door`), in the world's namespace, unique among the world's mover definitions; placed movers name it and MegaMod resolves the reference once at load |
+| type | one of `world`, `character`, `weapon`, `sounds`, `entity`, `mover`, `script` (a registry category; new ones are added deliberately), at most 24 bytes. `entity` (added for X1, 2026-09-26) is a **placed** world entity, unique within its world and in the world's namespace -- a placement, not a reusable definition ([ORIGINAL_WORLDS.md](ORIGINAL_WORLDS.md)). `script` (added for X3, 2026-09-27) is a **host-side gameplay script** inside a world (`x3:script/button_logic`), in the world's namespace. `mover` (added for X2, 2026-09-26) is a **reusable mover definition** inside a world (`x2:mover/basic_slide_door`), in the world's namespace, unique among the world's mover definitions; placed movers name it and MegaMod resolves the reference once at load |
 | name | `[a-z][a-z0-9_]*`, at most 48 bytes; unique within namespace and type |
 | whole | at most 96 bytes; `:` and `/` appear exactly once each, as separators |
 

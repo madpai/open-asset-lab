@@ -21,6 +21,7 @@ Runtime units: +Z up, 1 wu per unit; the floor's top is z = 0.
 """
 from __future__ import annotations
 
+from .scripts import Script, load_source
 from .world import Box, Entity, Link, MoverDefinition, OriginalWorld
 
 NS = 'x1'
@@ -164,4 +165,54 @@ def x2_definition_lab():
                          boxes=boxes, spawns=spawns, entities=entities, mover_definitions=definitions)
 
 
-FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab}
+# ---- x3_script_lab ---------------------------------------------------------
+# x3_script_lab -- MegaMod's X3 slice: host-side Lua. The X2 room in the x3
+# namespace, with two changes:
+#
+#   button_script (where X2's button A was, purple) has NO links; it names
+#   x3:script/button_logic, whose on_used asks the engine to open door_a.
+#   Without the script, door_a never opens.
+#
+#   The world's ability_script is x3:script/pulse_ability: a player with no
+#   native ability pressing ability damages players within 2.5 wu through
+#   the engine's own damage.
+#
+# button_b -> relay_b -> door_b and trigger -> teleport stay authored links
+# (X1/X2 composition next to the scripts); door_c stays shut. The scripts
+# are original files in assetlab/data/scripts/x3/.
+
+X3 = 'x3'
+X3_DOOR = f'{X3}:mover/basic_slide_door'
+
+
+def x3_script_lab():
+    w = x2_definition_lab()
+    ren = lambda s: s.replace(f'{X2}:', f'{X3}:', 1) if isinstance(s, str) else s
+    w.id, w.file_name, w.display_name = f'{X3}:world/script_lab', 'x3_script_lab', 'X3 Script Lab'
+    for d in w.mover_definitions:
+        d.id = ren(d.id)
+    entities = []
+    for e in w.entities:
+        e.id, e.definition = ren(e.id), ren(e.definition)
+        for ln in e.links:
+            ln.target = ren(ln.target)
+        if e.id == eid('relay_a', X3):
+            continue                                   # the script replaces button A's chain
+        if e.id == eid('button_a', X3):
+            e.id, e.links, e.script = eid('button_script', X3), [], f'{X3}:script/button_logic'
+        entities.append(e)
+    w.entities = entities
+    w.materials['script_button'] = (150, 60, 210)
+    x, y, z = X2_BUTTONS['button_a']
+    for b in w.boxes:
+        if b.material == 'button' and b.min[1] < y < b.max[1]:
+            b.material = 'script_button'
+    w.scripts = [
+        Script(f'{X3}:script/button_logic', load_source('x3/button_logic.lua'), ['on_used']),
+        Script(f'{X3}:script/pulse_ability', load_source('x3/pulse_ability.lua'), ['on_ability']),
+    ]
+    w.ability_script = f'{X3}:script/pulse_ability'
+    return w
+
+
+FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab, 'x3_script_lab': x3_script_lab}

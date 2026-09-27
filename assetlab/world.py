@@ -24,6 +24,13 @@ of inline `bounds`/`move`/`speed`. The runtime resolves each reference to
 the definition once, at load; each placed door keeps its own state. A world
 with no definitions is written exactly as before (schema 1).
 
+Scripts (MegaMod X3): a world may carry host-side Lua scripts
+(`assetlab.scripts.Script`, `namespace:script/name`). An interactable may
+name one (`script=`): when used, MegaMod calls its `on_used`, which may
+request engine actions; the world may name one `ability_script` for a
+player's ability press (`on_ability`). Such a world is world_entities
+schema 3. Scripts are content: never executed here.
+
 Links wire them: (event, target placed ID, input). Placed IDs use the
 content-ID grammar (docs/CONTENT_IDS.md) with type `entity`, in the world's
 own namespace: `x1:entity/door_main`. They name the placement, not a
@@ -46,7 +53,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field
 
-from . import ids, worldkey
+from . import ids, scripts as scriptlib, worldkey
 from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vertices,
                       write_package)
 
@@ -57,6 +64,7 @@ VERSION = 3
 GROUP_ENTITY = 8        # a world entity's triangles; its index + 1 in bits 8..23
 ENTITY_SCHEMA = 1          # inline movers (X1)
 DEFINITION_SCHEMA = 2      # adds mover_definitions (X2)
+SCRIPT_SCHEMA = 3          # adds scripts, an interactable's script, ability_script (X3)
 MAX_MOVER_DEFINITIONS = 64
 
 # The runtime's limits (MegaMod src/asset/world_def.h); a package that
@@ -107,6 +115,7 @@ class Entity:
     move: tuple = None          # mover: offset when open
     speed: float = None         # mover: wu/s
     definition: str = None      # mover: a MoverDefinition's ID (then only `position`: its box's centre)
+    script: str = None          # interactable: a Script's ID (its on_used runs when used)
 
 
 @dataclass
@@ -139,6 +148,8 @@ class OriginalWorld:
     spawns: list                 # {'position', 'yaw_degrees', 'team'}
     entities: list
     mover_definitions: list = field(default_factory=list)
+    scripts: list = field(default_factory=list)       # assetlab.scripts.Script
+    ability_script: str = None                        # a Script's ID with on_ability
 
 
 def _finite(v, n=3):
@@ -277,6 +288,8 @@ def validate(world):
             if ln.input not in INPUTS:
                 errs.append(f'{where}: unknown input {ln.input!r}')
             t = by_id.get(ln.target)
+            if t is None and any(s.id == ln.target for s in world.scripts):
+                continue                                  # reported by _script_errors
             if t is None and ln.target in defs:
                 errs.append(f'{e.id}: link target {ln.target} is a mover definition, expected a placed entity')
                 continue
@@ -305,8 +318,37 @@ def validate(world):
                 if (t.kind == 'trigger' and t.bounds and len(t.bounds) == 2 and _finite(t.bounds[0]) and
                         _finite(t.bounds[1]) and _inside(e.position, *t.bounds)):
                     errs.append(f'{e.id}: destination is inside trigger {t.id} (it would fire again on arrival)')
+    errs += _script_errors(world, ns, by_id, defs)
     if not errs:
         errs += _graph_errors(world.entities, by_id)
+    return errs
+
+
+def _script_errors(world, ns, by_id, defs):
+    errs = scriptlib.validate(world.scripts, ns)
+    by_script = {s.id: s for s in world.scripts}
+
+    def ref(who, sid, cb):
+        if sid in by_script:
+            if cb not in by_script[sid].callbacks:
+                errs.append(f'{who}: script {sid} does not declare {cb}')
+        elif sid in by_id or sid in defs:
+            errs.append(f'{who}: script {sid} is not a script, expected namespace:script/name')
+        elif not ids.valid_id(sid)[0] or sid.partition(':')[2].partition('/')[0] != 'script':
+            errs.append(f"{who}: {sid!r} is not a script ID (namespace:script/name)")
+        else:
+            errs.append(f'{who} references missing script {sid}')
+
+    for e in world.entities:
+        if e.script is not None and e.kind != 'interactable':
+            errs.append(f'{e.id}: only an interactable takes a script (it is {_a(e.kind)})')
+        elif e.script is not None:
+            ref(e.id, e.script, 'on_used')
+        for ln in e.links:
+            if ln.target in by_script:
+                errs.append(f'{e.id}: link target {ln.target} is a script, expected a placed entity')
+    if world.ability_script is not None:
+        ref('ability_script', world.ability_script, 'on_ability')
     return errs
 
 
@@ -350,6 +392,8 @@ def _entity_record(world, e):
         r['position'] = [float(x) for x in e.position]
     if e.kind == 'interactable':
         r['reach'] = float(e.reach)
+        if e.script is not None:
+            r['script'] = e.script
     if e.kind == 'teleport':
         r['yaw_degrees'] = float(e.yaw_degrees)
     if e.kind == 'trigger':
@@ -453,6 +497,11 @@ def compile_world(world, output):
     if world.mover_definitions:
         section = {'schema': DEFINITION_SCHEMA, 'entities': entities,
                    'mover_definitions': [_definition_record(d) for d in world.mover_definitions]}
+    if world.scripts or world.ability_script:
+        section['schema'] = SCRIPT_SCHEMA
+        section['scripts'] = [scriptlib.record(s) for s in world.scripts]
+        if world.ability_script:
+            section['ability_script'] = world.ability_script
     kinds = {k: sum(e.kind == k for e in world.entities) for k in KINDS}
     manifest = {
         'package_version': VERSION, 'importer_version': 'original_world-0.1.0',
@@ -477,6 +526,7 @@ def compile_world(world, output):
     digest = worldkey.world_digest(data)
     report = {'world': world.id, 'entities': len(entities), 'kinds': kinds,
               'mover_definitions': len(world.mover_definitions), 'entity_schema': section['schema'],
+              'scripts': [s.id for s in world.scripts],
               'links': sum(len(e.links) for e in world.entities),
               'triangles': len(indices) // 3, 'package_bytes': len(data),
               'package_sha256': hashlib.sha256(data).hexdigest(),

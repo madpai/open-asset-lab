@@ -105,3 +105,29 @@ plus a trigger -> teleport. Deterministic, original, 30 KB. The world
 key's coverage is tested on it (`WorldKeyTests`): geometry, collision,
 spawns, placements, definitions, links, trigger and teleport edits change
 the key; the display name, a colour and provenance do not.
+
+## Scripts and the X3 fixture
+
+`assetlab.scripts.Script` is host-side gameplay Lua as **content**: `id`
+(`namespace:script/name`, a registered ID type since X3), `source`,
+declared `callbacks` (`on_used`, `on_ability`) and `api` (`megamod.v1`).
+An interactable names one with `script=`; a world names its
+`ability_script`. The world is then written as schema 3.
+
+Open Asset Lab **never executes a script**. Validation checks the ID,
+namespace, uniqueness, API version, callbacks (declared and defined),
+ASCII text, sizes and every reference (missing, not a script, wrong kind,
+a link that targets a script); when a Lua **5.4** compiler is on PATH it
+also runs `luac5.4 -p` (parse only) and reports syntax errors. A test
+builds a package whose script would write a file if run, and checks
+nothing ran.
+
+`assetlab fixture x3_script_lab`: the X2 room in the `x3` namespace;
+button A is replaced by `button_script` with **no links** and script
+`x3:script/button_logic` (opens door A through MegaMod's queue), and the
+world's `ability_script` is `x3:script/pulse_ability` (damages players
+within 2.5 wu through MegaMod's damage). The two scripts are original
+files in `assetlab/data/scripts/x3/`. Deterministic, 32 KB.
+`tests/test_scripts.py` covers it, every script diagnostic, the preflight,
+no execution, and that one character, a comment or a callback list changes
+the world key while the display name does not.

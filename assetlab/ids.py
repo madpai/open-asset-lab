@@ -34,7 +34,9 @@ from .package import read_manifest
 # placement, not a reusable definition.
 # `mover` (X2) is a reusable mover definition inside a world, e.g.
 # x2:mover/basic_slide_door: any number of placed movers name it.
-TYPES = ('world', 'character', 'weapon', 'sounds', 'entity', 'mover')
+# `script` (X3) is a host-side gameplay script inside a world, e.g.
+# x3:script/button_logic (assetlab.scripts).
+TYPES = ('world', 'character', 'weapon', 'sounds', 'entity', 'mover', 'script')
 _SEGMENT = re.compile(r'[a-z][a-z0-9_]*\Z')
 LIMITS = {'namespace': 40, 'type': 24, 'name': 48, 'total': 96}
 # Built-in content the runtime provides without a package (the Halo Trial's

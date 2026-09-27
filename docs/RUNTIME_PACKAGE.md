@@ -65,13 +65,24 @@ triangles (flagged bit 3 with its own entity index). Written only when a
 world has definitions: worlds without them are schema 1, byte-for-byte as
 before.
 
+### `world_entities` schema 3: host-side scripts (X3)
+
+Still OALMAP v3. Schema 3 adds `scripts` (each `{"id":
+"namespace:script/name", "api": "megamod.v1", "callbacks": [...],
+"source": "<Lua text>"}`), an interactable's optional `"script"`, and the
+world's optional `"ability_script"`. Source text only -- never bytecode --
+ASCII, 32 KB per script, 64 KB and 16 scripts per world. MegaMod runs
+scripts on the host only (its `docs/SCRIPTING.md`); X1/X2-era runtimes
+refuse schema 3. Written only when a world has scripts.
+
 ## The world key (MegaMod's map check)
 
 MegaMod admits a joiner only if both peers compute the same **world key**
 for the package: FNV-1a 64 over the played bytes -- counts, header bounds,
 vertex/index/group/spawn records as stored, and the manifest members
 `spawn_points`, `flag_points`, `breakables`, `weather`, `world_entities`
-(exact value bytes, in manifest order) -- never provenance, reports, names
+(exact value bytes, in manifest order; so scripts' source bytes, comments
+included) -- never provenance, reports, names
 or texture pixels. `assetlab/worldkey.py` is the reference implementation
 (its docstring has the exact stream); `assetlab world-key PKG` prints it
 and `compile_world` reports it. MegaMod's `src/asset/external_map.c`
