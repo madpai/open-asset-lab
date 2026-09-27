@@ -61,7 +61,7 @@ class GrammarTests(unittest.TestCase):
         for bad, why in (('Megamod:weapon/x', 'namespace'), ('m:weapon/Ion', 'name'),
                          ('m:weapon/ion-rifle', 'name'), ('m:weapon/ion.rifle', 'name'),
                          ('m:weapon/9mm', 'name'), ('m:weapon/', 'empty'), ('m:weapon', "'/'"),
-                         ('weapon/x', "':'"), ('m:gadget/x', 'unknown type'), ('m:weapon/é', 'ASCII'),
+                         ('weapon/x', "':'"), ('m:gadget/x', 'unknown resource type'), ('m:weapon/é', 'name starts with'),
                          ('m:weapon/a/b', 'name'), ('x' * 41 + ':weapon/a', 'namespace'),
                          ('m:weapon/' + 'y' * 49, 'name'), ('m' * 40 + ':character/' + 'n' * 48, 'longer')):
             ok, reason = valid_id(bad)

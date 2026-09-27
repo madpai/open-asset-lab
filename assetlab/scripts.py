@@ -73,7 +73,8 @@ def _defines(source, name):
 
 
 def validate(scripts, ns, check_syntax=True):
-    """Diagnostics for a world's scripts; each names the script."""
+    """Diagnostics for a world's scripts (`ns`: the world's namespace) or a
+    library's (`ns` None: any namespace); each names the script."""
     from . import ids
     errs, seen, total = [], set(), 0
     if len(scripts) > MAX_SCRIPTS:
@@ -88,7 +89,7 @@ def validate(scripts, ns, check_syntax=True):
         if rest.partition('/')[0] != 'script':
             errs.append(f'{sc.id}: a script ID has type script')
             continue
-        if s_ns != ns:
+        if ns is not None and s_ns != ns:
             errs.append(f"{sc.id}: scripts belong to the world's namespace {ns!r}")
         if sc.id in seen:
             errs.append(f'{sc.id}: duplicate script ID')

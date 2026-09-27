@@ -70,7 +70,7 @@ class X3ScriptTests(unittest.TestCase):
         self.assertIn('x3:entity/button_script references missing script x3:script/button_logik', self.errors(w))
         w = x3_script_lab()
         next(e for e in w.entities if e.id == x3('button_script')).script = x3('door_a')
-        self.assertIn('x3:entity/button_script: script x3:entity/door_a is not a script', self.errors(w))
+        self.assertIn('x3:entity/button_script: script x3:entity/door_a is a placed entity, expected a script', self.errors(w))
         w = x3_script_lab()
         next(e for e in w.entities if e.id == x3('relay_b')).script = 'x3:script/button_logic'
         self.assertIn('x3:entity/relay_b: only an interactable takes a script (it is a relay)', self.errors(w))

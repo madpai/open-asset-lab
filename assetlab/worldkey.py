@@ -34,8 +34,13 @@ import json
 import struct
 from pathlib import Path
 
-WORLD_KEY_SCHEMA = 1
-PLAYED = ('breakables', 'flag_points', 'spawn_points', 'weather', 'world_entities')
+from . import resources as _res
+
+WORLD_KEY_SCHEMA = _res.WORLD_KEY['schema']
+# The members MegaMod plays by, from its contract (megamod-resources): X4
+# added "package" (a world's declaration). No pre-X4 package has one, so
+# their keys did not change.
+PLAYED = tuple(_res.WORLD_KEY['played_members'])
 
 _OFFSET = 14695981039346656037
 _PRIME = 1099511628211
@@ -94,8 +99,12 @@ def manifest_members(manifest: bytes):
         raise ValueError('malformed manifest')
 
 
-def world_digest(data: bytes) -> int:
-    """The 64-bit world key of an OALMAP's bytes."""
+def world_digest(data: bytes, fetch=None) -> int:
+    """The 64-bit world key of an OALMAP's bytes. A world that requires
+    packages (X4) also covers them: after the members, per package of its
+    closure sorted by package ID, b'OALD', u32 ID length, the ID and the
+    library's own 64-bit digest (dependencies.library_digest). `fetch`
+    finds them (dependencies.directory_source)."""
     magic, version, ml, vc, ic, gc, tc, sc = struct.unpack_from('<4s7I', data, 0)
     if magic != b'OALM' or version not in (1, 2, 3):
         raise ValueError('not an OALMAP v1-v3')
@@ -126,6 +135,13 @@ def world_digest(data: bytes) -> int:
                 if key in PLAYED:
                     k = key.encode()
                     f.u32(len(k)); f.bytes(k); f.u32(len(value)); f.bytes(value)
+    if version >= 3 and ml:
+        from . import dependencies
+        decl = _res.parse_decl(json.loads(manifest))
+        for lib in dependencies.load_set(decl, fetch):
+            pid = lib.decl.id.encode()
+            f.bytes(b'OALD'); f.u32(len(pid)); f.bytes(pid)
+            f.u32(lib.digest & 0xFFFFFFFF); f.u32(lib.digest >> 32)
     return f.h or 1
 
 
@@ -134,7 +150,7 @@ def fold(digest: int) -> int:
     return (digest ^ (digest >> 32)) & 0xFFFFFFFF
 
 
-def world_key(path) -> dict:
-    d = world_digest(Path(path).read_bytes())
+def world_key(path, fetch=None) -> dict:
+    d = world_digest(Path(path).read_bytes(), fetch)
     return {'package': str(path), 'world_digest': f'{d:016x}', 'world_key': f'{fold(d):08x}',
             'schema': WORLD_KEY_SCHEMA}

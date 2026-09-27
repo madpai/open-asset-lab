@@ -21,6 +21,8 @@ Runtime units: +Z up, 1 wu per unit; the floor's top is z = 0.
 """
 from __future__ import annotations
 
+from .dependencies import Library
+from .resources import Requirement
 from .scripts import Script, load_source
 from .world import Box, Entity, Link, MoverDefinition, OriginalWorld
 
@@ -215,4 +217,56 @@ def x3_script_lab():
     return w
 
 
-FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab, 'x3_script_lab': x3_script_lab}
+# ---- x4_resource_lab ---------------------------------------------------------
+# x4_resource_lab -- MegaMod's X4 slice: resource identity and a package
+# dependency. The X3 room in the x4 namespace, now a DECLARED package
+# (x4.resource_lab) that requires a LIBRARY package (x4.shared):
+#
+#   button_script names x4:script/open_door -- the world's own script
+#   (X3's button logic); its on_used asks the engine to open door_a.
+#
+#   the world's ability_script is x4shared:script/pulse_ability, imported
+#   from x4.shared: a reusable ability that names no world entity.
+#
+# The world's package provides x4:world/resource_lab, x4:mover/
+# basic_slide_door and x4:script/open_door, and requires x4.shared for
+# x4shared:script/pulse_ability. MegaMod loads x4.shared beside the world
+# (packages/x4.shared.oalasset); its bytes join the world key.
+
+X4 = 'x4'
+X4_PACKAGE = 'x4.resource_lab'
+X4_SHARED = 'x4.shared'
+X4_PULSE = 'x4shared:script/pulse_ability'
+
+
+def x4_shared():
+    """The library the X4 world requires."""
+    return Library(X4_SHARED, [Script(X4_PULSE, load_source('x4shared/pulse_ability.lua'), ['on_ability'])],
+                   display_name='X4 shared gameplay scripts')
+
+
+def x4_resource_lab():
+    w = x3_script_lab()
+    ren = lambda s: s.replace(f'{X3}:', f'{X4}:', 1) if isinstance(s, str) else s
+    w.id, w.file_name, w.display_name = f'{X4}:world/resource_lab', 'x4_resource_lab', 'X4 Resource Lab'
+    for d in w.mover_definitions:
+        d.id = ren(d.id)
+    for e in w.entities:
+        e.id, e.definition = ren(e.id), ren(e.definition)
+        for ln in e.links:
+            ln.target = ren(ln.target)
+        if e.script:
+            e.script = f'{X4}:script/open_door'
+    for b in w.boxes:
+        b.owner = ren(b.owner)
+    w.scripts = [Script(f'{X4}:script/open_door', load_source('x4/open_door.lua'), ['on_used'])]
+    w.ability_script = X4_PULSE
+    w.package = X4_PACKAGE
+    w.requires = [Requirement(X4_SHARED, [X4_PULSE])]
+    return w
+
+
+FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab, 'x3_script_lab': x3_script_lab,
+            'x4_resource_lab': x4_resource_lab}
+# The library packages a fixture world requires, by package ID.
+FIXTURE_LIBRARIES = {'x4_resource_lab': lambda: {X4_SHARED: x4_shared()}}

@@ -103,12 +103,12 @@ class X1FixtureTests(unittest.TestCase):
         self.assertIn("'x1:entity/Bad-Name': malformed placed ID", e)
         self.assertIn('x1:weapon/relay_b: a placed ID has type entity', e)
         self.assertIn("other:entity/relay_c: placed IDs belong to the world's namespace 'x1'", e)
-        self.assertIn("'relay_d': malformed placed ID: missing ':'", e)
+        self.assertIn("'relay_d': malformed placed ID: no ':' (namespace:type/name)", e)
 
     def test_missing_target(self):
         w = x1_event_lab()
         w.entities = [e for e in w.entities if e.id != eid('relay_main')]
-        self.assertIn('x1:entity/button_main references missing target x1:entity/relay_main', self.errors(w))
+        self.assertIn('x1:entity/button_main references missing placed entity x1:entity/relay_main', self.errors(w))
 
     def test_target_must_accept_the_input(self):
         w = x1_event_lab()
@@ -201,7 +201,7 @@ class X1FixtureTests(unittest.TestCase):
         w.entities = [e for e in w.entities if e.id != eid('relay_main')]
         with self.assertRaises(WorldError) as cm:
             compile_world(w, self.dir / 'bad.oalmap')
-        self.assertIn('references missing target', str(cm.exception))
+        self.assertIn('references missing placed entity', str(cm.exception))
         self.assertFalse((self.dir / 'bad.oalmap').exists())
 
     def test_diagnostics_do_not_depend_on_the_fixture_object(self):

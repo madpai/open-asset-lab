@@ -181,10 +181,21 @@ def main():
     a.add_argument('paths', nargs='+', help='.oalmap/.oalasset files or folders (searched recursively)')
     a.add_argument('--namespace', help='owner to assume for packages that declare none')
     a.add_argument('--json', action='store_true')
-    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab, x2_definition_lab) into an .oalmap')
+    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab ... x4_resource_lab) into an .oalmap')
     a.add_argument('name'); a.add_argument('--output', required=True)
+    a.add_argument('--packages', help="where the library packages it requires go (default: packages/ beside --output)")
     a = sub.add_parser('world-key', help="MegaMod's world key of .oalmap packages (what two peers must agree on)")
     a.add_argument('packages', nargs='+')
+    a.add_argument('--packages-dir', action='append', default=[],
+                   help='where required library packages are (packages/<id>.oalasset); default: beside each world')
+    a = sub.add_parser('resources', help="MegaMod's resource identity contract, and a checker for built packages (X4)")
+    rsub = a.add_subparsers(dest='resources_command', required=True)
+    x = rsub.add_parser('contract', help="the engine's contract Open Asset Lab validates against (JSON)")
+    x = rsub.add_parser('check', help='check .oalmap/.oalasset packages as MegaMod loads them: declaration, dependencies, typed references')
+    x.add_argument('paths', nargs='+')
+    x.add_argument('--packages-dir', action='append', default=[],
+                   help='where required library packages are; default: beside each package')
+    x.add_argument('--json', action='store_true')
     a = sub.add_parser('report', help='compatibility report of one or more packages')
     a.add_argument('packages', nargs='+'); a.add_argument('--json', action='store_true')
     w = sub.add_parser('workshop', help="Steam Workshop: search, fetch, analyze and import (Garry's Mod by default)")
@@ -279,11 +290,40 @@ def main():
             from .world import compile_world
             if args.name not in FIXTURES:
                 p.error(f"unknown fixture {args.name!r} (one of {', '.join(sorted(FIXTURES))})")
-            _, report = compile_world(FIXTURES[args.name](), args.output)
+            from .fixtures import FIXTURE_LIBRARIES
+            from .dependencies import compile_library, mapping_source
+            libraries = FIXTURE_LIBRARIES.get(args.name, dict)()
+            where = Path(args.packages) if args.packages else Path(args.output).parent / 'packages'
+            built = [compile_library(lib, where / f'{pid}.oalasset')[1] for pid, lib in sorted(libraries.items())]
+            _, report = compile_world(FIXTURES[args.name](), args.output, mapping_source(libraries))
+            if built:
+                report['libraries'] = built
             print(json.dumps(report, indent=2))
         elif args.command == 'world-key':
+            from .dependencies import directory_source
             from .worldkey import world_key
-            print(json.dumps([world_key(x) for x in args.packages], indent=2))
+            print(json.dumps([world_key(x, directory_source(*args.packages_dir, Path(x).parent))
+                              for x in args.packages], indent=2))
+        elif args.command == 'resources':
+            from . import resources as res
+            from .dependencies import check_package, directory_source
+            if args.resources_command == 'contract':
+                print(json.dumps(res.CONTRACT, indent=2))
+            else:
+                reports = [check_package(x, directory_source(*args.packages_dir, Path(x).parent))
+                           for x in args.paths]
+                if args.json:
+                    print(json.dumps(reports, indent=2))
+                else:
+                    for r in reports:
+                        head = f"{r['file']}: {r.get('kind', '?')} " + (f"package {r['id']}" if r.get('id') else '(no declaration)')
+                        print(head + (' -- OK' if not r['errors'] else ' -- REFUSED'))
+                        for q in r.get('requires', []):
+                            print(f"  requires {q['package']}: {', '.join(q['resources']) or '(no imports)'}")
+                        for e in r['errors']:
+                            print(f'  error: {e}')
+                if any(r['errors'] for r in reports):
+                    sys.exit(1)
         elif args.command == 'report':
             compats = [read_manifest(x)['compatibility'] for x in args.packages]
             if args.json:

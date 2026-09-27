@@ -53,7 +53,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field
 
-from . import ids, scripts as scriptlib, worldkey
+from . import dependencies as deplib, ids, resources as res, scripts as scriptlib, worldkey
 from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vertices,
                       write_package)
 
@@ -149,7 +149,13 @@ class OriginalWorld:
     entities: list
     mover_definitions: list = field(default_factory=list)
     scripts: list = field(default_factory=list)       # assetlab.scripts.Script
-    ability_script: str = None                        # a Script's ID with on_ability
+    ability_script: str = None                        # a Script's ID with on_ability (its own or imported)
+    # X4: a package ID makes the world declare itself ("package" member):
+    # what it provides (derived: its world, mover definitions, own scripts)
+    # and what it requires -- resources.Requirement(package, [imported IDs]).
+    # A world without one is written exactly as before (an implicit package).
+    package: str = None
+    requires: list = field(default_factory=list)
 
 
 def _finite(v, n=3):
@@ -182,10 +188,73 @@ def owned_bounds(world, eid):
             tuple(max(b.max[k] for b in boxes) for k in range(3)))
 
 
-def validate(world):
+def declaration(world):
+    """The world's resources.PackageDecl (X4), or None for an implicit
+    package. Provides is derived from the content, never typed in."""
+    if world.package is None:
+        return None
+    provides = [world.id] + [d.id for d in world.mover_definitions] + [s.id for s in world.scripts]
+    return res.PackageDecl(world.package, sorted(set(provides), key=str.encode), list(world.requires))
+
+
+def _resources(world, by_id, defs, fetch, errs):
+    """The ResourceSet the world's references resolve against -- its own
+    resources, then everything it imports from the packages it requires --
+    and the imported scripts by ID. The engine's rules (resource.h)."""
+    decl = declaration(world)
+    imported = {}
+    deps = []
+    if decl is not None:
+        try:
+            res.parse_decl({'package': decl.record()})
+        except res.ResourceError as e:
+            errs.append(str(e))
+            decl = None
+    if decl is not None and decl.requires:
+        try:
+            deps = deplib.load_set(decl, fetch, world.id)
+        except deplib.PackageError as e:
+            errs.append(f'package: {e.diagnostics[0]}')
+            deps = []
+            decl = res.PackageDecl(decl.id, decl.provides, [])
+    rs = deplib.resource_set(decl, deps)
+    try:
+        for i, e in enumerate(world.entities):
+            if res.is_id(e.id, 'entity') and e.id in by_id and by_id[e.id] is e:
+                rs.add(e.id, 'entity', 0, i)
+        for i, d in enumerate(world.mover_definitions):
+            if d.id in defs:
+                rs.add(d.id, 'mover', 0, i)
+        seen = set()
+        for i, sc in enumerate(world.scripts):
+            if res.is_id(sc.id, 'script') and sc.id not in seen:
+                seen.add(sc.id)
+                rs.add(sc.id, 'script', 0, i)
+        if decl is not None and res.is_id(world.id, 'world'):
+            rs.add(world.id, 'world', 0, 0)
+        deplib.add_dependencies(rs, deps)
+    except res.ResourceError as e:
+        errs.append(str(e))
+    for i, d in enumerate(deps):
+        for sc in d.scripts:
+            if (i + 1, sc.id) in rs.imports:
+                imported[sc.id] = sc
+    return rs, imported
+
+
+def validate(world, fetch=None):
     """Diagnostics (errors) for the world's entities and links; [] when it
-    compiles. Each names the placement, and the link, it is about."""
+    compiles. Each names the placement, and the link, it is about.
+    `fetch` finds the packages the world requires (dependencies.
+    directory_source / mapping_source); none are needed when it requires
+    none. Every reference resolves through the engine's typed rules
+    (assetlab.resources): a script field never takes a mover, a link never
+    reaches another package, an import must be declared."""
     errs = []
+    if world.package is not None:
+        why = res.package_id_error(world.package)
+        if why:
+            errs.append(f"package '{world.package}': {why}")
     ok, why = ids.valid_id(world.id)
     ns = world.id.partition(':')[0]
     if not ok:
@@ -235,6 +304,7 @@ def validate(world):
             errs.append(f'{e.id}: duplicate placed ID')
             continue
         by_id[e.id] = e
+    rs, imported = _resources(world, by_id, defs, fetch, errs)
     total = 0
     for e in world.entities:
         if e.kind not in KINDS:
@@ -256,14 +326,10 @@ def validate(world):
         if e.definition is not None and e.kind != 'mover':
             errs.append(f'{e.id}: only a mover takes a definition (it is {_a(e.kind)})')
         if e.kind == 'mover' and e.definition is not None:
-            ref = e.definition
-            if ref not in defs:
-                if ref in by_id:
-                    errs.append(f'{e.id}: definition {ref} is a placed entity, expected a mover definition')
-                elif not ids.valid_id(ref)[0] or ref.partition(':')[2].partition('/')[0] != 'mover':
-                    errs.append(f'{e.id}: definition {ref!r} is not a mover definition ID (namespace:mover/name)')
-                else:
-                    errs.append(f'{e.id} references missing mover definition {ref}')
+            try:
+                rs.resolve(res.MOVER_DEF, e.id, e.definition)
+            except res.ResourceError as x:
+                errs.append(str(x))
             if not _finite(e.position):
                 errs.append(f'{e.id}: a mover with a definition needs a finite position (its box\'s centre)')
             if e.move is not None or e.speed is not None or owned_bounds(world, e.id) is not None:
@@ -287,15 +353,12 @@ def validate(world):
                             + (f' (it emits {", ".join(EMITS[e.kind])})' if EMITS[e.kind] else ' (it emits nothing)'))
             if ln.input not in INPUTS:
                 errs.append(f'{where}: unknown input {ln.input!r}')
-            t = by_id.get(ln.target)
-            if t is None and any(s.id == ln.target for s in world.scripts):
-                continue                                  # reported by _script_errors
-            if t is None and ln.target in defs:
-                errs.append(f'{e.id}: link target {ln.target} is a mover definition, expected a placed entity')
+            try:
+                rs.resolve(res.LINK_TARGET, e.id, ln.target)
+            except res.ResourceError as x:
+                errs.append(str(x))
                 continue
-            if t is None:
-                errs.append(f'{e.id} references missing target {ln.target}')
-                continue
+            t = by_id[ln.target]
             if t is e:
                 errs.append(f'{where}: an entity cannot target itself')
             elif t.kind in KINDS and ln.input in INPUTS and ln.input not in ACCEPTS[t.kind]:
@@ -318,37 +381,39 @@ def validate(world):
                 if (t.kind == 'trigger' and t.bounds and len(t.bounds) == 2 and _finite(t.bounds[0]) and
                         _finite(t.bounds[1]) and _inside(e.position, *t.bounds)):
                     errs.append(f'{e.id}: destination is inside trigger {t.id} (it would fire again on arrival)')
-    errs += _script_errors(world, ns, by_id, defs)
+    errs += _script_errors(world, ns, rs, imported)
     if not errs:
         errs += _graph_errors(world.entities, by_id)
     return errs
 
 
-def _script_errors(world, ns, by_id, defs):
+def _script_errors(world, ns, rs, imported):
     errs = scriptlib.validate(world.scripts, ns)
     by_script = {s.id: s for s in world.scripts}
+    by_script.update({k: v for k, v in imported.items() if k not in by_script})
 
-    def ref(who, sid, cb):
-        if sid in by_script:
-            if cb not in by_script[sid].callbacks:
-                errs.append(f'{who}: script {sid} does not declare {cb}')
-        elif sid in by_id or sid in defs:
-            errs.append(f'{who}: script {sid} is not a script, expected namespace:script/name')
-        elif not ids.valid_id(sid)[0] or sid.partition(':')[2].partition('/')[0] != 'script':
-            errs.append(f"{who}: {sid!r} is not a script ID (namespace:script/name)")
-        else:
-            errs.append(f'{who} references missing script {sid}')
+    def ref(field_name, who, sid, cb):
+        try:
+            rs.resolve(field_name, who, sid)
+        except res.ResourceError as x:
+            errs.append(str(x))
+            return
+        if cb not in by_script[sid].callbacks:
+            errs.append(f'{who}: script {sid} does not declare {cb}')
 
     for e in world.entities:
         if e.script is not None and e.kind != 'interactable':
             errs.append(f'{e.id}: only an interactable takes a script (it is {_a(e.kind)})')
         elif e.script is not None:
-            ref(e.id, e.script, 'on_used')
-        for ln in e.links:
-            if ln.target in by_script:
-                errs.append(f'{e.id}: link target {ln.target} is a script, expected a placed entity')
+            ref(res.SCRIPT, e.id, e.script, 'on_used')
     if world.ability_script is not None:
-        ref('ability_script', world.ability_script, 'on_ability')
+        ref(res.ABILITY_SCRIPT, 'ability_script', world.ability_script, 'on_ability')
+    n = len(world.scripts) + len(imported)
+    if n > scriptlib.MAX_SCRIPTS:
+        errs.append(f'{n} scripts with its imports; the runtime takes at most {scriptlib.MAX_SCRIPTS}')
+    size = sum(len(s.source.encode('ascii', 'replace')) for s in list(world.scripts) + list(imported.values()))
+    if size > scriptlib.MAX_POOL:
+        errs.append(f"the world's scripts with its imports are {size} bytes; at most {scriptlib.MAX_POOL}")
     return errs
 
 
@@ -450,10 +515,12 @@ def _texture(rgb):
     return 16, 16, bytes(px)
 
 
-def compile_world(world, output):
+def compile_world(world, output, fetch=None):
     """Validate and write `world` as an OALMAP. Raises WorldError with every
-    diagnostic when it does not validate. Returns (manifest, report)."""
-    errs = validate(world)
+    diagnostic when it does not validate. Returns (manifest, report).
+    `fetch` finds the packages it requires (X4); their content is not
+    copied in -- MegaMod loads them beside the world, by package ID."""
+    errs = validate(world, fetch)
     for b in world.boxes:
         if not (_finite(b.min) and _finite(b.max) and all(b.max[k] > b.min[k] for k in range(3))):
             errs.append(f'box {b.min}..{b.max}: empty or not finite')
@@ -497,7 +564,7 @@ def compile_world(world, output):
     if world.mover_definitions:
         section = {'schema': DEFINITION_SCHEMA, 'entities': entities,
                    'mover_definitions': [_definition_record(d) for d in world.mover_definitions]}
-    if world.scripts or world.ability_script:
+    if world.scripts or world.ability_script or any(e.script for e in world.entities):
         section['schema'] = SCRIPT_SCHEMA
         section['scripts'] = [scriptlib.record(s) for s in world.scripts]
         if world.ability_script:
@@ -518,15 +585,19 @@ def compile_world(world, output):
         'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats),
         'source_provenance': 'original content built by Open Asset Lab; no third-party assets',
     }
+    decl = declaration(world)
+    if decl is not None:
+        manifest['package'] = decl.record()
     manifest_bytes = manifest_json(manifest)
     write_package(output, VERSION, manifest_bytes, packed, indices, groups,
                   [_texture(world.materials[m]) for m in mats], world.spawns, lo, hi)
     with open(output, 'rb') as f:
         data = f.read()
-    digest = worldkey.world_digest(data)
+    digest = worldkey.world_digest(data, fetch)
     report = {'world': world.id, 'entities': len(entities), 'kinds': kinds,
               'mover_definitions': len(world.mover_definitions), 'entity_schema': section['schema'],
               'scripts': [s.id for s in world.scripts],
+              'package': world.package, 'requires': {q.package: list(q.resources) for q in world.requires},
               'links': sum(len(e.links) for e in world.entities),
               'triangles': len(indices) // 3, 'package_bytes': len(data),
               'package_sha256': hashlib.sha256(data).hexdigest(),

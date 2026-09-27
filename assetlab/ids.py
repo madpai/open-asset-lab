@@ -27,6 +27,7 @@ import struct
 from collections import defaultdict
 from pathlib import Path
 
+from . import resources
 from .package import read_manifest
 
 # `entity` is a placed world entity (assetlab.world): unique within its
@@ -36,36 +37,25 @@ from .package import read_manifest
 # x2:mover/basic_slide_door: any number of placed movers name it.
 # `script` (X3) is a host-side gameplay script inside a world, e.g.
 # x3:script/button_logic (assetlab.scripts).
-TYPES = ('world', 'character', 'weapon', 'sounds', 'entity', 'mover', 'script')
-_SEGMENT = re.compile(r'[a-z][a-z0-9_]*\Z')
-LIMITS = {'namespace': 40, 'type': 24, 'name': 48, 'total': 96}
+# The registered types MegaMod supports, from its resource contract
+# (assetlab.resources, data/megamod_resources.json) -- not a list kept here.
+TYPES = resources.SUPPORTED
+LIMITS = {'namespace': resources.LIMITS['namespace'], 'type': resources.LIMITS['type'],
+          'name': resources.LIMITS['name'], 'total': resources.LIMITS['total']}
 # Built-in content the runtime provides without a package (the Halo Trial's
 # own weapons); loadouts may name these by label.
 BUILTIN_NAMESPACE = 'halo_trial'
 
 
 def valid_id(text):
-    """(True, '') or (False, reason) for a full `namespace:type/name`."""
-    if not isinstance(text, str) or not text.isascii():
-        return False, 'not ASCII text'
-    if len(text) > LIMITS['total']:
-        return False, f'longer than {LIMITS["total"]} bytes'
-    ns, sep, rest = text.partition(':')
-    if not sep:
-        return False, "missing ':'"
-    typ, sep, name = rest.partition('/')
-    if not sep:
-        return False, "missing '/'"
-    for part, value in (('namespace', ns), ('type', typ), ('name', name)):
-        if not value:
-            return False, f'empty {part}'
-        if len(value) > LIMITS[part]:
-            return False, f'{part} longer than {LIMITS[part]}'
-        if not _SEGMENT.match(value):
-            return False, f'{part} {value!r} is not [a-z][a-z0-9_]*'
-    if typ not in TYPES:
-        return False, f'unknown type {typ!r}'
-    return True, ''
+    """(True, '') or (False, reason) for a full `namespace:type/name`: the
+    engine's grammar and its reason (assetlab.resources.parse_id). A
+    reserved type (model, prefab...) is not valid here: nothing may use one
+    yet."""
+    if not isinstance(text, str):
+        return False, 'not text'
+    code, why, _ = resources.parse_id(text)
+    return (True, '') if code == resources.OK else (False, why)
 
 
 def propose_segment(legacy):
