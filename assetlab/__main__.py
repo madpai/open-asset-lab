@@ -181,7 +181,15 @@ def main():
     a.add_argument('paths', nargs='+', help='.oalmap/.oalasset files or folders (searched recursively)')
     a.add_argument('--namespace', help='owner to assume for packages that declare none')
     a.add_argument('--json', action='store_true')
-    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab ... x4_resource_lab) into an .oalmap')
+    a = sub.add_parser('asset-library', help='Source static models as MegaMod asset resources in a library package (X5)')
+    a.add_argument('models', nargs='+', help='Source model paths (models/props/x/crate01.mdl)')
+    a.add_argument('--package', required=True, help='the library package ID (community.props)')
+    a.add_argument('--namespace', required=True, help='the resource namespace (community)')
+    a.add_argument('--output', required=True, help='where the .oalasset goes (packages/<package id>.oalasset)')
+    a.add_argument('--provenance', nargs='*', default=[], metavar='KEY=VALUE',
+                   help='kept with every resource, never played: provider, workshop_item, creator, license...')
+    search_args(a)
+    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab ... x5_second_world) into an .oalmap')
     a.add_argument('name'); a.add_argument('--output', required=True)
     a.add_argument('--packages', help="where the library packages it requires go (default: packages/ beside --output)")
     a = sub.add_parser('world-key', help="MegaMod's world key of .oalmap packages (what two peers must agree on)")
@@ -272,6 +280,25 @@ def main():
             else:
                 m = build_weapon(args.definition, args.output, roots, vpks)
             print(json.dumps(m, indent=2))
+        elif args.command == 'asset-library':
+            from .assets import AssetError, from_source_model
+            from .dependencies import Library, PackageError, compile_library
+            from .package import Resolver
+            roots, vpks = search_path(args)
+            resolver = Resolver(None, roots, vpks)
+            lib, reports = Library(args.package, [], display_name=args.package), []
+            provider = dict(kv.split('=', 1) for kv in args.provenance)
+            try:
+                for mdl in args.models:
+                    model, materials, textures, report = from_source_model(resolver, mdl, args.namespace, provider=provider)
+                    lib.models.append(model)
+                    lib.materials += [m for m in materials if m.id not in {x.id for x in lib.materials}]
+                    lib.textures += [t for t in textures if t.id not in {x.id for x in lib.textures}]
+                    reports.append(report)
+                _, built = compile_library(lib, args.output)
+            except (AssetError, PackageError) as e:
+                p.error(str(e))
+            print(json.dumps({'library': built, 'models': reports, 'warnings': resolver.warnings}, indent=2))
         elif args.command == 'gma':
             from .importers.gma import GMA, load
             g = GMA(load(args.archive))

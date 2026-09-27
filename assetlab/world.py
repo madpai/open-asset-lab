@@ -44,6 +44,14 @@ and chain length over the runtime's limits, bad mover/trigger/teleport
 parameters, and a destination inside a trigger (it would fire again).
 The runtime still checks all of it (defence in depth).
 
+Asset resources (MegaMod X5): a `prop` places a MODEL resource
+(`namespace:model/name`, assetlab.assets) imported from a library package
+where it stands -- drawn with the model's materials, solid as its bounds --
+and a mover definition may name the SOUND resource it makes when it starts
+to move. Both are typed references the engine resolves once, like a
+script's. Such a world is world_entities schema 4. The world never copies
+the library's bytes: MegaMod loads the library beside it, by package ID.
+
 There is deliberately no text format for this yet: tests and
 `assetlab fixture` build worlds in code (docs/ORIGINAL_WORLDS.md).
 """
@@ -65,6 +73,7 @@ GROUP_ENTITY = 8        # a world entity's triangles; its index + 1 in bits 8..2
 ENTITY_SCHEMA = 1          # inline movers (X1)
 DEFINITION_SCHEMA = 2      # adds mover_definitions (X2)
 SCRIPT_SCHEMA = 3          # adds scripts, an interactable's script, ability_script (X3)
+ASSET_SCHEMA = 4           # adds props (a model) and a mover definition's sound (X5)
 MAX_MOVER_DEFINITIONS = 64
 
 # The runtime's limits (MegaMod src/asset/world_def.h); a package that
@@ -79,11 +88,11 @@ MAX_MOVE = 64.0         # wu
 MAX_SPEED = 64.0        # wu/s
 WORLD_LIMIT = 4096.0    # |coordinate|, wu
 
-KINDS = ('interactable', 'relay', 'mover', 'trigger', 'teleport')
+KINDS = ('interactable', 'relay', 'mover', 'trigger', 'teleport', 'prop')
 EMITS = {'interactable': ('used',), 'relay': ('fired',), 'trigger': ('entered',),
-         'mover': (), 'teleport': ()}
+         'mover': (), 'teleport': (), 'prop': ()}
 ACCEPTS = {'relay': ('activate',), 'mover': ('open', 'close', 'toggle'),
-           'teleport': ('teleport',), 'interactable': (), 'trigger': ()}
+           'teleport': ('teleport',), 'interactable': (), 'trigger': (), 'prop': ()}
 EVENTS = ('used', 'fired', 'entered')
 INPUTS = ('activate', 'open', 'close', 'toggle', 'teleport')
 # Every X1 event carries the player who started its chain (a button's
@@ -116,6 +125,7 @@ class Entity:
     speed: float = None         # mover: wu/s
     definition: str = None      # mover: a MoverDefinition's ID (then only `position`: its box's centre)
     script: str = None          # interactable: a Script's ID (its on_used runs when used)
+    model: str = None           # prop (X5): a model resource ID, imported from a library
 
 
 @dataclass
@@ -127,6 +137,7 @@ class MoverDefinition:
     move: tuple                 # offset when open
     speed: float                # wu/s
     material: str               # how a placement is drawn (one box of it)
+    sound: str = None           # X5: a sound resource ID it makes starting to move
 
 
 @dataclass
@@ -289,6 +300,7 @@ def validate(world, fetch=None):
             errs.append(f'{d.id}: speed must be in (0, {MAX_SPEED}] wu/s')
         if d.material not in world.materials:
             errs.append(f'{d.id}: unknown material {d.material!r}')
+
     by_id = {}
     for e in world.entities:
         ok, why = ids.valid_id(e.id)
@@ -305,11 +317,31 @@ def validate(world, fetch=None):
             continue
         by_id[e.id] = e
     rs, imported = _resources(world, by_id, defs, fetch, errs)
+    for d in world.mover_definitions:
+        if d.sound is not None and d.id in defs:
+            try:
+                rs.resolve(res.MOVER_SOUND, d.id, d.sound)
+            except res.ResourceError as x:
+                errs.append(str(x))
     total = 0
     for e in world.entities:
         if e.kind not in KINDS:
             errs.append(f'{e.id}: unknown kind {e.kind!r} (one of {", ".join(KINDS)})')
             continue
+        if e.kind == 'prop':
+            if not _finite(e.position):
+                errs.append(f'{e.id}: a prop needs a finite position inside the world')
+            if e.model is None:
+                errs.append(f'{e.id}: a prop needs a model')
+            else:
+                try:
+                    rs.resolve(res.PROP_MODEL, e.id, e.model)
+                except res.ResourceError as x:
+                    errs.append(str(x))
+            if e.links:
+                errs.append(f'{e.id}: a prop emits nothing, so it has no links')
+        elif e.model is not None:
+            errs.append(f'{e.id}: only a prop takes a model (it is {_a(e.kind)})')
         if e.kind in ('interactable', 'teleport'):
             if not _finite(e.position):
                 errs.append(f'{e.id}: {e.kind} needs a finite position inside the world')
@@ -336,6 +368,10 @@ def validate(world, fetch=None):
                 errs.append(f'{e.id}: a mover with a definition takes its size, move, speed and geometry from it')
         elif e.kind == 'mover' and world.mover_definitions:
             errs.append(f'{e.id}: in a world with mover definitions every mover names one')
+        elif e.kind == 'mover' and (any(x.kind == 'prop' for x in world.entities) or
+                                    any(d.sound for d in world.mover_definitions)):
+            errs.append(f'{e.id}: a world with props or mover sounds (world_entities schema 4) gives every mover a '
+                        f'definition; inline movers are schema 1 only')
         elif e.kind == 'mover':
             if not _finite(e.move) or not (0.01 <= math.sqrt(sum(x*x for x in e.move)) <= MAX_MOVE):
                 errs.append(f'{e.id}: mover needs a finite move between 0.01 and {MAX_MOVE} wu')
@@ -463,6 +499,9 @@ def _entity_record(world, e):
         r['yaw_degrees'] = float(e.yaw_degrees)
     if e.kind == 'trigger':
         r['bounds'] = {'min': [float(x) for x in e.bounds[0]], 'max': [float(x) for x in e.bounds[1]]}
+    if e.kind == 'prop':
+        r['model'] = e.model
+        r['position'] = [float(x) for x in e.position]
     if e.kind == 'mover' and e.definition is not None:
         r['definition'] = e.definition
         r['position'] = [float(x) for x in e.position]
@@ -475,8 +514,11 @@ def _entity_record(world, e):
 
 
 def _definition_record(d):
-    return {'id': d.id, 'size': [float(x) for x in d.size], 'move': [float(x) for x in d.move],
-            'speed': float(d.speed)}
+    r = {'id': d.id, 'size': [float(x) for x in d.size], 'move': [float(x) for x in d.move],
+         'speed': float(d.speed)}
+    if d.sound is not None:
+        r['sound'] = d.sound
+    return r
 
 
 # ---- geometry -----------------------------------------------------------------
@@ -569,6 +611,8 @@ def compile_world(world, output, fetch=None):
         section['scripts'] = [scriptlib.record(s) for s in world.scripts]
         if world.ability_script:
             section['ability_script'] = world.ability_script
+    if any(e.kind == 'prop' for e in world.entities) or any(d.sound for d in world.mover_definitions):
+        section['schema'] = ASSET_SCHEMA
     kinds = {k: sum(e.kind == k for e in world.entities) for k in KINDS}
     manifest = {
         'package_version': VERSION, 'importer_version': 'original_world-0.1.0',
@@ -580,7 +624,10 @@ def compile_world(world, output, fetch=None):
                      'collision_triangles': collision_triangles, 'boxes': len(boxes)},
         'material_paths': mats, 'spawn_points': world.spawns, 'flag_points': [], 'breakables': [],
         'world_entities': section,
-        'supported_features': ['boxes', 'player starts', 'world entities: ' + ', '.join(KINDS)],
+        # X1-X4 worlds list the five kinds they always did (their bytes are
+        # pinned); a world with props says so.
+        'supported_features': ['boxes', 'player starts', 'world entities: ' + ', '.join(
+            k for k in KINDS if k != 'prop' or any(e.kind == 'prop' for e in world.entities))],
         'unsupported_features': [],
         'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats),
         'source_provenance': 'original content built by Open Asset Lab; no third-party assets',
@@ -597,6 +644,8 @@ def compile_world(world, output, fetch=None):
     report = {'world': world.id, 'entities': len(entities), 'kinds': kinds,
               'mover_definitions': len(world.mover_definitions), 'entity_schema': section['schema'],
               'scripts': [s.id for s in world.scripts],
+              'props': {e.id: e.model for e in world.entities if e.kind == 'prop'},
+              'mover_sounds': {d.id: d.sound for d in world.mover_definitions if d.sound},
               'package': world.package, 'requires': {q.package: list(q.resources) for q in world.requires},
               'links': sum(len(e.links) for e in world.entities),
               'triangles': len(indices) // 3, 'package_bytes': len(data),

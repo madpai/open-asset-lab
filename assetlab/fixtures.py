@@ -21,6 +21,10 @@ Runtime units: +Z up, 1 wu per unit; the floor's top is z = 0.
 """
 from __future__ import annotations
 
+import math
+import struct
+
+from . import assets as assetlib
 from .dependencies import Library
 from .resources import Requirement
 from .scripts import Script, load_source
@@ -266,7 +270,104 @@ def x4_resource_lab():
     return w
 
 
+# ---- x5: package-backed asset resources ----------------------------------------
+# x5.shared_art -- a LIBRARY of original art as MegaMod resources:
+#
+#   x5shared:texture/test_crate    16x16 RGBA8, a cyan crate face with a dark rim
+#   x5shared:material/test_crate   opaque, draws x5shared:texture/test_crate
+#   x5shared:model/test_crate      a 0.5 wu box (mesh1), one slot: x5shared:material/test_crate
+#   x5shared:sound/test_impact     a quarter-second knock, 22050 Hz mono
+#
+# x5_resource_world (package x5.resource_world) -- the X2 room in the x5
+# namespace: button A opens door A; the door's definition names the
+# library's sound; two crates (props) of the library's model stand in the
+# west room, solid. It imports the model and the sound and copies neither.
+#
+# x5_second_world (package x5.second_world) -- a second consumer: another
+# room placing the same library model. One library, two worlds.
+
+X5 = 'x5'
+X5_WORLD = 'x5.resource_world'
+X5_SHARED = 'x5.shared_art'
+X5_CRATE = 'x5shared:model/test_crate'
+X5_CRATE_MAT = 'x5shared:material/test_crate'
+X5_CRATE_TEX = 'x5shared:texture/test_crate'
+X5_IMPACT = 'x5shared:sound/test_impact'
+X5_CRATES = {'crate_a': (-2.0, 1.2, 0.25), 'crate_b': (-2.0, 2.2, 0.25)}
+X5_ORIGIN = {'provider': 'original', 'creator': 'Open Asset Lab fixtures', 'license': 'GPL-3.0-or-later',
+             'redistribution': 'allowed', 'source_url': None}
+
+
+def _crate_texture():
+    px = bytearray()
+    for y in range(16):
+        for x in range(16):
+            rim = x in (0, 15) or y in (0, 15) or x == y or x == 15 - y
+            px += bytes((20, 60, 70, 255)) if rim else bytes((40, 200, 230, 255))
+    return bytes(px)
+
+
+def _knock():
+    n = 22050 // 4
+    return b''.join(struct.pack('<h', int(12000 * math.exp(-i / 900.0) * math.sin(2 * math.pi * 180.0 * i / 22050)))
+                    for i in range(n))
+
+
+def x5_shared_art():
+    """The asset library both X5 worlds require."""
+    prov = lambda what: dict(X5_ORIGIN, made_by=what)
+    return Library(X5_SHARED, [], display_name='X5 shared art',
+                   textures=[assetlib.Texture(X5_CRATE_TEX, 16, 16, _crate_texture(), provenance=prov('fixtures._crate_texture'))],
+                   materials=[assetlib.Material(X5_CRATE_MAT, X5_CRATE_TEX, 'opaque', provenance=prov('fixtures'))],
+                   models=[assetlib.box_model(X5_CRATE, (0.25, 0.25, 0.25), [X5_CRATE_MAT], provenance=prov('assets.box_model'))],
+                   sounds=[assetlib.Sound(X5_IMPACT, 22050, 1, _knock(), provenance=prov('fixtures._knock'))])
+
+
+def x5_resource_world():
+    w = x2_definition_lab()
+    ren = lambda s: s.replace(f'{X2}:', f'{X5}:', 1) if isinstance(s, str) else s
+    w.id, w.file_name, w.display_name = f'{X5}:world/resource_world', 'x5_resource_world', 'X5 Resource World'
+    for d in w.mover_definitions:
+        d.id = ren(d.id)
+        d.sound = X5_IMPACT                     # the library's knock when a door starts to move
+    for e in w.entities:
+        e.id, e.definition = ren(e.id), ren(e.definition)
+        for ln in e.links:
+            ln.target = ren(ln.target)
+    for b in w.boxes:
+        b.owner = ren(b.owner)
+    for name, pos in X5_CRATES.items():
+        w.entities.append(Entity(eid(name, X5), 'prop', position=pos, model=X5_CRATE))
+    w.package = X5_WORLD
+    w.requires = [Requirement(X5_SHARED, [X5_CRATE, X5_IMPACT])]
+    return w
+
+
+def x5_second_world():
+    """A second consumer of x5.shared_art: the X1 room, its door now a
+    mover definition of its own (no sound), and one crate by the platform."""
+    w = x1_event_lab()
+    ns = 'x5b'
+    ren = lambda s: s.replace(f'{NS}:', f'{ns}:', 1) if isinstance(s, str) else s
+    w.id, w.file_name, w.display_name = f'{ns}:world/second_world', 'x5_second_world', 'X5 Second World'
+    door = f'{ns}:mover/door'
+    w.mover_definitions = [MoverDefinition(door, size=(0.1, 1.2, 1.1), move=DOOR_MOVE, speed=1.0, material='door')]
+    for e in w.entities:
+        e.id = ren(e.id)
+        for ln in e.links:
+            ln.target = ren(ln.target)
+        if e.kind == 'mover':
+            e.definition, e.position, e.move, e.speed = door, (0.0, 0.0, 0.55), None, None
+    w.boxes = [b for b in w.boxes if b.owner is None]
+    w.entities.append(Entity(eid('crate', ns), 'prop', position=(-2.5, 1.2, 0.25), model=X5_CRATE))
+    w.package = 'x5.second_world'
+    w.requires = [Requirement(X5_SHARED, [X5_CRATE])]
+    return w
+
+
 FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab, 'x3_script_lab': x3_script_lab,
-            'x4_resource_lab': x4_resource_lab}
+            'x4_resource_lab': x4_resource_lab, 'x5_resource_world': x5_resource_world, 'x5_second_world': x5_second_world}
 # The library packages a fixture world requires, by package ID.
-FIXTURE_LIBRARIES = {'x4_resource_lab': lambda: {X4_SHARED: x4_shared()}}
+FIXTURE_LIBRARIES = {'x4_resource_lab': lambda: {X4_SHARED: x4_shared()},
+                     'x5_resource_world': lambda: {X5_SHARED: x5_shared_art()},
+                     'x5_second_world': lambda: {X5_SHARED: x5_shared_art()}}

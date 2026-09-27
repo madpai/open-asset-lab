@@ -55,6 +55,10 @@ SCRIPT = 'world_entities.entities[].script'
 ABILITY_SCRIPT = 'world_entities.ability_script'
 LUA_ENTITY = 'world.entity(id)'
 REQUIRE = 'package.requires[].resources[]'
+MATERIAL_TEXTURE = 'assets.materials[].texture'           # X5
+MODEL_MATERIAL = 'assets.models[].materials[]'
+PROP_MODEL = 'world_entities.entities[].model'
+MOVER_SOUND = 'world_entities.mover_definitions[].sound'
 
 
 class ResourceError(ValueError):
@@ -259,6 +263,8 @@ class ResourceSet:
         if e is None:
             o = self._same_name(rid)
             hint = f' ({o.id} is {_article(noun(o.type))} {noun(o.type)})' if o else ''
+            if not o and 'import' in f['resolves'] and not any(x.id.partition(':')[0] == rid.namespace for x in self.order):
+                hint = f" (no package in this set provides namespace '{rid.namespace}': is a requirement missing?)"
             raise ResourceError(f'{who} references missing {noun(rid.type)} {ref}{hint}')
         if e.provider == 0:
             return e

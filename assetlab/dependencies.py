@@ -8,8 +8,10 @@ resources it imports. Two kinds exist:
 
   world    an OALMAP (assetlab.world): provides its world, its mover
            definitions and its own scripts;
-  library  an OALASSET v1 of kind "library", a manifest only: provides
-           scripts other packages import. Found by package ID at
+  library  an OALASSET v1 of kind "library": provides scripts and (X5)
+           asset resources -- textures, materials, models, sounds
+           (assetlab.assets) -- other packages import. The manifest, then
+           the bytes of its asset members. Found by package ID at
            packages/<id>.oalasset -- the file name is where to look, never
            identity: the package found must declare the ID asked for.
 
@@ -27,7 +29,7 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import resources as res, scripts as scriptlib
+from . import assets as assetlib, resources as res, scripts as scriptlib
 from .resources import PackageDecl, ResourceError
 
 MAGIC = b'OALA'
@@ -44,18 +46,32 @@ class PackageError(ValueError):
 
 @dataclass
 class Library:
-    """A library package: scripts other packages import."""
+    """A library package: scripts and (X5) asset resources other packages
+    import."""
     id: str                                        # package ID
     scripts: list = field(default_factory=list)    # scripts.Script
     requires: list = field(default_factory=list)   # resources.Requirement
     display_name: str = ''
+    textures: list = field(default_factory=list)   # assets.Texture
+    materials: list = field(default_factory=list)  # assets.Material
+    models: list = field(default_factory=list)     # assets.Model
+    sounds: list = field(default_factory=list)     # assets.Sound
+
+    def has_assets(self):
+        return bool(self.textures or self.materials or self.models or self.sounds)
+
+    def asset_lists(self):
+        return dict(textures=self.textures, materials=self.materials, models=self.models, sounds=self.sounds)
 
     def decl(self):
-        return PackageDecl(self.id, sorted(s.id for s in self.scripts), list(self.requires))
+        provides = [s.id for s in self.scripts] + [r.id for items in self.asset_lists().values() for r in items]
+        return PackageDecl(self.id, sorted(provides, key=res._bytes), list(self.requires))
 
 
-def validate_library(lib):
-    """Diagnostics for a library before it is written; [] when it is good."""
+def validate_library(lib, fetch=None):
+    """Diagnostics for a library before it is written; [] when it is good.
+    `fetch` finds the packages it requires, so its asset references into
+    them are resolved as the engine will (none needed when it has none)."""
     errs = []
     why = res.package_id_error(lib.id)
     if why:
@@ -65,35 +81,62 @@ def validate_library(lib):
         code, why, rid = res.parse_id(sc.id)
         if code == res.OK and res.reserved_namespace(rid.namespace):
             errs.append(f"{sc.id}: namespace '{rid.namespace}' is reserved for built-in content")
+    errs += assetlib.validate(lib.textures, lib.materials, lib.models, lib.sounds)
     try:
         res.parse_decl({'package': lib.decl().record()})
     except ResourceError as e:
         errs.append(str(e))
+    if not errs and lib.has_assets():
+        try:
+            data = library_bytes(lib)
+            me = read_library(data, f'{res.LIBRARY_DIR}/{lib.id}.oalasset')
+            link_assets([me] + load_set(lib.decl(), fetch))
+        except PackageError as e:
+            errs += e.diagnostics
     return errs
 
 
 def library_manifest(lib):
-    return {'kind': LIBRARY_KIND, 'package': lib.decl().record(),
-            'scripts': [scriptlib.record(s) for s in sorted(lib.scripts, key=lambda s: s.id.encode())],
-            'display_name': lib.display_name or lib.id, 'importer_version': IMPORTER, 'asset_version': 1,
-            'source_provenance': 'original content built by Open Asset Lab; no third-party assets'}
+    """(manifest dict, payload bytes). A library without assets is written
+    exactly as X4 wrote it: no "assets" member, nothing after the manifest."""
+    m = {'kind': LIBRARY_KIND, 'package': lib.decl().record(),
+         'scripts': [scriptlib.record(s) for s in sorted(lib.scripts, key=lambda s: s.id.encode())],
+         'display_name': lib.display_name or lib.id, 'importer_version': IMPORTER, 'asset_version': 1,
+         'source_provenance': 'original content built by Open Asset Lab; no third-party assets'}
+    payload = b''
+    if lib.has_assets():
+        assets, payload, _, provenance = assetlib.build(lib.textures, lib.materials, lib.models, lib.sounds)
+        m['assets'] = assets
+        if provenance:
+            m['provenance'] = provenance       # where each resource came from: never played
+    return m, payload
 
 
-def compile_library(lib, output):
+def library_bytes(lib):
+    manifest, payload = library_manifest(lib)
+    mb = json.dumps(manifest, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+    return struct.pack(HEADER, MAGIC, 1, len(mb), 0, 0) + mb + payload
+
+
+def compile_library(lib, output, fetch=None):
     """Validate and write `lib` as packages/<id>.oalasset bytes at `output`.
     Raises PackageError. Returns (manifest, report)."""
-    errs = validate_library(lib)
+    errs = validate_library(lib, fetch)
     if errs:
         raise PackageError(errs)
-    manifest = library_manifest(lib)
-    mb = json.dumps(manifest, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+    manifest, payload = library_manifest(lib)
+    data = library_bytes(lib)
     out = Path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
-    data = struct.pack(HEADER, MAGIC, 1, len(mb), 0, 0) + mb
     out.write_bytes(data)
-    return manifest, {'package': lib.id, 'scripts': [s.id for s in lib.scripts],
-                      'requires': [r.package for r in lib.requires], 'package_bytes': len(data),
-                      'library_digest': f'{library_digest(mb):016x}'}
+    mb = data[32:len(data) - len(payload)]
+    report = {'package': lib.id, 'scripts': [s.id for s in lib.scripts],
+              'requires': [r.package for r in lib.requires], 'package_bytes': len(data),
+              'library_digest': f'{library_digest(mb, payload, lib.has_assets()):016x}'}
+    if lib.has_assets():
+        report['assets'] = {k: [r.id for r in v] for k, v in lib.asset_lists().items()}
+        report['payload_bytes'] = len(payload)
+    return manifest, report
 
 
 def oalasset_manifest(data):
@@ -117,15 +160,20 @@ def _fnv(h, b):
     return h
 
 
-def library_digest(manifest: bytes) -> int:
-    """FNV-1a 64 over b'OALL', u32 schema, then its played members (package,
-    scripts) as key/value bytes, exactly as stored, in manifest order."""
+def library_digest(manifest: bytes, payload: bytes = b'', has_assets: bool = False) -> int:
+    """FNV-1a 64 over b'OALL', u32 schema, then its played members (assets,
+    package, scripts) as key/value bytes, exactly as stored, in manifest
+    order; then, when it declares assets (X5), b'OALP', u32 payload length
+    and every payload byte -- a changed texel, vertex or sample is another
+    library. An X4 library (no assets) digests exactly as before."""
     from .worldkey import manifest_members
     h = _fnv(_OFFSET, b'OALL' + struct.pack('<I', res.PACKAGE_SCHEMA))
     for key, value in manifest_members(manifest):
         if key in res.WORLD_KEY['library_members']:
             k = key.encode()
             h = _fnv(h, struct.pack('<I', len(k)) + k + struct.pack('<I', len(value)) + value)
+    if has_assets:
+        h = _fnv(h, b'OALP' + struct.pack('<I', len(payload)) + payload)
     return h or 1
 
 
@@ -138,6 +186,7 @@ class LoadedLibrary:
     digest: int
     where: str
     direct: bool = False
+    assets: assetlib.AssetTable = field(default_factory=assetlib.AssetTable)
 
 
 def read_library(data, where='library'):
@@ -149,8 +198,8 @@ def read_library(data, where='library'):
         raise PackageError('malformed manifest')
     if not isinstance(m, dict) or m.get('kind') != LIBRARY_KIND:
         raise PackageError(f"not a library package (kind '{m.get('kind', '') if isinstance(m, dict) else ''}')")
-    if mc or sc or len(data) != 32 + len(manifest_bytes):
-        raise PackageError('a library carries a manifest only')
+    if mc or sc:
+        raise PackageError('a library carries a manifest and its asset members only')
     try:
         decl = res.parse_decl(m)
     except ResourceError as e:
@@ -168,14 +217,25 @@ def read_library(data, where='library'):
     errs = scriptlib.validate(scripts, None, check_syntax=False)
     if errs:
         raise PackageError([f'{name}: {e}' for e in errs])
+    payload = data[32 + len(manifest_bytes):]
+    try:
+        table, has_assets = assetlib.parse(m, payload, name)
+    except assetlib.AssetError as e:
+        raise PackageError(str(e))
     ids = {s.id for s in scripts}
+    held = {kind: {d['id'] for d in table.of(kind)} for kind in assetlib.KINDS}
     for p in decl.provides:
-        if res.type_of(p) != 'script' or p not in ids:
-            raise PackageError(f'{name} lists {p} in provides, but has no such script')
+        t = res.type_of(p)
+        if not (p in ids if t == 'script' else p in held.get(t, ())):
+            raise PackageError(f'{name} lists {p} in provides, but has no such {res.noun(t) if t else "resource"}')
     for s in scripts:
         if s.id not in decl.provides:
             raise PackageError(f'{name} has script {s.id} but does not list it in provides')
-    return LoadedLibrary(decl, scripts, library_digest(manifest_bytes), where)
+    for kind in assetlib.KINDS:
+        for d in table.of(kind):
+            if d['id'] not in decl.provides:
+                raise PackageError(f"{name} has {res.noun(kind)} {d['id']} but does not list it in provides")
+    return LoadedLibrary(decl, scripts, library_digest(manifest_bytes, payload, has_assets), where, assets=table)
 
 
 def directory_source(*dirs):
@@ -198,8 +258,7 @@ def mapping_source(libraries):
         lib = libraries.get(pid)
         if lib is None:
             return None
-        m = json.dumps(library_manifest(lib), sort_keys=True, separators=(',', ':')).encode()
-        return struct.pack(HEADER, MAGIC, 1, len(m), 0, 0) + m, f'{res.LIBRARY_DIR}/{pid}.oalasset'
+        return library_bytes(lib), f'{res.LIBRARY_DIR}/{pid}.oalasset'
     return fetch
 
 
@@ -276,7 +335,57 @@ def load_set(root, fetch, content_id=''):
     direct = {q.package for q in root.requires}
     for lib in loaded:
         lib.direct = lib.decl.id in direct
-    return sorted(loaded, key=lambda lib: lib.decl.id.encode())
+    loaded = sorted(loaded, key=lambda lib: lib.decl.id.encode())
+    link_assets(loaded)
+    return loaded
+
+
+def asset_base(deps, k, kind):
+    """Where dependency k's assets of `kind` start in the set's combined
+    table (the engine's hta_pkg_set_asset_base)."""
+    return sum(len(d.assets.of(kind)) for d in deps[:k])
+
+
+def _index(deps, k, rid):
+    t = res.type_of(rid)
+    if t in assetlib.KINDS:
+        ids_ = [d['id'] for d in deps[k].assets.of(t)]
+        return asset_base(deps, k, t) + ids_.index(rid)
+    return next((i for i, s in enumerate(deps[k].scripts) if s.id == rid), 0)
+
+
+def _set_for(deps, k):
+    """What dependency k's own references resolve against: itself as
+    provider 0, every other dependency, its own imports (the engine's
+    set_resources_for)."""
+    me = deps[k].decl
+    rs = res.ResourceSet([me.id] + [d.decl.id for d in deps])
+    pos = {d.decl.id: i + 1 for i, d in enumerate(deps)}
+    for j, d in enumerate(deps):
+        for rid in d.decl.provides:
+            rs.add(rid, res.type_of(rid), 0 if j == k else j + 1, _index(deps, j, rid))
+    for q in me.requires:
+        rs.required.add(pos[q.package])
+        for rid in q.resources:
+            rs.imports.add((pos[q.package], rid))
+    return rs
+
+
+def link_assets(deps):
+    """Every library's materials name a texture, every model its material
+    slots: resolved from that library's point of view through the typed
+    resolver, the engine's words (package.c link_assets)."""
+    for k, d in enumerate(deps):
+        if not d.assets.materials and not d.assets.models:
+            continue
+        try:
+            rs = _set_for(deps, k)
+            for m in d.assets.materials:
+                m['texture_index'] = rs.resolve(res.MATERIAL_TEXTURE, m['id'], m['texture']).index
+            for m in d.assets.models:
+                m['slot_index'] = [rs.resolve(res.MODEL_MATERIAL, m['id'], ref).index for ref in m['materials']]
+        except ResourceError as e:
+            raise PackageError(str(e))
 
 
 def resource_set(root, deps, providers_self=''):
@@ -294,8 +403,8 @@ def resource_set(root, deps, providers_self=''):
 
 def add_dependencies(rs, deps):
     for i, d in enumerate(deps):
-        for j, p in enumerate(d.decl.provides):
-            rs.add(p, res.type_of(p), i + 1, j)
+        for p in d.decl.provides:
+            rs.add(p, res.type_of(p), i + 1, _index(deps, i, p))
 
 
 # ---- checking a built package -------------------------------------------------------
@@ -363,6 +472,11 @@ def _check_world(manifest, fetch, errs):
             ref(res.MOVER_DEF, who, e['definition'])
         if 'script' in e:
             ref(res.SCRIPT, who, e['script'], 'on_used')
+        if 'model' in e:
+            ref(res.PROP_MODEL, who, e['model'])
+    for m in movers:
+        if 'sound' in m:
+            ref(res.MOVER_SOUND, m.get('id', '?'), m['sound'])
     if 'ability_script' in section:
         ref(res.ABILITY_SCRIPT, 'ability_script', section['ability_script'], 'on_ability')
     if decl is not None:
