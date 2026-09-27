@@ -50,13 +50,13 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(assetlib.SCHEMA, a['schema'])
         self.assertEqual(assetlib.LIMITS, a['limits'])
         self.assertEqual(assetlib.TYPES['model']['max_slots'], 16)
-        self.assertEqual(CONTRACT['world_entities']['schema'], 4)
+        self.assertEqual(CONTRACT['world_entities']['schema'], 5)          # X6: prefab instances
         self.assertIn('prop', CONTRACT['world_entities']['kinds'])
-        # Four asset types are real; prefabs stay reserved (X6).
+        # Four asset types are real (X5); prefabs too since X6.
         for t in assetlib.KINDS:
             self.assertEqual(res.TYPES[t]['status'], 'supported', t)
             self.assertTrue(res.TYPES[t]['importable'], t)
-        self.assertEqual(res.TYPES['prefab']['status'], 'reserved')
+        self.assertEqual(res.TYPES['prefab']['status'], 'supported')
         self.assertEqual(res.TYPES['sounds']['importable'], False)       # the UI pack is not a sound resource
         self.assertIn('assets', res.WORLD_KEY['library_members'])
         for f in (res.MATERIAL_TEXTURE, res.MODEL_MATERIAL, res.PROP_MODEL, res.MOVER_SOUND):
@@ -231,8 +231,8 @@ class WorldTests(unittest.TestCase):
         self.assertIn('x5:entity/crate_b: a prop needs a model', self.errors(w))
         w = x5_resource_world(); w.entities[0].model = X5_CRATE
         self.assertIn('only a prop takes a model', self.errors(w))
-        w = x5_resource_world(); w.entities[-1].model = 'x5shared:prefab/crate'
-        self.assertIn("resource type 'prefab' is reserved", self.errors(w))
+        w = x5_resource_world(); w.entities[-1].model = 'x5shared:ruleset/crate'
+        self.assertIn("resource type 'ruleset' is reserved", self.errors(w))
         w = x5_resource_world(); w.requires = [Requirement('x5.gone', [])]
         self.assertIn('requires package x5.gone, but it is not present (looked for packages/x5.gone.oalasset)', self.errors(w))
         self.assertEqual(self.errors(x5_resource_world()), '')
@@ -276,8 +276,9 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(out.read_bytes()).hexdigest(),
                          '13687f4b74b268567e498eb8751e7d19d6886f939d6597108e076681db4b9afc')
         self.assertEqual(worldkey.world_key(out, mapping_source({'x4.shared': x4_shared()}))['world_key'], '46bee75f')
-        self.assertEqual(set(FIXTURES), {'x1_event_lab', 'x2_definition_lab', 'x3_script_lab', 'x4_resource_lab',
-                                         'x5_resource_world', 'x5_second_world'})
+        self.assertEqual(set(FIXTURES) - {'x6_prefab_world', 'x6_second_world'},   # X6 adds its own
+                         {'x1_event_lab', 'x2_definition_lab', 'x3_script_lab', 'x4_resource_lab', 'x5_resource_world',
+                          'x5_second_world'})
 
     def test_check_package_reads_an_asset_library(self):
         lib = self.dir / 'packages/x5.shared_art.oalasset'

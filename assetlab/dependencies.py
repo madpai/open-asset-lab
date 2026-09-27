@@ -29,7 +29,7 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import assets as assetlib, resources as res, scripts as scriptlib
+from . import assets as assetlib, prefabs as prefablib, resources as res, scripts as scriptlib
 from .resources import PackageDecl, ResourceError
 
 MAGIC = b'OALA'
@@ -56,6 +56,7 @@ class Library:
     materials: list = field(default_factory=list)  # assets.Material
     models: list = field(default_factory=list)     # assets.Model
     sounds: list = field(default_factory=list)     # assets.Sound
+    prefabs: list = field(default_factory=list)    # prefabs.Prefab (X6)
 
     def has_assets(self):
         return bool(self.textures or self.materials or self.models or self.sounds)
@@ -64,7 +65,8 @@ class Library:
         return dict(textures=self.textures, materials=self.materials, models=self.models, sounds=self.sounds)
 
     def decl(self):
-        provides = [s.id for s in self.scripts] + [r.id for items in self.asset_lists().values() for r in items]
+        provides = ([s.id for s in self.scripts] + [r.id for items in self.asset_lists().values() for r in items] +
+                    [p.id for p in self.prefabs])
         return PackageDecl(self.id, sorted(provides, key=res._bytes), list(self.requires))
 
 
@@ -82,15 +84,18 @@ def validate_library(lib, fetch=None):
         if code == res.OK and res.reserved_namespace(rid.namespace):
             errs.append(f"{sc.id}: namespace '{rid.namespace}' is reserved for built-in content")
     errs += assetlib.validate(lib.textures, lib.materials, lib.models, lib.sounds)
+    errs += prefablib.validate(lib.prefabs, lib.id)
     try:
         res.parse_decl({'package': lib.decl().record()})
     except ResourceError as e:
         errs.append(str(e))
-    if not errs and lib.has_assets():
+    if not errs and (lib.has_assets() or lib.prefabs):
         try:
             data = library_bytes(lib)
             me = read_library(data, f'{res.LIBRARY_DIR}/{lib.id}.oalasset')
-            link_assets([me] + load_set(lib.decl(), fetch))
+            deps = sorted([me] + load_set(lib.decl(), fetch), key=lambda d: d.decl.id.encode())
+            link_assets(deps)
+            link_prefabs(deps)
         except PackageError as e:
             errs += e.diagnostics
     return errs
@@ -109,6 +114,11 @@ def library_manifest(lib):
         m['assets'] = assets
         if provenance:
             m['provenance'] = provenance       # where each resource came from: never played
+    if lib.prefabs:
+        m['prefabs'] = prefablib.member(lib.prefabs)
+        prov = {p.id: p.provenance for p in lib.prefabs if p.provenance}
+        if prov:
+            m['provenance'] = dict(m.get('provenance', {}), **prov)
     return m, payload
 
 
@@ -133,6 +143,8 @@ def compile_library(lib, output, fetch=None):
     report = {'package': lib.id, 'scripts': [s.id for s in lib.scripts],
               'requires': [r.package for r in lib.requires], 'package_bytes': len(data),
               'library_digest': f'{library_digest(mb, payload, lib.has_assets()):016x}'}
+    if lib.prefabs:
+        report['prefabs'] = [p.id for p in lib.prefabs]
     if lib.has_assets():
         report['assets'] = {k: [r.id for r in v] for k, v in lib.asset_lists().items()}
         report['payload_bytes'] = len(payload)
@@ -187,6 +199,7 @@ class LoadedLibrary:
     where: str
     direct: bool = False
     assets: assetlib.AssetTable = field(default_factory=assetlib.AssetTable)
+    prefabs: list = field(default_factory=list)      # compiled prefab dicts (prefabs.parse), X6
 
 
 def read_library(data, where='library'):
@@ -222,11 +235,16 @@ def read_library(data, where='library'):
         table, has_assets = assetlib.parse(m, payload, name)
     except assetlib.AssetError as e:
         raise PackageError(str(e))
+    try:
+        compiled = prefablib.parse(m, name)
+    except prefablib.PrefabError as e:
+        raise PackageError(str(e))
+    pids = {p['id'] for p in compiled}
     ids = {s.id for s in scripts}
     held = {kind: {d['id'] for d in table.of(kind)} for kind in assetlib.KINDS}
     for p in decl.provides:
         t = res.type_of(p)
-        if not (p in ids if t == 'script' else p in held.get(t, ())):
+        if not (p in ids if t == 'script' else p in pids if t == 'prefab' else p in held.get(t, ())):
             raise PackageError(f'{name} lists {p} in provides, but has no such {res.noun(t) if t else "resource"}')
     for s in scripts:
         if s.id not in decl.provides:
@@ -235,7 +253,11 @@ def read_library(data, where='library'):
         for d in table.of(kind):
             if d['id'] not in decl.provides:
                 raise PackageError(f"{name} has {res.noun(kind)} {d['id']} but does not list it in provides")
-    return LoadedLibrary(decl, scripts, library_digest(manifest_bytes, payload, has_assets), where, assets=table)
+    for p in compiled:
+        if p['id'] not in decl.provides:
+            raise PackageError(f"{name} has prefab {p['id']} but does not list it in provides")
+    return LoadedLibrary(decl, scripts, library_digest(manifest_bytes, payload, has_assets), where, assets=table,
+                         prefabs=compiled)
 
 
 def directory_source(*dirs):
@@ -337,6 +359,7 @@ def load_set(root, fetch, content_id=''):
         lib.direct = lib.decl.id in direct
     loaded = sorted(loaded, key=lambda lib: lib.decl.id.encode())
     link_assets(loaded)
+    link_prefabs(loaded)
     return loaded
 
 
@@ -351,6 +374,8 @@ def _index(deps, k, rid):
     if t in assetlib.KINDS:
         ids_ = [d['id'] for d in deps[k].assets.of(t)]
         return asset_base(deps, k, t) + ids_.index(rid)
+    if t == 'prefab':
+        return next((i for i, p in enumerate(deps[k].prefabs) if p['id'] == rid), 0)
     return next((i for i, s in enumerate(deps[k].scripts) if s.id == rid), 0)
 
 
@@ -388,6 +413,34 @@ def link_assets(deps):
             raise PackageError(str(e))
 
 
+def link_prefabs(deps):
+    """Every library's prefab children: model, sound and script resolved from
+    THAT library's point of view (its own resources, or ones it imports), the
+    engine's words (package.c link_prefabs). A consumer imports only the
+    prefab; the prefab's implementation dependencies stay the provider's."""
+    for k, d in enumerate(deps):
+        if not d.prefabs:
+            continue
+        try:
+            rs = _set_for(deps, k)
+            for p in d.prefabs:
+                for c in p['children']:
+                    who = f"prefab {p['id']} child '{c['id']}'"
+                    if 'model' in c:
+                        c['model_index'] = rs.resolve(prefablib.CHILD_MODEL, who, c['model']).index
+                    if 'sound' in c:
+                        c['sound_index'] = rs.resolve(prefablib.CHILD_SOUND, who, c['sound']).index
+                    if 'script' in c:
+                        e = rs.resolve(prefablib.CHILD_SCRIPT, who, c['script'])
+                        dep = k if e.provider == 0 else e.provider - 1
+                        sc = next(s for s in deps[dep].scripts if s.id == c['script'])
+                        if 'on_used' not in sc.callbacks:
+                            raise ResourceError(f"{who}: script {c['script']} does not declare on_used")
+                        c['script_provider'] = deps[dep].decl.id
+        except ResourceError as e:
+            raise PackageError(str(e))
+
+
 def resource_set(root, deps, providers_self=''):
     """A ResourceSet with the dependencies' resources (providers 1..) and the
     root's imports; the caller adds the root's own (provider 0)."""
@@ -411,13 +464,14 @@ def add_dependencies(rs, deps):
 
 def _check_world(manifest, fetch, errs):
     """Resolve every reference in a built world's manifest the engine's way:
-    returns (decl, deps, resolved count). Appends to errs."""
+    returns (decl, deps, resolved count, expanded prefab children). Appends
+    to errs."""
     decl = None
     try:
         decl = res.parse_decl(manifest)
     except ResourceError as e:
         errs.append(f'package: {e}')
-        return None, [], 0
+        return None, [], 0, []
     deps = []
     try:
         deps = load_set(decl, fetch, manifest.get('id', ''))
@@ -446,6 +500,18 @@ def _check_world(manifest, fetch, errs):
         add_dependencies(rs, deps)
     except ResourceError as e:
         errs.append(str(e))
+    # X6: instances expand into ordinary placed entities before any link
+    # resolves (a world link may name a child).
+    insts = section.get('prefab_instances') or []
+    expanded = []
+    if insts:
+        bad = prefablib.instances_errors(insts)
+        errs += bad
+        if not bad and decl is not None:
+            movers_ = len(movers) + sum(1 for e in entities if e.get('kind') == 'mover' and 'definition' not in e)
+            expanded, e2 = prefablib.expand_instances(insts, manifest.get('id', ''), rs, deps, len(entities),
+                                                      sum(len(e.get('links') or []) for e in entities), movers_)
+            errs += e2
     callbacks = {k: v.get('callbacks', []) for k, v in own.items()}
     for i, d in enumerate(deps):
         for sc in d.scripts:
@@ -479,6 +545,7 @@ def _check_world(manifest, fetch, errs):
             ref(res.MOVER_SOUND, m.get('id', '?'), m['sound'])
     if 'ability_script' in section:
         ref(res.ABILITY_SCRIPT, 'ability_script', section['ability_script'], 'on_ability')
+    n += len(insts) if not errs else 0
     if decl is not None:
         name = f'package {decl.id}'
         wid = manifest.get('id', '')
@@ -492,7 +559,7 @@ def _check_world(manifest, fetch, errs):
         for rid in decl.provides:
             if rid not in mine:
                 errs.append(f'{name} lists {rid} in provides, but the world defines no such {res.noun(res.type_of(rid))}')
-    return decl, deps, n
+    return decl, deps, n, expanded
 
 
 def check_package(path, fetch=None):
@@ -506,11 +573,14 @@ def check_package(path, fetch=None):
     out = {'file': str(path)}
     if path.suffix == '.oalmap':
         manifest = read_manifest(path)
-        decl, deps, n = _check_world(manifest, fetch, errs)
+        decl, deps, n, expanded = _check_world(manifest, fetch, errs)
         out.update(kind='world', declared=decl is not None, id=decl.id if decl else None,
                    world=manifest.get('id'), provides=decl.provides if decl else [],
                    requires=[{'package': q.package, 'resources': q.resources} for q in decl.requires] if decl else [],
-                   references_resolved=n)
+                   references_resolved=n,
+                   prefab_instances=[{'instance': c['instance'], 'prefab': c['prefab'], 'provider': c['provider'],
+                                      'path': c['path'], 'entity': c['id'], 'kind': c['kind'], 'index': c['index']}
+                                     for c in expanded])
         if not errs:
             d = world_digest(path.read_bytes(), fetch)
             out.update(world_digest=f'{d:016x}', world_key=f'{fold(d):08x}')

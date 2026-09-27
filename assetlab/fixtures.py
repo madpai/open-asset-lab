@@ -24,7 +24,7 @@ from __future__ import annotations
 import math
 import struct
 
-from . import assets as assetlib
+from . import assets as assetlib, prefabs as prefablib
 from .dependencies import Library
 from .resources import Requirement
 from .scripts import Script, load_source
@@ -365,9 +365,162 @@ def x5_second_world():
     return w
 
 
+# ---- x6: prefabs -------------------------------------------------------------
+# x6.shared_assets -- a LIBRARY of original art (namespace x6shared): the
+#   parts of a security door as models (door panel, frame post, frame top,
+#   button panel), their materials and textures, and a hiss.
+#
+# x6.facility -- a LIBRARY that provides the PREFAB x6:prefab/security_door
+#   (and its button script, x6:script/security_door_log), composed of the
+#   art it imports from x6.shared_assets. Prefab space: +z up, the doorway in
+#   the x = 0 plane, its front toward -x, 1.2 wu wide:
+#
+#     button        interactable on the left post's front; used -> door.toggle;
+#                   names the library's script (on_used)
+#     button_panel  prop: the red button face
+#     door          mover 0.1 x 1.2 x 1.2 drawn by door_panel, slides +y 1.3 wu
+#                   at 1.2 wu/s, hisses when it starts to move
+#     frame_left, frame_right, frame_top   props: the frame
+#
+# x6_prefab_world (package x6.prefab_world) -- two rooms and two doorways;
+#   it imports ONLY the prefab and places it twice: north_door (untransformed,
+#   in the x = 0 wall at y = 3) and south_door (turned -90 degrees, in the
+#   y = -2 wall at x = -3). Its own lockdown button runs the world's own
+#   script, which toggles south_door's door by its ordinary placed ID.
+#
+# x6_second_world (package x6.second_world) -- a second consumer: an open
+#   room with one freestanding instance, turned 45 degrees and 1.25x.
+
+X6_SHARED, X6_FACILITY = 'x6.shared_assets', 'x6.facility'
+X6_DOOR = 'x6:prefab/security_door'
+X6_LOG = 'x6:script/security_door_log'
+X6_HISS = 'x6shared:sound/door_hiss'
+X6_MODELS = {   # model -> (half extents, material)
+    'door_panel': ((0.05, 0.6, 0.6), 'door_panel'),
+    'frame_post': ((0.1, 0.1, 0.7), 'frame'),
+    'frame_top': ((0.1, 0.8, 0.1), 'frame'),
+    'button_panel': ((0.03, 0.08, 0.08), 'button'),
+}
+X6_COLOURS = {'door_panel': ((235, 190, 30), (30, 30, 30)), 'frame': ((70, 76, 88), (45, 48, 56)),
+              'button': ((220, 30, 30), (120, 10, 10))}
+X6_ORIGIN = dict(X5_ORIGIN)
+
+
+def _x6_texture(colours, stripes):
+    a, b = colours
+    px = bytearray()
+    for y in range(16):
+        for x in range(16):
+            dark = ((x + y) // 4) % 2 if stripes else (x in (0, 15) or y in (0, 15))
+            px += bytes(b if dark else a) + b'\xff'
+    return bytes(px)
+
+
+def _hiss():
+    n = 22050 * 3 // 10
+    seed, out = 12345, []
+    for i in range(n):
+        seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+        noise = (seed >> 16) / 32768.0 - 1.0
+        out.append(struct.pack('<h', int(7000 * noise * math.exp(-i / 2500.0))))
+    return b''.join(out)
+
+
+def x6_shared_assets():
+    prov = lambda what: dict(X6_ORIGIN, made_by=what)
+    tex = [assetlib.Texture(f'x6shared:texture/{m}', 16, 16, _x6_texture(c, m == 'door_panel'), provenance=prov('fixtures'))
+           for m, c in sorted(X6_COLOURS.items())]
+    mats = [assetlib.Material(f'x6shared:material/{m}', f'x6shared:texture/{m}', 'opaque', provenance=prov('fixtures'))
+            for m in sorted(X6_COLOURS)]
+    models = [assetlib.box_model(f'x6shared:model/{m}', half, [f'x6shared:material/{mat}'], provenance=prov('assets.box_model'))
+              for m, (half, mat) in sorted(X6_MODELS.items())]
+    return Library(X6_SHARED, [], display_name='X6 shared assets', textures=tex, materials=mats, models=models,
+                   sounds=[assetlib.Sound(X6_HISS, 22050, 1, _hiss(), provenance=prov('fixtures._hiss'))])
+
+
+def x6_security_door():
+    """The prefab: authored once, placed by both X6 worlds."""
+    m = lambda name: f'x6shared:model/{name}'
+    return prefablib.Prefab(X6_DOOR, [
+        prefablib.PrefabChild('button', 'interactable', [prefablib.PrefabLink('used', 'door', 'toggle')],
+                              position=(-0.16, -0.7, 0.9), reach=1.2, script=X6_LOG),
+        prefablib.PrefabChild('button_panel', 'prop', position=(-0.13, -0.7, 0.9), model=m('button_panel')),
+        prefablib.PrefabChild('door', 'mover', position=(0.0, 0.0, 0.6), size=(0.1, 1.2, 1.2), move=(0.0, 1.3, 0.0),
+                              speed=1.2, sound=X6_HISS, model=m('door_panel')),
+        prefablib.PrefabChild('frame_left', 'prop', position=(0.0, -0.7, 0.7), model=m('frame_post')),
+        prefablib.PrefabChild('frame_right', 'prop', position=(0.0, 0.7, 0.7), model=m('frame_post')),
+        prefablib.PrefabChild('frame_top', 'prop', position=(0.0, 0.0, 1.3), model=m('frame_top')),
+    ], provenance=dict(X6_ORIGIN, made_by='fixtures.x6_security_door'))
+
+
+def x6_facility():
+    return Library(X6_FACILITY, [Script(X6_LOG, load_source('x6/security_door_log.lua'), ['on_used'])],
+                   requires=[Requirement(X6_SHARED, sorted(f'x6shared:model/{m}' for m in X6_MODELS) + [X6_HISS])],
+                   display_name='X6 facility prefabs', prefabs=[x6_security_door()])
+
+
+def x6_libraries():
+    return {X6_SHARED: x6_shared_assets(), X6_FACILITY: x6_facility()}
+
+
+X6_NORTH = (0.0, 3.0, 0.0)
+X6_SOUTH = (-3.0, -2.0, 0.0)
+X6_LOCKDOWN = (-5.84, 0.5, 0.9)
+
+
+def x6_prefab_world():
+    H = 1.8
+    boxes = [
+        Box((-6, -6, -0.2), (6, 6, 0), 'floor'),
+        Box((-6.2, 6, -0.2), (6.2, 6.2, H), 'wall'), Box((-6.2, -6.2, -0.2), (6.2, -6, H), 'wall'),
+        Box((-6.2, -6, -0.2), (-6, 6, H), 'wall'), Box((6, -6, -0.2), (6.2, 6, H), 'wall'),
+        # x = 0 wall, doorway y 2.2..3.8 for north_door (frame fills it, lintel wall above)
+        Box((-0.1, -6, 0), (0.1, 2.2, H), 'wall'), Box((-0.1, 3.8, 0), (0.1, 6, H), 'wall'),
+        Box((-0.1, 2.2, 1.4), (0.1, 3.8, H), 'wall'),
+        # y = -2 wall in the west room, doorway x -3.8..-2.2 for south_door
+        Box((-6, -2.1, 0), (-3.8, -1.9, H), 'wall'), Box((-2.2, -2.1, 0), (-0.1, -1.9, H), 'wall'),
+        Box((-3.8, -2.1, 1.4), (-2.2, -1.9, H), 'wall'),
+        # the lockdown button's plate on the west wall
+        Box((-6.0, 0.3, 0.7), (-5.92, 0.7, 1.1), 'script_button'),
+    ]
+    entities = [Entity(eid('lockdown', 'x6'), 'interactable', position=X6_LOCKDOWN, reach=1.2, script='x6:script/lockdown')]
+    spawns = [{'position': [-4.0, 0.5, 0.0], 'yaw_degrees': 0.0, 'team': None},
+              {'position': [-4.0, 1.5, 0.0], 'yaw_degrees': 0.0, 'team': None}]
+    w = OriginalWorld(id='x6:world/prefab_world', file_name='x6_prefab_world', display_name='X6 Prefab World',
+                      materials={'floor': MATERIALS['floor'], 'wall': MATERIALS['wall'], 'script_button': (150, 60, 210)},
+                      boxes=boxes, spawns=spawns, entities=entities,
+                      scripts=[Script('x6:script/lockdown', load_source('x6/lockdown.lua'), ['on_used'])])
+    w.prefab_instances = [prefablib.PrefabInstance('north_door', X6_DOOR, X6_NORTH),
+                          prefablib.PrefabInstance('south_door', X6_DOOR, X6_SOUTH, yaw_degrees=-90.0)]
+    w.package = 'x6.prefab_world'
+    w.requires = [Requirement(X6_FACILITY, [X6_DOOR])]
+    return w
+
+
+X6_GATE = (1.5, 0.0, 0.0)
+
+
+def x6_second_world():
+    H = 1.8
+    boxes = [
+        Box((-5, -5, -0.2), (5, 5, 0), 'floor'),
+        Box((-5.2, 5, -0.2), (5.2, 5.2, H), 'wall'), Box((-5.2, -5.2, -0.2), (5.2, -5, H), 'wall'),
+        Box((-5.2, -5, -0.2), (-5, 5, H), 'wall'), Box((5, -5, -0.2), (5.2, 5, H), 'wall'),
+    ]
+    w = OriginalWorld(id='x6b:world/second_world', file_name='x6_second_world', display_name='X6 Second World',
+                      materials={'floor': MATERIALS['floor'], 'wall': MATERIALS['wall']}, boxes=boxes,
+                      spawns=[{'position': [-3.0, 0.0, 0.0], 'yaw_degrees': 0.0, 'team': None}], entities=[])
+    w.prefab_instances = [prefablib.PrefabInstance('gate', X6_DOOR, X6_GATE, yaw_degrees=45.0, scale=1.25)]
+    w.package = 'x6.second_world'
+    w.requires = [Requirement(X6_FACILITY, [X6_DOOR])]
+    return w
+
+
 FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab, 'x3_script_lab': x3_script_lab,
-            'x4_resource_lab': x4_resource_lab, 'x5_resource_world': x5_resource_world, 'x5_second_world': x5_second_world}
+            'x4_resource_lab': x4_resource_lab, 'x5_resource_world': x5_resource_world, 'x5_second_world': x5_second_world,
+            'x6_prefab_world': x6_prefab_world, 'x6_second_world': x6_second_world}
 # The library packages a fixture world requires, by package ID.
 FIXTURE_LIBRARIES = {'x4_resource_lab': lambda: {X4_SHARED: x4_shared()},
                      'x5_resource_world': lambda: {X5_SHARED: x5_shared_art()},
-                     'x5_second_world': lambda: {X5_SHARED: x5_shared_art()}}
+                     'x5_second_world': lambda: {X5_SHARED: x5_shared_art()},
+                     'x6_prefab_world': x6_libraries, 'x6_second_world': x6_libraries}

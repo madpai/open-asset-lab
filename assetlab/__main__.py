@@ -189,7 +189,7 @@ def main():
     a.add_argument('--provenance', nargs='*', default=[], metavar='KEY=VALUE',
                    help='kept with every resource, never played: provider, workshop_item, creator, license...')
     search_args(a)
-    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab ... x5_second_world) into an .oalmap')
+    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab ... x6_second_world) into an .oalmap')
     a.add_argument('name'); a.add_argument('--output', required=True)
     a.add_argument('--packages', help="where the library packages it requires go (default: packages/ beside --output)")
     a = sub.add_parser('world-key', help="MegaMod's world key of .oalmap packages (what two peers must agree on)")
@@ -321,7 +321,8 @@ def main():
             from .dependencies import compile_library, mapping_source
             libraries = FIXTURE_LIBRARIES.get(args.name, dict)()
             where = Path(args.packages) if args.packages else Path(args.output).parent / 'packages'
-            built = [compile_library(lib, where / f'{pid}.oalasset')[1] for pid, lib in sorted(libraries.items())]
+            built = [compile_library(lib, where / f'{pid}.oalasset', mapping_source(libraries))[1]
+                     for pid, lib in sorted(libraries.items())]
             _, report = compile_world(FIXTURES[args.name](), args.output, mapping_source(libraries))
             if built:
                 report['libraries'] = built
@@ -347,6 +348,9 @@ def main():
                         print(head + (' -- OK' if not r['errors'] else ' -- REFUSED'))
                         for q in r.get('requires', []):
                             print(f"  requires {q['package']}: {', '.join(q['resources']) or '(no imports)'}")
+                        for c in r.get('prefab_instances', []):
+                            print(f"  prefab instance {c['instance']} ({c['prefab']} from {c['provider']}): "
+                                  f"{c['path']} -> {c['entity']} ({c['kind']}, entity {c['index']})")
                         for e in r['errors']:
                             print(f'  error: {e}')
                 if any(r['errors'] for r in reports):

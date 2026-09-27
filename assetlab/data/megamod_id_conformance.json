@@ -47,7 +47,7 @@
     {"id": "x:texture/t", "result": "ok", "type": "texture", "reserved_namespace": false, "why": ""},
     {"id": "x:sound/s", "result": "ok", "type": "sound", "reserved_namespace": false, "why": ""},
     {"id": "community:animation/rifle_run", "result": "reserved_type", "type": "animation", "reserved_namespace": false, "why": "resource type 'animation' is reserved, not loadable by this engine"},
-    {"id": "showdown:prefab/security_door", "result": "reserved_type", "type": "prefab", "reserved_namespace": false, "why": "resource type 'prefab' is reserved, not loadable by this engine"},
+    {"id": "showdown:prefab/security_door", "result": "ok", "type": "prefab", "reserved_namespace": false, "why": ""},
     {"id": "showdown:ruleset/team_deathmatch", "result": "reserved_type", "type": "ruleset", "reserved_namespace": false, "why": "resource type 'ruleset' is reserved, not loadable by this engine"},
     {"id": "megamod:script/x", "result": "ok", "type": "script", "reserved_namespace": true, "why": ""},
     {"id": "x4:script/a%s", "result": "malformed", "type": null, "reserved_namespace": false, "why": "name has '%', not [a-z0-9_]"},
@@ -60,7 +60,13 @@
     {"id": "x5shared:model/models/test_crate", "result": "malformed", "type": null, "reserved_namespace": false, "why": "name has '/' (':' and '/' each separate once)"},
     {"id": "x5shared:model/test_crate.mesh", "result": "malformed", "type": null, "reserved_namespace": false, "why": "name has '.', not [a-z0-9_]"},
     {"id": "x5shared:Model/test_crate", "result": "malformed", "type": null, "reserved_namespace": false, "why": "type has capital 'M' (IDs are lowercase; nothing is folded)"},
-    {"id": "x5shared:sounds/impact", "result": "ok", "type": "sounds", "reserved_namespace": false, "why": ""}
+    {"id": "x5shared:sounds/impact", "result": "ok", "type": "sounds", "reserved_namespace": false, "why": ""},
+    {"id": "x6:prefab/security_door", "result": "ok", "type": "prefab", "reserved_namespace": false, "why": ""},
+    {"id": "x6:prefab/Security_door", "result": "malformed", "type": null, "reserved_namespace": false, "why": "name has capital 'S' (IDs are lowercase; nothing is folded)"},
+    {"id": "x6:prefabs/security_door", "result": "unknown_type", "type": null, "reserved_namespace": false, "why": "unknown resource type 'prefabs'"},
+    {"id": "x6:prefab/security_door/button", "result": "malformed", "type": null, "reserved_namespace": false, "why": "name has '/' (':' and '/' each separate once)"},
+    {"id": "x6:entity/north_door__button", "result": "ok", "type": "entity", "reserved_namespace": false, "why": ""},
+    {"id": "megamod:prefab/door", "result": "ok", "type": "prefab", "reserved_namespace": true, "why": ""}
   ],
   "package_ids": [
     {"id": "x4.resource_lab", "valid": true, "why": ""},
@@ -114,5 +120,32 @@
     {"path": "models/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.mesh", "valid": false, "why": "longer than 96 bytes"},
     {"path": "models/a:b.mesh", "valid": false, "why": "has ':', not [a-z0-9_./]"},
     {"path": "%2e%2e/a.mesh", "valid": false, "why": "has '%', not [a-z0-9_./]"}
+  ],
+  "local_ids": [
+    {"id": "button", "valid": true, "why": ""},
+    {"id": "door", "valid": true, "why": ""},
+    {"id": "north_door", "valid": true, "why": ""},
+    {"id": "frame_left", "valid": true, "why": ""},
+    {"id": "a", "valid": true, "why": ""},
+    {"id": "a1", "valid": true, "why": ""},
+    {"id": "a_1", "valid": true, "why": ""},
+    {"id": "door2_panel", "valid": true, "why": ""},
+    {"id": "a2345678901234567890123", "valid": true, "why": ""},
+    {"id": "a23456789012345678901234", "valid": false, "why": "local id longer than 23 bytes"},
+    {"id": "", "valid": false, "why": "empty local id"},
+    {"id": "Button", "valid": false, "why": "local id has capital 'B' (IDs are lowercase; nothing is folded)"},
+    {"id": "1door", "valid": false, "why": "local id starts with '1', not a lowercase letter"},
+    {"id": "_door", "valid": false, "why": "local id starts with '_', not a lowercase letter"},
+    {"id": "door_", "valid": false, "why": "local id ends with '_'"},
+    {"id": "door__panel", "valid": false, "why": "local id has '__' (reserved: a child's entity is <instance>__<child>)"},
+    {"id": "a___b", "valid": false, "why": "local id has '__' (reserved: a child's entity is <instance>__<child>)"},
+    {"id": "door-panel", "valid": false, "why": "local id has '-', not [a-z0-9_]"},
+    {"id": "door.panel", "valid": false, "why": "local id has '.', not [a-z0-9_]"},
+    {"id": "door panel", "valid": false, "why": "local id has a space, not [a-z0-9_]"},
+    {"id": "door/panel", "valid": false, "why": "local id has '/', not [a-z0-9_]"},
+    {"id": "door:panel", "valid": false, "why": "local id has ':', not [a-z0-9_]"},
+    {"id": "x6:entity/door", "valid": false, "why": "local id has ':', not [a-z0-9_]"},
+    {"id": "d\u00c3\u00b6r", "valid": false, "why": "local id has \\xc3, not [a-z0-9_]"},
+    {"id": "north_door__button", "valid": false, "why": "local id has '__' (reserved: a child's entity is <instance>__<child>)"}
   ]
 }

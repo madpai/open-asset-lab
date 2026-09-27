@@ -53,8 +53,9 @@ class ConformanceTests(unittest.TestCase):
         self.assertEqual(contract['contract'], 'megamod.resources')
         self.assertEqual(set(ids.TYPES), {t['name'] for t in contract['types'] if t['status'] == 'supported'})
         # X5: models, materials, textures and sounds are importable resources.
-        self.assertEqual(set(res.IMPORTABLE), {'script', 'model', 'material', 'texture', 'sound'})
-        self.assertEqual(set(res.RESERVED), {'animation', 'prefab', 'ruleset'})
+        # X6: so is prefab.
+        self.assertEqual(set(res.IMPORTABLE), {'script', 'model', 'material', 'texture', 'sound', 'prefab'})
+        self.assertEqual(set(res.RESERVED), {'animation', 'ruleset'})
         self.assertEqual(scriptlib.MAX_SCRIPTS, contract['scripts']['max_scripts'])
         self.assertEqual(scriptlib.MAX_SOURCE, contract['scripts']['max_source_bytes'])
         self.assertEqual(scriptlib.MAX_POOL, contract['scripts']['max_pool_bytes'])
@@ -68,7 +69,8 @@ class ConformanceTests(unittest.TestCase):
         for good in ('x3:script/button_logic', 'showdown:script/door_controller', 'common:world/lab',
                      'x' * 40 + ':script/' + 'y' * 48):
             self.assertEqual(res.parse_id(good)[0], res.OK, good)
-        for reserved in ('community:animation/rifle_run', 'showdown:prefab/security_door', 'showdown:ruleset/tdm'):
+        self.assertEqual(res.parse_id('showdown:prefab/security_door')[0], res.OK)
+        for reserved in ('community:animation/rifle_run', 'showdown:ruleset/tdm'):
             self.assertEqual(res.parse_id(reserved)[0], res.RESERVED_TYPE, reserved)
             self.assertFalse(ids.valid_id(reserved)[0])
 
@@ -97,7 +99,7 @@ class ResolutionTests(unittest.TestCase):
         self.fails(res.LINK_TARGET, 'x4:script/open_door', 'link target x4:script/open_door is a script, expected a placed entity')
         self.fails(res.SCRIPT, 'x4:script/door', 'references missing script x4:script/door (x4:entity/door is a placed entity)')
         self.fails(res.SCRIPT, 'x4:weapon/door', "script 'x4:weapon/door' is not a script ID (namespace:script/name)")
-        self.fails(res.SCRIPT, 'x4:prefab/door', "resource type 'prefab' is reserved")
+        self.fails(res.SCRIPT, 'x4:ruleset/door', "resource type 'ruleset' is reserved")
         self.fails(res.SCRIPT, 'x4:model/door', "script 'x4:model/door' is not a script ID")        # X5: supported
 
     def test_across_packages(self):
