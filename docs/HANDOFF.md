@@ -6,6 +6,38 @@
 > major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
 > This handoff records the current state as it is.
 
+## X5: package-backed asset resources, 2026-09-27
+
+Open Asset Lab now turns content into MegaMod RESOURCES, not into files
+MegaMod knows how to find (MegaMod `docs/RESOURCES.md` "Asset resources"):
+
+- `assetlab/assets.py`: `Texture`, `Material`, `Model`, `Sound` -- the four
+  types MegaMod X5 made real (`model`, `material`, `texture`, `sound`);
+  descriptors, `mesh1`, member paths (checked against the engine's
+  `member_paths` verdicts), and `parse`, the engine's reader with its words.
+- A `dependencies.Library` carries them: `compile_library` writes the
+  `assets` member, a per-resource `provenance` member (never played) and
+  the member payload after the manifest; `read_library`, `link_assets` (a
+  material's texture and a model's slots resolved typed, from the library's
+  own point of view, imports included) and `library_digest` (played members
+  + payload) mirror the engine. A library without assets is written exactly
+  as X4 wrote it (pinned SHA-256).
+- Worlds: `Entity(kind='prop', model=...)` places an imported model (solid
+  as its bounds); `MoverDefinition(sound=...)` names the knock a door makes.
+  world_entities schema 4; every reference typed; a world with props gives
+  every mover a definition.
+- Source/GMod: `assets.from_source_model` / `assetlab asset-library MDL...
+  --package ID --namespace NS [--provenance k=v...]` makes `ns:model/<name>`
+  plus one material and texture per Source material; Source paths, provider,
+  Workshop item and licence are provenance only. Checked on two real CS:S
+  props (scratch only, never committed): the engine draws them.
+- Fixtures: library `x5.shared_art` (texture, material, model, sound) and two
+  consumers, `x5_resource_world` (key `1b067045`) and `x5_second_world`
+  (`6748f47e`). MegaMod's `scripts/test_x5.sh` builds them from here, checks
+  every refusal in both, and plays them on desktop; the emulator too.
+- Contract copies regenerated (`megamod-resources --json`/`--conformance`).
+- Tests: `tests/test_assets.py` (15); suite 158/158.
+
 ## X4: resource identity and package dependencies, 2026-09-27
 
 Open Asset Lab now validates MegaMod's resource substrate (MegaMod

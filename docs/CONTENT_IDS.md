@@ -1,5 +1,12 @@
 # Stable content IDs: grammar and the read-only audit (N2)
 
+> **X5 (2026-09-27):** `model`, `material`, `texture` and `sound` are
+> supported, importable types now (asset resources in library packages,
+> `assetlab/assets.py`); `animation`, `prefab` and `ruleset` stay reserved.
+> A normalised asset's identity is its resource ID
+> (`community:model/security_door`); the Source path it came from is
+> provenance.
+>
 > **X4 (2026-09-27):** the grammar below is now one contract shared with
 > MegaMod: its registry of types (including reserved future types such as
 > `model` and `prefab`), limits and reference rules come from

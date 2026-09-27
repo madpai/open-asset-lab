@@ -170,3 +170,24 @@ message `assetlab resources check` gives, and plays it.
 packages as MegaMod loads them (declaration, dependency graph, typed
 references, provides) without running anything; `assetlab resources
 contract` prints the engine contract Open Asset Lab validates against.
+
+## Asset resources and the X5 fixtures
+
+MegaMod X5 made models, materials, textures and sounds real resources a
+library provides (`assetlab/assets.py`; MegaMod `docs/RESOURCES.md` "Asset
+resources"). A world places an imported model with
+`Entity(eid('crate', ns), 'prop', position=(x, y, z), model='x5shared:model/test_crate')`
+-- drawn with the model's materials, solid as its bounds -- and a mover
+definition may name a sound (`MoverDefinition(..., sound='x5shared:sound/test_impact')`),
+played when a door starts to move. The world only references them; the
+bytes stay in the library.
+
+`assetlab fixture x5_resource_world --output bundle/maps/x5_resource_world.oalmap
+--packages bundle/packages` writes the world and library `x5.shared_art`
+(a 16x16 cyan crate texture, its material, a 0.5 wu box model and a quarter-
+second knock, all generated here): the X2 room in the `x5` namespace with
+two crates in the west room and knocking doors. `x5_second_world` is a
+second consumer (the X1 room, its door a definition, one crate). MegaMod's
+`scripts/test_x5.sh` builds both, refuses every broken variant with the same
+words as `assetlab resources check`, and plays them.
+

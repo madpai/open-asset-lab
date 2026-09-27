@@ -102,6 +102,39 @@ nothing after the manifest. It is written by `dependencies.compile_library`
 to `packages/<package id>.oalasset`; MegaMod looks for it there by the ID a
 world requires, and the package found must declare that ID.
 
+## Asset resources in a library (X5)
+
+A library may also provide **asset resources** -- MegaMod's `texture`,
+`material`, `model` and `sound` types -- through an `assets` member and the
+bytes of its members after the manifest:
+
+```json
+"assets": {"schema": 1,
+  "members":   [{"path": "models/test_crate.mesh", "size": 1132}, ...],
+  "textures":  [{"format": "rgba8", "height": 16, "id": "x5shared:texture/test_crate", "member": "textures/test_crate.rgba", "width": 16}],
+  "materials": [{"draw": "opaque", "id": "x5shared:material/test_crate", "texture": "x5shared:texture/test_crate"}],
+  "models":    [{"format": "mesh1", "id": "x5shared:model/test_crate", "materials": ["x5shared:material/test_crate"], "member": "models/test_crate.mesh"}],
+  "sounds":    [{"channels": 1, "format": "pcm_s16le", "frames": 5512, "id": "x5shared:sound/test_impact", "member": "sounds/test_impact.pcm", "rate": 22050}]}
+```
+
+- The **resource ID is identity**; a **member path** is where the bytes sit
+  in this package: lowercase `[a-z0-9_]` segments, one extension, at most
+  96 bytes and 6 segments, never `..`, `/...`, `\`. MegaMod finds a member
+  by offset, never joins it to a host path.
+- Payloads: `rgba8` (w x h x 4 bytes), `pcm_s16le` (frames x channels x 2),
+  `mesh1` (`MSH1`, u32 vertex/index/group counts, the OALMAP's 40-byte
+  vertices, u32 indices, groups of u32 first/count/slot). The payload is the
+  members' bytes in `members` order.
+- `provides` lists every script and asset; every descriptor field is
+  required; lists canonical; one member per resource.
+- `provenance`: per resource ID, where it came from (provider, Workshop
+  item, source path, licence...). Never played, never hashed.
+
+A world imports them like scripts and places models as `prop` entities
+(`{"id", "kind": "prop", "links": [], "model", "position"}`) and names a
+sound in a mover definition (`"sound"`): world_entities schema 4. MegaMod's
+`megamod-resources --json` ("assets", "world_entities") is the exact schema.
+
 ## The world key (MegaMod's map check)
 
 MegaMod admits a joiner only if both peers compute the same **world key**
@@ -112,9 +145,10 @@ and (X4) `package` (exact value bytes, in manifest order; so scripts'
 source bytes, comments included) -- never provenance, reports, names
 or texture pixels. A world that requires libraries then adds, per package
 of its closure sorted by package ID, `OALD`, the ID and that library's
-digest (FNV-1a 64 of `OALL`, schema, its `package` and `scripts` bytes), so
-a library's Lua is part of every requiring world's key; its provenance is
-not. The member lists come from MegaMod's contract
+digest (FNV-1a 64 of `OALL`, schema, its `assets` (X5), `package` and
+`scripts` bytes, then -- when it declares assets -- `OALP`, the payload
+length and every payload byte), so a library's Lua, texels, vertices and
+samples are part of every requiring world's key; its provenance is not. The member lists come from MegaMod's contract
 (`assetlab/data/megamod_resources.json`), not from this repository. `assetlab/worldkey.py` is the reference implementation
 (its docstring has the exact stream); `assetlab world-key PKG` prints it
 and `compile_world` reports it (`--packages-dir` finds required libraries).
