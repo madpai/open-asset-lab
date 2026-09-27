@@ -6,6 +6,32 @@
 > major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
 > This handoff records the current state as it is.
 
+## X4: resource identity and package dependencies, 2026-09-27
+
+Open Asset Lab now validates MegaMod's resource substrate (MegaMod
+`docs/RESOURCES.md`) before it writes anything, and never runs a script:
+
+- `assetlab/resources.py`: the ID grammar with the engine's exact verdicts
+  and words, the type registry and every limit READ from
+  `assetlab/data/megamod_resources.json` (`megamod-resources --json`), the
+  typed resolver (`ResourceSet`), package IDs and `package` declarations.
+  `data/megamod_id_conformance.json` is the engine's verdict corpus;
+  `tests/test_resources.py` checks every case. Regenerate both from a
+  MegaMod build when its contract changes (MegaMod's `scripts/test_x4.sh`
+  fails while they differ).
+- `assetlab/dependencies.py`: library packages (OALASSET kind `library`,
+  `compile_library`), the package graph (`load_set`: once each, acyclic,
+  depth 8, 16 packages, imports provided), library digests for the world
+  key, `check_package` for built packages.
+- Worlds: `OriginalWorld.package` / `.requires`; every reference resolves
+  through the typed resolver (link targets now say "references missing
+  placed entity"). `worldkey.py` plays `package` and appends required
+  libraries' digests. X1-X3 fixtures are byte-identical (a test pins their
+  SHA-256s and keys).
+- Fixture `x4_resource_lab` + library `x4.shared`; CLI `assetlab resources
+  check|contract`, `world-key --packages-dir`, `fixture --packages`.
+- Tests: `tests/test_resources.py` (26); suite 143/143.
+
 ## X1: original worlds and world entities, 2026-09-26
 
 `assetlab/world.py` builds an original world (boxes, starts, five generic

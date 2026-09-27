@@ -1,5 +1,15 @@
 # Stable content IDs: grammar and the read-only audit (N2)
 
+> **X4 (2026-09-27):** the grammar below is now one contract shared with
+> MegaMod: its registry of types (including reserved future types such as
+> `model` and `prefab`), limits and reference rules come from
+> `assetlab/data/megamod_resources.json` (`megamod-resources --json`), and
+> `assetlab.resources.parse_id` gives the engine's verdict and wording on
+> every case of `megamod_id_conformance.json`. Package IDs
+> (`x4.resource_lab`) are a separate grammar. See MegaMod's
+> [`docs/RESOURCES.md`](https://github.com/madpai/megamod-showdown/blob/main/docs/RESOURCES.md).
+> The type table in this file is historical; the contract is authoritative.
+
 **Status:** 2026-09-26. The grammar below is the one recommendation. IDs are
 **proposed and audited only** -- except original worlds (X1): an OALMAP v3
 from `assetlab.world` declares its world `id`/`namespace` and uses placed

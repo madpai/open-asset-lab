@@ -131,3 +131,42 @@ files in `assetlab/data/scripts/x3/`. Deterministic, 32 KB.
 `tests/test_scripts.py` covers it, every script diagnostic, the preflight,
 no execution, and that one character, a comment or a callback list changes
 the world key while the display name does not.
+
+## Packages, dependencies and the X4 fixture
+
+A world may declare itself as a **package** (MegaMod X4, its
+`docs/RESOURCES.md`): `OriginalWorld.package = 'x4.resource_lab'` and
+`requires = [Requirement('x4.shared', ['x4shared:script/pulse_ability'])]`.
+The compiler writes the manifest's `package` member with `provides` derived
+from the content (never typed in). A world without `package` is written
+exactly as before.
+
+Every reference -- link target, mover definition, script, ability script --
+goes through `assetlab.resources.ResourceSet.resolve`, the engine's typed
+resolver with its messages: a script field refuses a mover by type ("script
+x4:mover/basic_slide_door is a mover definition, expected a script"), a
+missing resource names what is missing, an imported script must be listed
+in `requires`, a same-package field never reaches another package, and two
+providers of one resource are refused. The packages a world requires are
+found by package ID (`dependencies.directory_source`, `mapping_source`) and
+checked as a graph: each once, no cycles (refused with the path), depth 8,
+16 packages, every import provided by the package it is taken from.
+
+A **library** (`dependencies.Library`: a package ID and scripts) compiles
+to an OALASSET of kind `library` with `compile_library`. Its scripts may be
+in any namespace but a reserved one (`halo_trial`, `megamod`); they are
+validated like a world's, and never run.
+
+`assetlab fixture x4_resource_lab --output bundle/x4_resource_lab.oalmap`
+writes the world and its library (`bundle/packages/x4.shared.oalasset`):
+the X3 room in the `x4` namespace, a declared package whose button runs its
+own `x4:script/open_door` and whose `ability_script` is
+`x4shared:script/pulse_ability`, imported from `x4.shared` -- a reusable
+ability that names no world entity. MegaMod's `scripts/test_x4.sh` builds
+it from here, checks the engine refuses every broken variant with the same
+message `assetlab resources check` gives, and plays it.
+
+`assetlab resources check PKG... [--packages-dir D] [--json]` checks built
+packages as MegaMod loads them (declaration, dependency graph, typed
+references, provides) without running anything; `assetlab resources
+contract` prints the engine contract Open Asset Lab validates against.

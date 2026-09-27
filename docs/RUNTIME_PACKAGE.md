@@ -75,15 +75,47 @@ ASCII, 32 KB per script, 64 KB and 16 scripts per world. MegaMod runs
 scripts on the host only (its `docs/SCRIPTING.md`); X1/X2-era runtimes
 refuse schema 3. Written only when a world has scripts.
 
+## The `package` declaration and library packages (X4)
+
+Still OALMAP v3, and still `world_entities` schema 3: X4 adds one optional
+top-level manifest member, written only for a world built with
+`OriginalWorld.package` (X1-X3 fixtures are byte-for-byte unchanged).
+
+```json
+"package": {"id": "x4.resource_lab", "schema": 1,
+            "provides": ["x4:mover/basic_slide_door", "x4:script/open_door", "x4:world/resource_lab"],
+            "requires": [{"package": "x4.shared", "resources": ["x4shared:script/pulse_ability"]}]}
+```
+
+`id` is a **package ID** (`segment(.segment)*`, no `:` or `/`), never a
+resource ID. `provides` is derived by the compiler -- the world, its mover
+definitions, its own scripts -- in canonical byte order; MegaMod checks it
+equals the content. `requires` names library packages (canonical order) and
+the resources imported from each; a world may reference an imported
+resource only if it is listed there. Every field is required, nothing else
+is allowed. MegaMod's `docs/RESOURCES.md` is the contract.
+
+A **library package** is an OALASSET v1 whose manifest has `"kind":
+"library"`, the same `package` member (its provides: exactly its scripts)
+and a `scripts` list in the schema-3 script form; no models, no sounds,
+nothing after the manifest. It is written by `dependencies.compile_library`
+to `packages/<package id>.oalasset`; MegaMod looks for it there by the ID a
+world requires, and the package found must declare that ID.
+
 ## The world key (MegaMod's map check)
 
 MegaMod admits a joiner only if both peers compute the same **world key**
 for the package: FNV-1a 64 over the played bytes -- counts, header bounds,
 vertex/index/group/spawn records as stored, and the manifest members
 `spawn_points`, `flag_points`, `breakables`, `weather`, `world_entities`
-(exact value bytes, in manifest order; so scripts' source bytes, comments
-included) -- never provenance, reports, names
-or texture pixels. `assetlab/worldkey.py` is the reference implementation
+and (X4) `package` (exact value bytes, in manifest order; so scripts'
+source bytes, comments included) -- never provenance, reports, names
+or texture pixels. A world that requires libraries then adds, per package
+of its closure sorted by package ID, `OALD`, the ID and that library's
+digest (FNV-1a 64 of `OALL`, schema, its `package` and `scripts` bytes), so
+a library's Lua is part of every requiring world's key; its provenance is
+not. The member lists come from MegaMod's contract
+(`assetlab/data/megamod_resources.json`), not from this repository. `assetlab/worldkey.py` is the reference implementation
 (its docstring has the exact stream); `assetlab world-key PKG` prints it
-and `compile_world` reports it. MegaMod's `src/asset/external_map.c`
-computes the same value.
+and `compile_world` reports it (`--packages-dir` finds required libraries).
+MegaMod's `src/asset/external_map.c` computes the same value.
