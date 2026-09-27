@@ -6,6 +6,30 @@
 > major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
 > This handoff records the current state as it is.
 
+## X6: prefabs, 2026-09-27
+
+MegaMod X6 made `prefab` a real resource type (MegaMod `docs/PREFABS.md`):
+
+- `assetlab/prefabs.py`: `Prefab`, `PrefabChild`, `PrefabLink`,
+  `PrefabInstance`; the `prefabs` member, the engine's parse with its words,
+  local IDs (checked against the engine's `local_ids` verdicts), transforms
+  (exact at right angles), expansion (`expand`, `expand_instances`) with the
+  engine's order, IDs and limits.
+- `dependencies.Library(prefabs=[...])`: written, read, provides-checked,
+  digested (the contract's library members now include `prefabs`), children
+  linked from the provider's point of view (`link_prefabs`). A library
+  without prefabs is written byte-for-byte as before.
+- `world.OriginalWorld.prefab_instances`, schema 5 (also a prop's
+  `yaw_degrees`/`scale`), validation through the expansion; `check_package`
+  and `assetlab resources check` show the expansion.
+- A Source model imported with X5's `from_source_model` composes into a
+  prefab with no provider knowledge (`tests/test_prefabs.py`).
+- Fixtures: `x6.shared_assets`, `x6.facility`, `x6_prefab_world`
+  (`55b83b8b`), `x6_second_world` (`f99b737d`); MegaMod's
+  `scripts/test_x6.sh` builds, refuses and plays them; the emulator too.
+- X1-X5 fixture bytes and keys unchanged. Tests: `tests/test_prefabs.py`
+  (14); suite 172/172.
+
 ## X5: package-backed asset resources, 2026-09-27
 
 Open Asset Lab now turns content into MegaMod RESOURCES, not into files

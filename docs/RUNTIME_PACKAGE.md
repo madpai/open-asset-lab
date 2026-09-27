@@ -135,6 +135,37 @@ A world imports them like scripts and places models as `prop` entities
 sound in a mover definition (`"sound"`): world_entities schema 4. MegaMod's
 `megamod-resources --json` ("assets", "world_entities") is the exact schema.
 
+## Prefabs in a library (X6)
+
+A library may provide **prefabs** (`namespace:prefab/name`) through a
+`prefabs` member -- compositions of MegaMod's entity kinds, their
+parameters in prefab space, referencing models, sounds and scripts:
+
+```json
+"prefabs": {"schema": 1, "prefabs": [{"id": "x6:prefab/security_door", "children": [
+  {"id": "button", "kind": "interactable", "links": [{"event": "used", "input": "toggle", "target": "door"}],
+   "position": [-0.16, -0.7, 0.9], "reach": 1.2, "script": "x6:script/security_door_log"},
+  {"id": "door", "kind": "mover", "links": [], "model": "x6shared:model/door_panel", "move": [0.0, 1.3, 0.0],
+   "position": [0.0, 0.0, 0.6], "size": [0.1, 1.2, 1.2], "sound": "x6shared:sound/door_hiss", "speed": 1.2}, ...]}]}
+```
+
+- prefabs in canonical ID order, children in canonical local-ID order, each
+  once; links name siblings only; no nesting, no inheritance, no overrides;
+  every limit from the engine's contract ("prefabs");
+- a child's `model`/`sound`/`script` resolve from THIS library's point of
+  view (its own resources and its imports), so a consumer imports only the
+  prefab;
+- `provides` lists every prefab; its provenance goes in `provenance`,
+  keyed by prefab ID (never played).
+
+A world places instances in `world_entities` **schema 5**:
+`"prefab_instances": [{"id": "north_door", "position": [0.0, 3.0, 0.0],
+"prefab": "x6:prefab/security_door"}, {"id": "south_door", ..., "yaw_degrees": -90.0}]`
+(optional `yaw_degrees`, uniform `scale`), canonical by ID. MegaMod expands
+each into ordinary entities `<ns>:entity/<instance>__<child>`; schema 5
+also lets a prop carry `yaw_degrees` and `scale`. MegaMod's
+`docs/PREFABS.md` is the whole design.
+
 ## The world key (MegaMod's map check)
 
 MegaMod admits a joiner only if both peers compute the same **world key**
@@ -145,8 +176,8 @@ and (X4) `package` (exact value bytes, in manifest order; so scripts'
 source bytes, comments included) -- never provenance, reports, names
 or texture pixels. A world that requires libraries then adds, per package
 of its closure sorted by package ID, `OALD`, the ID and that library's
-digest (FNV-1a 64 of `OALL`, schema, its `assets` (X5), `package` and
-`scripts` bytes, then -- when it declares assets -- `OALP`, the payload
+digest (FNV-1a 64 of `OALL`, schema, its `assets` (X5), `package`,
+`prefabs` (X6) and `scripts` bytes, then -- when it declares assets -- `OALP`, the payload
 length and every payload byte), so a library's Lua, texels, vertices and
 samples are part of every requiring world's key; its provenance is not. The member lists come from MegaMod's contract
 (`assetlab/data/megamod_resources.json`), not from this repository. `assetlab/worldkey.py` is the reference implementation

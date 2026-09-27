@@ -171,6 +171,40 @@ packages as MegaMod loads them (declaration, dependency graph, typed
 references, provides) without running anything; `assetlab resources
 contract` prints the engine contract Open Asset Lab validates against.
 
+## Prefabs and the X6 fixtures
+
+MegaMod X6 made prefabs real (`assetlab/prefabs.py`; MegaMod
+`docs/PREFABS.md`). Author one with the data model, not manifest
+dictionaries:
+
+```python
+Prefab('x6:prefab/security_door', [
+    PrefabChild('button', 'interactable', [PrefabLink('used', 'door', 'toggle')],
+                position=(-0.16, -0.7, 0.9), reach=1.2, script='x6:script/security_door_log'),
+    PrefabChild('door', 'mover', position=(0, 0, 0.6), size=(0.1, 1.2, 1.2), move=(0, 1.3, 0),
+                speed=1.2, sound='x6shared:sound/door_hiss', model='x6shared:model/door_panel'),
+    ...])
+Library('x6.facility', [script], requires=[Requirement('x6.shared_assets', [...])], prefabs=[door])
+world.prefab_instances = [PrefabInstance('north_door', 'x6:prefab/security_door', (0, 3, 0)),
+                          PrefabInstance('south_door', 'x6:prefab/security_door', (-3, -2, 0), yaw_degrees=-90)]
+```
+
+`validate` checks everything MegaMod will (the engine's words), including
+the expansion: generated IDs, the 64-entity limit, scaled limits, links
+from the world to a child. `compile_world`'s report lists the expansion
+(`expanded`: path, entity, kind, index), and `assetlab resources check
+WORLD --packages-dir D` prints it for a built package.
+
+`assetlab fixture x6_prefab_world --output bundle/maps/x6_prefab_world.oalmap
+--packages bundle/packages` writes the world and both libraries:
+`x6.shared_assets` (door panel, frame post, frame top and button models,
+their materials and textures, a hiss -- generated here) and `x6.facility`
+(the prefab and its button script). The world: two rooms, north_door in the
+x = 0 wall, south_door turned -90 in the y = -2 wall, and a lockdown button
+whose world script toggles south's door by its placed ID. `x6_second_world`
+places one gate at 45 degrees and 1.25x in an open room. Keys `55b83b8b`
+and `f99b737d` (MegaMod agrees; `scripts/test_x6.sh`).
+
 ## Asset resources and the X5 fixtures
 
 MegaMod X5 made models, materials, textures and sounds real resources a

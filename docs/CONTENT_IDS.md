@@ -1,5 +1,13 @@
 # Stable content IDs: grammar and the read-only audit (N2)
 
+> **X6 (2026-09-27):** `prefab` is a supported, importable type
+> (`x6:prefab/security_door`, `assetlab/prefabs.py`); only `animation` and
+> `ruleset` stay reserved. Prefab children and world instances are named by
+> LOCAL IDs (`[a-z][a-z0-9]*(_[a-z0-9]+)*`, at most 23 bytes, no `__`) --
+> never resource IDs; child `button` of instance `north_door` becomes the
+> placed entity `<world ns>:entity/north_door__button`. The engine's
+> verdicts on a corpus are `data/megamod_id_conformance.json` "local_ids".
+>
 > **X5 (2026-09-27):** `model`, `material`, `texture` and `sound` are
 > supported, importable types now (asset resources in library packages,
 > `assetlab/assets.py`); `animation`, `prefab` and `ruleset` stay reserved.
