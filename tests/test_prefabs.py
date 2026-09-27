@@ -49,7 +49,8 @@ class ContractTests(unittest.TestCase):
         p = CONTRACT['prefabs']
         self.assertEqual(res.TYPES['prefab']['status'], 'supported')
         self.assertTrue(res.TYPES['prefab']['importable'])
-        self.assertEqual(pf.SCHEMA, 1)
+        self.assertEqual(pf.SCHEMA, 2)                    # X7 reads 1 and 2; an X6 prefab is still written as 1
+        self.assertEqual(pf.member_schema([x6_security_door()]), 1)
         self.assertEqual(pf.LIMITS, p['limits'])
         self.assertEqual(pf.LIMITS['children'], 16)
         self.assertEqual(pf.LIMITS['expanded_entities'], 64)
@@ -57,7 +58,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(pf.SEP, '__')
         self.assertEqual(set(pf.KINDS), {'interactable', 'relay', 'mover', 'trigger', 'teleport', 'prop'})
         self.assertIn('prefabs', res.WORLD_KEY['library_members'])
-        self.assertEqual(CONTRACT['world_entities']['schema'], 5)
+        self.assertEqual(CONTRACT['world_entities']['schema'], 6)
         for f in (pf.CHILD_MODEL, pf.CHILD_SOUND, pf.CHILD_SCRIPT, pf.INSTANCE_PREFAB):
             self.assertIn(f, res.REFERENCES)
         self.assertEqual(res.REFERENCES[pf.INSTANCE_PREFAB]['expects'], 'prefab')
@@ -271,7 +272,7 @@ class WorldTests(unittest.TestCase):
     def test_older_fixtures_unchanged(self):
         # X1-X5 fixtures keep their bytes and keys (also pinned in
         # test_resources and test_assets); X6 only adds.
-        self.assertEqual(set(FIXTURES) - {'x6_prefab_world', 'x6_second_world'},
+        self.assertEqual(set(FIXTURES) - {'x6_prefab_world', 'x6_second_world', 'x7_facility_world', 'x7_second_world'},
                          {'x1_event_lab', 'x2_definition_lab', 'x3_script_lab', 'x4_resource_lab', 'x5_resource_world',
                           'x5_second_world'})
         from assetlab.fixtures import x5_resource_world, x5_shared_art

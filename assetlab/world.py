@@ -60,6 +60,12 @@ scripts) may name those like any placed ID. Such a world is world_entities
 schema 5, and so is one whose props carry `yaw_degrees` or `scale`. A schema 5
 world's own placed IDs may not hold "__".
 
+Event bindings (MegaMod X7): `bindings` lists assetlab.bindings.EventBinding
+records -- an event of a placed entity (or a prefab child, by its placed
+ID), conditions, actions -- so simple behaviour needs no Lua: button used ->
+if the power relay is active -> toggle the door. Such a world is
+world_entities schema 6. Prefabs carry their own (assetlab.prefabs).
+
 There is deliberately no text format for this yet: tests and
 `assetlab fixture` build worlds in code (docs/ORIGINAL_WORLDS.md).
 """
@@ -69,7 +75,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field
 
-from . import dependencies as deplib, ids, prefabs as prefablib, resources as res, scripts as scriptlib, worldkey
+from . import bindings as bindlib, dependencies as deplib, ids, prefabs as prefablib, resources as res, scripts as scriptlib, worldkey
 from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vertices,
                       write_package)
 
@@ -83,6 +89,7 @@ DEFINITION_SCHEMA = 2      # adds mover_definitions (X2)
 SCRIPT_SCHEMA = 3          # adds scripts, an interactable's script, ability_script (X3)
 ASSET_SCHEMA = 4           # adds props (a model) and a mover definition's sound (X5)
 PREFAB_SCHEMA = 5          # adds prefab_instances and a prop's yaw_degrees/scale (X6)
+BINDING_SCHEMA = 6         # adds bindings (X7)
 MAX_MOVER_DEFINITIONS = 64
 
 # The runtime's limits (MegaMod src/asset/world_def.h); a package that
@@ -178,6 +185,7 @@ class OriginalWorld:
     package: str = None
     requires: list = field(default_factory=list)
     prefab_instances: list = field(default_factory=list)   # X6: prefabs.PrefabInstance
+    bindings: list = field(default_factory=list)           # X7: bindings.EventBinding
 
 
 def _prop_transform(e):
@@ -186,6 +194,8 @@ def _prop_transform(e):
 
 def schema_of(world):
     """The world_entities schema the world needs."""
+    if world.bindings:
+        return BINDING_SCHEMA
     if world.prefab_instances or any(_prop_transform(e) for e in world.entities):
         return PREFAB_SCHEMA
     if any(e.kind == 'prop' for e in world.entities) or any(d.sound for d in world.mover_definitions):
@@ -357,13 +367,17 @@ def validate(world, fetch=None):
     records = instance_records(world)
     errs += prefablib.instances_errors(records)
     expanded = []
+    own_b = bindlib.records(world.bindings)
+    inst_bindings = []
     if records and world.package is None:
         errs.append('world_entities: prefab instances need a declared world package (its namespace names their children)')
     elif records and not prefablib.instances_errors(records):
         expanded, e2 = prefablib.expand_instances(records, world.id, rs, deps, len(world.entities),
                                                   sum(len(e.links) for e in world.entities),
                                                   len(world.mover_definitions) + sum(1 for e in world.entities
-                                                                                    if e.kind == 'mover' and e.definition is None))
+                                                                                    if e.kind == 'mover' and e.definition is None),
+                                                  inst_bindings, (len(own_b), sum(len(b['conditions']) for b in own_b),
+                                                                  sum(len(b['actions']) for b in own_b)))
         errs += e2
     for c in expanded:
         by_id[c['id']] = Entity(c['id'], c['kind'], links=[Link(ln['event'], ln['target'], ln['input']) for ln in c['links']])
@@ -477,8 +491,15 @@ def validate(world, fetch=None):
                         _finite(t.bounds[1]) and _inside(e.position, *t.bounds)):
                     errs.append(f'{e.id}: destination is inside trigger {t.id} (it would fire again on arrival)')
     errs += _script_errors(world, ns, rs, imported, expanded)
+    # X7: the world's own bindings, against every entity (children too).
+    kinds = {k: v.kind for k, v in by_id.items()}
+    parsed, e3 = bindlib.world_errors(own_b, rs, kinds.get, schema)
+    errs += e3
     if not errs:
         errs += _graph_errors(list(world.entities) + [by_id[c['id']] for c in expanded], by_id)
+    if not errs:
+        errs += bindlib.cycle_errors(parsed + inst_bindings, kinds.get)
+    world._bindings = parsed + inst_bindings
     return errs
 
 
@@ -678,10 +699,12 @@ def compile_world(world, output, fetch=None):
             section['ability_script'] = world.ability_script
     if any(e.kind == 'prop' for e in world.entities) or any(d.sound for d in world.mover_definitions):
         section['schema'] = ASSET_SCHEMA
-    if schema_of(world) == PREFAB_SCHEMA:
-        section['schema'] = PREFAB_SCHEMA
+    if schema_of(world) >= PREFAB_SCHEMA:
+        section['schema'] = schema_of(world)
         if world.prefab_instances:
             section['prefab_instances'] = instance_records(world)
+    if world.bindings:
+        section['bindings'] = bindlib.records(world.bindings)
     kinds = {k: sum(e.kind == k for e in world.entities) for k in KINDS}
     manifest = {
         'package_version': VERSION, 'importer_version': 'original_world-0.1.0',
@@ -718,6 +741,9 @@ def compile_world(world, output, fetch=None):
               'package': world.package, 'requires': {q.package: list(q.resources) for q in world.requires},
               'links': sum(len(e.links) for e in world.entities),
               'prefab_instances': {i.id: i.prefab for i in world.prefab_instances},
+              'bindings': [{'id': b['id'], 'instance': b.get('instance'), 'source': b['source'], 'event': b['event'],
+                            'conditions': len(b['conditions']), 'actions': [a['action'] for a in b['actions']]}
+                           for b in getattr(world, '_bindings', [])],
               'expanded': [{'path': c['path'], 'entity': c['id'], 'kind': c['kind'], 'index': c['index']}
                            for c in getattr(world, '_expanded', [])],
               'triangles': len(indices) // 3, 'package_bytes': len(data),

@@ -36,7 +36,12 @@ from above), and, on an instance, a uniform scale. A child's world
 transform is instance x child: pos = I.pos + I.scale * Rz(I.yaw) * c.pos,
 yaw = I.yaw + c.yaw, scale = I.scale.
 
-No nesting (schema 1), no inheritance, no per-instance overrides.
+Bindings (MegaMod X7, prefab schema 2): a prefab may carry event bindings
+between its children (assetlab.bindings.EventBinding, naming children by
+local ID); each instance gets its own, bound to its own children. A member
+whose prefabs have none is still written as schema 1, byte for byte.
+
+No nesting, no inheritance, no per-instance overrides.
 
 MegaMod is the authority: the rules and limits come from its contract
 (data/megamod_resources.json, "prefabs"), local IDs are checked against its
@@ -48,10 +53,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from . import resources as res
+from . import bindings as bindlib, resources as res
 
 P = res.CONTRACT['prefabs']
-SCHEMA = P['schema']
+SCHEMA = P['schema']            # the newest the engine reads (2: X7 bindings); a member without bindings is written as 1
 LIMITS = P['limits']
 LOCAL = P['local_id']
 CHILD = P['children']
@@ -167,9 +172,13 @@ class Prefab:
     id: str                     # namespace:prefab/name
     children: list = field(default_factory=list)
     provenance: dict = None     # never played (the library's "provenance" member)
+    bindings: list = field(default_factory=list)   # X7: bindings.EventBinding, children by local ID
 
     def record(self):
-        return {'children': [c.record() for c in sorted(self.children, key=lambda c: res._bytes(c.id))], 'id': self.id}
+        r = {'children': [c.record() for c in sorted(self.children, key=lambda c: res._bytes(c.id))], 'id': self.id}
+        if self.bindings:
+            r['bindings'] = bindlib.records(self.bindings)
+        return r
 
 
 @dataclass
@@ -190,9 +199,15 @@ class PrefabInstance:
         return r
 
 
+def member_schema(prefabs):
+    """1 unless a prefab has bindings (then 2): an X6 library's bytes are
+    unchanged, and an X6 engine refuses a member it could not play."""
+    return bindlib.PREFAB_SCHEMA if any(p.bindings for p in prefabs) else 1
+
+
 def member(prefabs):
     """The library's "prefabs" member (canonical: prefabs by ID)."""
-    return {'prefabs': [p.record() for p in sorted(prefabs, key=lambda p: res._bytes(p.id))], 'schema': SCHEMA}
+    return {'prefabs': [p.record() for p in sorted(prefabs, key=lambda p: res._bytes(p.id))], 'schema': member_schema(prefabs)}
 
 
 def validate(prefabs, pkg='this package'):
@@ -215,7 +230,7 @@ def _vec3(v, lim):
     return isinstance(v, list) and len(v) == 3 and all(_num(x, lim) for x in v)
 
 
-def _child(p, c, i, links):
+def _child(p, c, i, links, schema=1):
     pid = p['id']
     if len(p['children']) >= LIMITS['children']:
         raise PrefabError(f"prefab {pid} has more than {LIMITS['children']} children")
@@ -296,7 +311,7 @@ def _child(p, c, i, links):
             raise PrefabError(f"{who}: unknown field '{key}'")
     if nested:
         raise PrefabError(f"prefab {pid} child '{out['id'] or '?'}' contains a nested prefab reference, which is not "
-                          f'supported in prefab schema {SCHEMA}')
+                          f'supported in prefab schema {schema}')
     if not have['id']:
         raise PrefabError(f'{who}: has no id')
     if not have['kind']:
@@ -375,14 +390,17 @@ def _link_children(p, links):
             stack.pop()
 
 
-def _prefab(v, pkg):
+def _prefab(v, pkg, schema=1):
     if not isinstance(v, dict):
         raise PrefabError(f'{pkg}: a prefab is not an object')
     pid = v.get('id') if isinstance(v.get('id'), str) else '?'
     for key in v:
-        if key not in ('children', 'id'):
-            raise PrefabError(f"{pkg}: prefab {pid}: unknown field '{key}' (a prefab has children, id)")
-    p = {'id': pid, 'children': []}
+        if key == 'bindings' and schema < 2:
+            raise PrefabError(f'{pkg}: prefab {pid}: bindings need prefab schema 2 (this member is schema {schema})')
+        if key not in ('bindings', 'children', 'id'):
+            fields = 'bindings, children, id' if schema >= 2 else 'children, id'
+            raise PrefabError(f"{pkg}: prefab {pid}: unknown field '{key}' (a prefab has {fields})")
+    p = {'id': pid, 'children': [], 'bindings': []}
     links = []
     for key, x in v.items():
         if key == 'id':
@@ -399,7 +417,14 @@ def _prefab(v, pkg):
             if not isinstance(x, list):
                 raise PrefabError(f'{pkg}: prefab {pid}: malformed children')
             for i, c in enumerate(x):
-                p['children'].append(_child(p, c, i, links))
+                p['children'].append(_child(p, c, i, links, schema))
+        elif key == 'bindings':
+            if not isinstance(x, list):
+                raise PrefabError(f'prefab {pid}: bindings is not a list')
+            try:
+                p['bindings'] = bindlib.prefab_parse(pid, x)
+            except bindlib.BindingError as e:
+                raise PrefabError(str(e))
     if 'id' not in v or 'children' not in v:
         raise PrefabError(f'{pkg}: a prefab needs children and id')
     if not p['children']:
@@ -412,6 +437,10 @@ def _prefab(v, pkg):
         if a > b:
             raise PrefabError(f"prefab {pid}: children are not in canonical (byte) order of local id at '{kids[i]['id']}'")
     _link_children(p, links)
+    try:
+        bindlib.prefab_link(p)
+    except bindlib.BindingError as e:
+        raise PrefabError(str(e))
     return p
 
 
@@ -424,23 +453,25 @@ def parse(manifest, pkg):
     m = manifest['prefabs']
     if not isinstance(m, dict):
         raise PrefabError(f'{pkg}: prefabs is not an object')
+    sv = m.get('schema')
+    if _num(sv, 1e300) and sv not in (1, 2):
+        raise PrefabError(f'{pkg}: unsupported prefab schema {sv:g} (this engine has {SCHEMA})')
+    schema = 2 if sv == 2 else 1
     for key in m:
         if key not in ('prefabs', 'schema'):
-            raise PrefabError(f"{pkg}: prefabs: unknown field '{key}' (schema {SCHEMA} has prefabs, schema)")
+            raise PrefabError(f"{pkg}: prefabs: unknown field '{key}' (schema {schema} has prefabs, schema)")
     out = []
     for key, v in m.items():
         if key == 'schema':
             if not _num(v, 1e300):
                 raise PrefabError(f'{pkg}: malformed prefab schema')
-            if v != SCHEMA:
-                raise PrefabError(f'{pkg}: unsupported prefab schema {v:g} (this engine has {SCHEMA})')
         elif key == 'prefabs':
             if not isinstance(v, list):
                 raise PrefabError(f'{pkg}: prefabs.prefabs is not a list')
             for x in v:
                 if len(out) >= LIMITS['per_library']:
                     raise PrefabError(f"{pkg} provides more than {LIMITS['per_library']} prefabs")
-                p = _prefab(x, pkg)
+                p = _prefab(x, pkg, schema)
                 if out:
                     a, b = res._bytes(out[-1]['id']), res._bytes(p['id'])
                     if a == b:
@@ -580,13 +611,15 @@ def instances_errors(records):
     return errs
 
 
-def expand_instances(records, world_id, rs, deps, authored, links=0, movers=0):
+def expand_instances(records, world_id, rs, deps, authored, links=0, movers=0, bindings=None, own_bindings=(0, 0, 0)):
     """Every instance (record dicts, canonical order) expanded as the engine
     does it: its prefab resolved through `rs` (the world must import it),
     the limits checked before anything is added, each child added to `rs` as
     a placed entity (so world links may name it). Returns (expanded entity
     dicts in engine order, errors). `authored`, `links` and `movers` are the
-    world's own counts."""
+    world's own counts. X7: when `bindings` is a list, each instance's copies
+    of its prefab's bindings are appended to it (after the world's own:
+    `own_bindings` is their count, conditions and actions)."""
     errs, out = [], []
     ns = world_id.partition(':')[0]
     ents = authored
@@ -614,6 +647,20 @@ def expand_instances(records, world_id, rs, deps, authored, links=0, movers=0):
             errs.append(f'prefab instance {r["id"]} expands the world to {movers + nm} mover definitions, exceeding limit '
                         f'{MAX_MOVER_DEFS}')
             break
+        pb = p.get('bindings', [])
+        nb, nc, na = own_bindings
+        if nb + len(pb) > bindlib.LIMITS['bindings']:
+            errs.append(f'prefab instance {r["id"]} expands the world to {nb + len(pb)} bindings, exceeding limit '
+                        f"{bindlib.LIMITS['bindings']}")
+            break
+        if (nc + sum(len(b['conditions']) for b in pb) > bindlib.LIMITS['conditions'] or
+                na + sum(len(b['actions']) for b in pb) > bindlib.LIMITS['actions']):
+            errs.append(f"prefab instance {r['id']} expands the world's bindings past {bindlib.LIMITS['conditions']} "
+                        f"conditions or {bindlib.LIMITS['actions']} actions")
+            break
+        own_bindings = (nb + len(pb), nc + sum(len(b['conditions']) for b in pb), na + sum(len(b['actions']) for b in pb))
+        if bindings is not None:
+            bindings += bindlib.expand(ns, r, p)
         try:
             kids = expand(ns, r, p)
         except PrefabError as x:

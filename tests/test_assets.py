@@ -50,7 +50,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(assetlib.SCHEMA, a['schema'])
         self.assertEqual(assetlib.LIMITS, a['limits'])
         self.assertEqual(assetlib.TYPES['model']['max_slots'], 16)
-        self.assertEqual(CONTRACT['world_entities']['schema'], 5)          # X6: prefab instances
+        self.assertEqual(CONTRACT['world_entities']['schema'], 6)          # X7: bindings (X6 worlds are still written as 5)
         self.assertIn('prop', CONTRACT['world_entities']['kinds'])
         # Four asset types are real (X5); prefabs too since X6.
         for t in assetlib.KINDS:
@@ -276,7 +276,7 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(out.read_bytes()).hexdigest(),
                          '13687f4b74b268567e498eb8751e7d19d6886f939d6597108e076681db4b9afc')
         self.assertEqual(worldkey.world_key(out, mapping_source({'x4.shared': x4_shared()}))['world_key'], '46bee75f')
-        self.assertEqual(set(FIXTURES) - {'x6_prefab_world', 'x6_second_world'},   # X6 adds its own
+        self.assertEqual(set(FIXTURES) - {'x6_prefab_world', 'x6_second_world', 'x7_facility_world', 'x7_second_world'},   # X6, X7 add their own
                          {'x1_event_lab', 'x2_definition_lab', 'x3_script_lab', 'x4_resource_lab', 'x5_resource_world',
                           'x5_second_world'})
 

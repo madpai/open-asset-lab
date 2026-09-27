@@ -29,7 +29,7 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import assets as assetlib, prefabs as prefablib, resources as res, scripts as scriptlib
+from . import assets as assetlib, bindings as bindlib, prefabs as prefablib, resources as res, scripts as scriptlib
 from .resources import PackageDecl, ResourceError
 
 MAGIC = b'OALA'
@@ -437,6 +437,12 @@ def link_prefabs(deps):
                         if 'on_used' not in sc.callbacks:
                             raise ResourceError(f"{who}: script {c['script']} does not declare on_used")
                         c['script_provider'] = deps[dep].decl.id
+                # X7: a binding's play_sound, from the same point of view.
+                for b in p.get('bindings', []):
+                    for a in b['actions']:
+                        if 'sound' in a:
+                            a['sound_index'] = rs.resolve(bindlib.PREFAB_SOUND, f"prefab {p['id']} binding {b['id']}",
+                                                          a['sound']).index
         except ResourceError as e:
             raise PackageError(str(e))
 
@@ -503,14 +509,18 @@ def _check_world(manifest, fetch, errs):
     # X6: instances expand into ordinary placed entities before any link
     # resolves (a world link may name a child).
     insts = section.get('prefab_instances') or []
-    expanded = []
+    expanded, inst_bindings = [], []
+    own_b = section.get('bindings') or []
+    own_counts = (len(own_b), sum(len(b.get('conditions') or []) for b in own_b if isinstance(b, dict)),
+                  sum(len(b.get('actions') or []) for b in own_b if isinstance(b, dict)))
     if insts:
         bad = prefablib.instances_errors(insts)
         errs += bad
         if not bad and decl is not None:
             movers_ = len(movers) + sum(1 for e in entities if e.get('kind') == 'mover' and 'definition' not in e)
             expanded, e2 = prefablib.expand_instances(insts, manifest.get('id', ''), rs, deps, len(entities),
-                                                      sum(len(e.get('links') or []) for e in entities), movers_)
+                                                      sum(len(e.get('links') or []) for e in entities), movers_,
+                                                      inst_bindings, own_counts)
             errs += e2
     callbacks = {k: v.get('callbacks', []) for k, v in own.items()}
     for i, d in enumerate(deps):
@@ -545,6 +555,15 @@ def _check_world(manifest, fetch, errs):
             ref(res.MOVER_SOUND, m.get('id', '?'), m['sound'])
     if 'ability_script' in section:
         ref(res.ABILITY_SCRIPT, 'ability_script', section['ability_script'], 'on_ability')
+    # X7: the world's own bindings (any entity, prefab children included),
+    # then OAL's cycle check over them and every instance's.
+    kinds = {e.get('id'): e.get('kind') for e in entities}
+    kinds.update({c['id']: c['kind'] for c in expanded})
+    parsed, e3 = bindlib.world_errors(own_b, rs, kinds.get, section.get('schema', 1))
+    errs += e3
+    n += sum(len(bindlib.entity_refs(b)) for b in parsed) if not e3 else 0
+    if not errs:
+        errs += bindlib.cycle_errors(parsed + inst_bindings, kinds.get)
     n += len(insts) if not errs else 0
     if decl is not None:
         name = f'package {decl.id}'

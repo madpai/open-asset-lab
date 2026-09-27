@@ -25,6 +25,7 @@ import math
 import struct
 
 from . import assets as assetlib, prefabs as prefablib
+from .bindings import Action, Condition, EventBinding
 from .dependencies import Library
 from .resources import Requirement
 from .scripts import Script, load_source
@@ -516,11 +517,140 @@ def x6_second_world():
     return w
 
 
+# ---- x7: declarative event bindings ------------------------------------------------
+# x7.facility -- a LIBRARY providing the PREFAB x7:prefab/security_door (a
+#   POWERED security door, no Lua) and its two sounds, built from the X6 art
+#   it imports from x6.shared_assets (reused: authored once in X6). Prefab
+#   space as X6's: the doorway in the x = 0 plane, its front toward -x.
+#
+#     button        interactable on the left post      power         a relay (starts inactive)
+#     power_button  interactable low on the right post  door          mover, hisses (X5)
+#     button_panel, power_panel, frame_left, frame_right, frame_top   props
+#
+#   bindings (by local ID; the chain and the conditions are the proof):
+#     power_on     power_button used  if power inactive -> activate power
+#     power_off    power_button used  if power active   -> deactivate power
+#     powered      power activated                      -> open door
+#     unpowered    power deactivated                    -> close door
+#     toggle_door  button used        if power active   -> toggle door
+#     locked       button used        if power inactive -> play x7:sound/locked
+#     chime        door opened                          -> play x7:sound/chime at the door
+#
+# x7_facility_world (package x7.facility_world) -- X6's two rooms: north_door
+#   (untransformed) and south_door (turned -90) of the powered door; a shock
+#   pad in the east room (bindings: entered -> damage 40, teleport to the pad's
+#   destination in the west room, play locked at the pad); and a maintenance
+#   button whose world Lua script (custom logic: every second press) opens
+#   north's door directly, while its own binding clicks at it.
+#
+# x7_second_world (package x7.second_world) -- a second consumer: one
+#   freestanding powered door, turned 90 degrees.
+
+X7_FACILITY = 'x7.facility'
+X7_DOOR = 'x7:prefab/security_door'
+X7_LOCKED, X7_CHIME = 'x7:sound/locked', 'x7:sound/chime'
+X7_ORIGIN = dict(X6_ORIGIN)
+
+
+def _tone(kind):
+    rate, out = 22050, []
+    n = rate * (25 if kind == 'locked' else 45) // 100
+    for i in range(n):
+        t = i / rate
+        if kind == 'locked':        # a low square buzz
+            v = 6000 * (1 if math.sin(2 * math.pi * 140 * t) >= 0 else -1) * min(1.0, (n - i) / 800.0)
+        else:                       # a bright falling chime
+            v = 9000 * math.sin(2 * math.pi * 880 * t) * math.exp(-t * 7.0)
+        out.append(struct.pack('<h', int(v)))
+    return b''.join(out)
+
+
+def x7_security_door():
+    """The powered door: behaviour is data (bindings), no script."""
+    m = lambda name: f'x6shared:model/{name}'
+    C = prefablib.PrefabChild
+    return prefablib.Prefab(X7_DOOR, [
+        C('button', 'interactable', position=(-0.16, -0.7, 0.9), reach=1.2),
+        C('button_panel', 'prop', position=(-0.13, -0.7, 0.9), model=m('button_panel')),
+        C('door', 'mover', position=(0.0, 0.0, 0.6), size=(0.1, 1.2, 1.2), move=(0.0, 1.3, 0.0), speed=1.2, sound=X6_HISS,
+          model=m('door_panel')),
+        C('frame_left', 'prop', position=(0.0, -0.7, 0.7), model=m('frame_post')),
+        C('frame_right', 'prop', position=(0.0, 0.7, 0.7), model=m('frame_post')),
+        C('frame_top', 'prop', position=(0.0, 0.0, 1.3), model=m('frame_top')),
+        C('power', 'relay'),
+        C('power_button', 'interactable', position=(-0.16, 0.7, 0.45), reach=1.2),
+        C('power_panel', 'prop', position=(-0.13, 0.7, 0.45), model=m('button_panel')),
+    ], provenance=dict(X7_ORIGIN, made_by='fixtures.x7_security_door'), bindings=[
+        EventBinding('chime', 'door', 'opened', [], [Action('play_sound', sound=X7_CHIME, at='door')]),
+        EventBinding('locked', 'button', 'used', [Condition('relay_state', 'power', 'inactive')],
+                     [Action('play_sound', sound=X7_LOCKED)]),
+        EventBinding('power_off', 'power_button', 'used', [Condition('relay_state', 'power', 'active')],
+                     [Action('deactivate', target='power')]),
+        EventBinding('power_on', 'power_button', 'used', [Condition('relay_state', 'power', 'inactive')],
+                     [Action('activate', target='power')]),
+        EventBinding('powered', 'power', 'activated', [], [Action('open', target='door')]),
+        EventBinding('toggle_door', 'button', 'used', [Condition('relay_state', 'power', 'active')],
+                     [Action('toggle', target='door')]),
+        EventBinding('unpowered', 'power', 'deactivated', [], [Action('close', target='door')]),
+    ])
+
+
+def x7_facility():
+    prov = lambda what: dict(X7_ORIGIN, made_by=what)
+    return Library(X7_FACILITY, [], requires=[Requirement(X6_SHARED, sorted(f'x6shared:model/{m}' for m in X6_MODELS) + [X6_HISS])],
+                   display_name='X7 powered facility door',
+                   sounds=[assetlib.Sound(X7_CHIME, 22050, 1, _tone('chime'), provenance=prov('fixtures._tone')),
+                           assetlib.Sound(X7_LOCKED, 22050, 1, _tone('locked'), provenance=prov('fixtures._tone'))],
+                   prefabs=[x7_security_door()])
+
+
+def x7_libraries():
+    return {X6_SHARED: x6_shared_assets(), X7_FACILITY: x7_facility()}
+
+
+X7_MAINT = (-5.84, 0.5, 0.9)
+X7_PAD = ((2.0, -3.0, -0.1), (3.0, -2.0, 1.0))
+X7_PAD_DEST = (-4.5, -4.0, 0.05)
+
+
+def x7_facility_world():
+    w = x6_prefab_world()
+    w.id, w.file_name, w.display_name, w.package = 'x7:world/facility_world', 'x7_facility_world', 'X7 Facility World', 'x7.facility_world'
+    w.materials = dict(w.materials, pad=(230, 60, 40), pad_dest=(160, 80, 200))
+    w.boxes = w.boxes + [Box(X7_PAD[0][:2] + (0.0,), X7_PAD[1][:2] + (0.03,), 'pad', solid=False),
+                         Box((X7_PAD_DEST[0] - 0.4, X7_PAD_DEST[1] - 0.4, 0.0), (X7_PAD_DEST[0] + 0.4, X7_PAD_DEST[1] + 0.4, 0.03),
+                             'pad_dest', solid=False)]
+    w.entities = [Entity(eid('maintenance', 'x7'), 'interactable', position=X7_MAINT, reach=1.2, script='x7:script/maintenance'),
+                  Entity(eid('pad_dest', 'x7'), 'teleport', position=X7_PAD_DEST, yaw_degrees=90.0),
+                  Entity(eid('shock_pad', 'x7'), 'trigger', bounds=X7_PAD)]
+    w.scripts = [Script('x7:script/maintenance', load_source('x7/maintenance.lua'), ['on_used'])]
+    w.prefab_instances = [prefablib.PrefabInstance('north_door', X7_DOOR, X6_NORTH),
+                          prefablib.PrefabInstance('south_door', X7_DOOR, X6_SOUTH, yaw_degrees=-90.0)]
+    w.bindings = [
+        EventBinding('maintenance_click', eid('maintenance', 'x7'), 'used', [], [Action('play_sound', sound=X7_LOCKED)]),
+        EventBinding('shock', eid('shock_pad', 'x7'), 'entered', [],
+                     [Action('damage', amount=40.0), Action('teleport', target=eid('pad_dest', 'x7')),
+                      Action('play_sound', sound=X7_LOCKED)]),
+    ]
+    w.requires = [Requirement(X7_FACILITY, [X7_LOCKED, X7_DOOR])]
+    return w
+
+
+def x7_second_world():
+    w = x6_second_world()
+    w.id, w.file_name, w.display_name, w.package = 'x7b:world/second_world', 'x7_second_world', 'X7 Second World', 'x7.second_world'
+    w.prefab_instances = [prefablib.PrefabInstance('gate', X7_DOOR, (1.5, 0.0, 0.0), yaw_degrees=90.0)]
+    w.requires = [Requirement(X7_FACILITY, [X7_DOOR])]
+    return w
+
+
 FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab, 'x3_script_lab': x3_script_lab,
             'x4_resource_lab': x4_resource_lab, 'x5_resource_world': x5_resource_world, 'x5_second_world': x5_second_world,
-            'x6_prefab_world': x6_prefab_world, 'x6_second_world': x6_second_world}
+            'x6_prefab_world': x6_prefab_world, 'x6_second_world': x6_second_world,
+            'x7_facility_world': x7_facility_world, 'x7_second_world': x7_second_world}
 # The library packages a fixture world requires, by package ID.
 FIXTURE_LIBRARIES = {'x4_resource_lab': lambda: {X4_SHARED: x4_shared()},
                      'x5_resource_world': lambda: {X5_SHARED: x5_shared_art()},
                      'x5_second_world': lambda: {X5_SHARED: x5_shared_art()},
-                     'x6_prefab_world': x6_libraries, 'x6_second_world': x6_libraries}
+                     'x6_prefab_world': x6_libraries, 'x6_second_world': x6_libraries,
+                     'x7_facility_world': x7_libraries, 'x7_second_world': x7_libraries}
