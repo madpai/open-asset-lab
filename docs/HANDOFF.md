@@ -6,6 +6,38 @@
 > major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
 > This handoff records the current state as it is.
 
+## X7: declarative event bindings, 2026-09-27
+
+MegaMod X7 made simple behaviour data (MegaMod `docs/EVENT_BINDINGS.md`):
+an event of an entity, read-only conditions, actions that request
+existing engine capabilities through one validated seam.
+
+- `assetlab/bindings.py`: `EventBinding`, `Condition`, `Action`; the
+  vocabulary, argument schemas, limits and each kind's affordances all
+  from the contract (`bindings`), never typed in here; the engine's parse
+  and rules with its words (`parse_text`, `check_one`), world bindings
+  (`world_errors`), prefab bindings (`prefab_parse`, `prefab_link`,
+  `expand`), and OAL's own check: a binding cycle no condition can break is
+  refused (`cycle_errors`; the engine would bound it at run time).
+- `prefabs.Prefab(bindings=[...])`: prefab schema 2 only when a prefab has
+  bindings -- X6 libraries are written byte for byte as before; schema 1
+  and 2 both read.
+- `world.OriginalWorld.bindings`: world_entities schema 6; validated after
+  prefab expansion (a child by its placed ID); `check_package` checks built
+  worlds the same way.
+- Fixtures: `x7.facility` (`x7:prefab/security_door`: a powered door, no
+  Lua; sounds `x7:sound/locked`, `x7:sound/chime`; reuses
+  `x6.shared_assets`), `x7_facility_world` (`f8f15ddb`: two instances, a
+  shock pad, a Lua maintenance button beside a binding), `x7_second_world`
+  (`5908f3ab`). MegaMod's `scripts/test_x7.sh` builds, refuses and plays
+  them; the emulator hosted them.
+- X1-X6 fixture bytes pinned to c420f2a's SHAs and unchanged; keys
+  unchanged. Tests: `tests/test_bindings.py` (11); suite 183/183.
+- The AI research under `docs/research/ai/` (Codex) shaped the names and
+  the seam: capability actions (`use`, `open`, `activate`, `damage`,
+  `teleport`), one path for players, Lua, bindings and future agents,
+  discoverable affordances. No AI was built.
+
 ## X6: prefabs, 2026-09-27
 
 MegaMod X6 made `prefab` a real resource type (MegaMod `docs/PREFABS.md`):

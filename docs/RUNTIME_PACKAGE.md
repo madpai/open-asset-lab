@@ -166,6 +166,29 @@ each into ordinary entities `<ns>:entity/<instance>__<child>`; schema 5
 also lets a prop carry `yaw_degrees` and `scale`. MegaMod's
 `docs/PREFABS.md` is the whole design.
 
+## Event bindings (X7)
+
+A world's `world_entities` **schema 6** adds `bindings`; a library's
+`prefabs` member **schema 2** adds a prefab's `bindings` (schema 1 is still
+written when no prefab has any):
+
+```json
+"bindings": [{"actions": [{"action": "toggle", "target": "door"}],
+              "conditions": [{"condition": "relay_state", "entity": "power", "is": "active"}],
+              "event": "used", "id": "toggle_door", "source": "button"}]
+```
+
+- canonical ID order, each once; `id` a local ID; keys sorted;
+- a world names entities by placed ID (a prefab child's too); a prefab
+  names its children by local ID, and every instance gets its own copy;
+- events, conditions and their values, actions and the arguments each takes
+  and needs, and every limit come from MegaMod's contract (`bindings`);
+- `play_sound`'s `sound` is a sound resource: imported by the world, or,
+  for a prefab, resolved from its own library.
+
+No world key schema change: both members were already played. MegaMod's
+`docs/EVENT_BINDINGS.md` is the whole design.
+
 ## The world key (MegaMod's map check)
 
 MegaMod admits a joiner only if both peers compute the same **world key**

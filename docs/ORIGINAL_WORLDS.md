@@ -205,6 +205,23 @@ whose world script toggles south's door by its placed ID. `x6_second_world`
 places one gate at 45 degrees and 1.25x in an open room. Keys `55b83b8b`
 and `f99b737d` (MegaMod agrees; `scripts/test_x6.sh`).
 
+## Event bindings and the X7 fixtures
+
+`OriginalWorld.bindings` and `Prefab.bindings` take
+`assetlab.bindings.EventBinding(id, source, event, conditions, actions)`:
+
+```python
+EventBinding('toggle_door', 'button', 'used', [Condition('relay_state', 'power', 'active')],
+             [Action('toggle', target='door')])
+```
+
+`x7_facility_world` places the powered door (`x7:prefab/security_door`)
+twice and adds its own bindings: a shock pad (`entered` -> damage 40,
+teleport, sound) and a click on the maintenance button, whose Lua script is
+the custom logic (every second press opens north's door). `x7_second_world`
+places the same prefab once. Build them with
+`assetlab fixture x7_facility_world --output ... --packages ...`.
+
 ## Asset resources and the X5 fixtures
 
 MegaMod X5 made models, materials, textures and sounds real resources a
