@@ -1,3 +1,9 @@
+<div align="center">
+
+<img src="docs/images/open-asset-lab-logo.png" alt="Open Asset Lab" width="320">
+
+</div>
+
 # Open Asset Lab
 
 **Open Asset Lab → MegaMod Engine → MegaMod Showdown / original games.**
