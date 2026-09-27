@@ -14,6 +14,16 @@ the runtime implements natively.
   teleport      a destination. Accepts `teleport`: moves the player who
                 caused the chain to its position.
 
+Mover definitions (MegaMod X2): a mover's reusable, immutable behaviour --
+the size of its box, how far and which way it slides, how fast, what it
+is made of -- can be a `MoverDefinition` with its own ID
+`namespace:mover/name`, and any number of placed movers name it and give
+only their position. The package then carries world_entities schema 2: a
+`mover_definitions` list, and movers with `definition` + `position` instead
+of inline `bounds`/`move`/`speed`. The runtime resolves each reference to
+the definition once, at load; each placed door keeps its own state. A world
+with no definitions is written exactly as before (schema 1).
+
 Links wire them: (event, target placed ID, input). Placed IDs use the
 content-ID grammar (docs/CONTENT_IDS.md) with type `entity`, in the world's
 own namespace: `x1:entity/door_main`. They name the placement, not a
@@ -36,7 +46,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field
 
-from . import ids
+from . import ids, worldkey
 from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vertices,
                       write_package)
 
@@ -45,7 +55,9 @@ from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vert
 # package instead of loading the world without its behaviour.
 VERSION = 3
 GROUP_ENTITY = 8        # a world entity's triangles; its index + 1 in bits 8..23
-ENTITY_SCHEMA = 1
+ENTITY_SCHEMA = 1          # inline movers (X1)
+DEFINITION_SCHEMA = 2      # adds mover_definitions (X2)
+MAX_MOVER_DEFINITIONS = 64
 
 # The runtime's limits (MegaMod src/asset/world_def.h); a package that
 # passes here passes there.
@@ -94,6 +106,18 @@ class Entity:
     bounds: tuple = None        # trigger: (min, max)
     move: tuple = None          # mover: offset when open
     speed: float = None         # mover: wu/s
+    definition: str = None      # mover: a MoverDefinition's ID (then only `position`: its box's centre)
+
+
+@dataclass
+class MoverDefinition:
+    """A reusable mover. Immutable data: every placement that names it gets
+    this size, travel and speed, and its own state at runtime."""
+    id: str                     # namespace:mover/name
+    size: tuple                 # the closed box's extent, wu
+    move: tuple                 # offset when open
+    speed: float                # wu/s
+    material: str               # how a placement is drawn (one box of it)
 
 
 @dataclass
@@ -114,6 +138,7 @@ class OriginalWorld:
     boxes: list
     spawns: list                 # {'position', 'yaw_degrees', 'team'}
     entities: list
+    mover_definitions: list = field(default_factory=list)
 
 
 def _finite(v, n=3):
@@ -127,6 +152,15 @@ def _a(kind):
 
 def _inside(p, lo, hi):
     return all(lo[k] <= p[k] <= hi[k] for k in range(3))
+
+
+def definition_box(world, e):
+    """A placed mover's box from its definition, or None."""
+    d = next((m for m in world.mover_definitions if m.id == e.definition), None)
+    if d is None or not _finite(e.position) or not _finite(d.size):
+        return None
+    return Box(tuple(e.position[k] - d.size[k] / 2 for k in range(3)),
+               tuple(e.position[k] + d.size[k] / 2 for k in range(3)), d.material, owner=e.id)
 
 
 def owned_bounds(world, eid):
@@ -149,6 +183,32 @@ def validate(world):
         errs.append(f'world id {world.id!r}: type must be world')
     if len(world.entities) > MAX_ENTITIES:
         errs.append(f'{len(world.entities)} entities; the runtime takes at most {MAX_ENTITIES}')
+    defs = {}
+    if len(world.mover_definitions) > MAX_MOVER_DEFINITIONS:
+        errs.append(f'{len(world.mover_definitions)} mover definitions; the runtime takes at most {MAX_MOVER_DEFINITIONS}')
+    for d in world.mover_definitions:
+        ok, why = ids.valid_id(d.id)
+        if not ok:
+            errs.append(f'{d.id!r}: malformed mover definition ID: {why}')
+            continue
+        d_ns, _, rest = d.id.partition(':')
+        if rest.partition('/')[0] != 'mover':
+            errs.append(f'{d.id}: a mover definition ID has type mover')
+            continue
+        if d_ns != ns:
+            errs.append(f'{d.id}: mover definitions belong to the world\'s namespace {ns!r}')
+        if d.id in defs:
+            errs.append(f'{d.id}: duplicate mover definition ID')
+            continue
+        defs[d.id] = d
+        if not (_finite(d.size) and all(x >= 0.01 for x in d.size)):
+            errs.append(f'{d.id}: size must be finite, at least 0.01 wu on each axis')
+        if not _finite(d.move) or not (0.01 <= math.sqrt(sum(x*x for x in d.move)) <= MAX_MOVE):
+            errs.append(f'{d.id}: move must be finite, between 0.01 and {MAX_MOVE} wu')
+        if not (isinstance(d.speed, (int, float)) and math.isfinite(d.speed) and 0 < d.speed <= MAX_SPEED):
+            errs.append(f'{d.id}: speed must be in (0, {MAX_SPEED}] wu/s')
+        if d.material not in world.materials:
+            errs.append(f'{d.id}: unknown material {d.material!r}')
     by_id = {}
     for e in world.entities:
         ok, why = ids.valid_id(e.id)
@@ -182,7 +242,24 @@ def validate(world):
                 errs.append(f'{e.id}: trigger needs finite bounds (min, max)')
             elif not all(b[1][k] - b[0][k] >= 0.05 for k in range(3)):
                 errs.append(f'{e.id}: trigger bounds are empty or thinner than 0.05 wu')
-        if e.kind == 'mover':
+        if e.definition is not None and e.kind != 'mover':
+            errs.append(f'{e.id}: only a mover takes a definition (it is {_a(e.kind)})')
+        if e.kind == 'mover' and e.definition is not None:
+            ref = e.definition
+            if ref not in defs:
+                if ref in by_id:
+                    errs.append(f'{e.id}: definition {ref} is a placed entity, expected a mover definition')
+                elif not ids.valid_id(ref)[0] or ref.partition(':')[2].partition('/')[0] != 'mover':
+                    errs.append(f'{e.id}: definition {ref!r} is not a mover definition ID (namespace:mover/name)')
+                else:
+                    errs.append(f'{e.id} references missing mover definition {ref}')
+            if not _finite(e.position):
+                errs.append(f'{e.id}: a mover with a definition needs a finite position (its box\'s centre)')
+            if e.move is not None or e.speed is not None or owned_bounds(world, e.id) is not None:
+                errs.append(f'{e.id}: a mover with a definition takes its size, move, speed and geometry from it')
+        elif e.kind == 'mover' and world.mover_definitions:
+            errs.append(f'{e.id}: in a world with mover definitions every mover names one')
+        elif e.kind == 'mover':
             if not _finite(e.move) or not (0.01 <= math.sqrt(sum(x*x for x in e.move)) <= MAX_MOVE):
                 errs.append(f'{e.id}: mover needs a finite move between 0.01 and {MAX_MOVE} wu')
             if not (isinstance(e.speed, (int, float)) and math.isfinite(e.speed) and 0 < e.speed <= MAX_SPEED):
@@ -200,6 +277,9 @@ def validate(world):
             if ln.input not in INPUTS:
                 errs.append(f'{where}: unknown input {ln.input!r}')
             t = by_id.get(ln.target)
+            if t is None and ln.target in defs:
+                errs.append(f'{e.id}: link target {ln.target} is a mover definition, expected a placed entity')
+                continue
             if t is None:
                 errs.append(f'{e.id} references missing target {ln.target}')
                 continue
@@ -274,12 +354,20 @@ def _entity_record(world, e):
         r['yaw_degrees'] = float(e.yaw_degrees)
     if e.kind == 'trigger':
         r['bounds'] = {'min': [float(x) for x in e.bounds[0]], 'max': [float(x) for x in e.bounds[1]]}
-    if e.kind == 'mover':
+    if e.kind == 'mover' and e.definition is not None:
+        r['definition'] = e.definition
+        r['position'] = [float(x) for x in e.position]
+    elif e.kind == 'mover':
         lo, hi = owned_bounds(world, e.id)
         r['bounds'] = {'min': [float(x) for x in lo], 'max': [float(x) for x in hi]}
         r['move'] = [float(x) for x in e.move]
         r['speed'] = float(e.speed)
     return r
+
+
+def _definition_record(d):
+    return {'id': d.id, 'size': [float(x) for x in d.size], 'move': [float(x) for x in d.move],
+            'speed': float(d.speed)}
 
 
 # ---- geometry -----------------------------------------------------------------
@@ -332,8 +420,13 @@ def compile_world(world, output):
     if errs:
         raise WorldError(errs)
     index_of = {e.id: i for i, e in enumerate(world.entities)}
+    defs = {d.id: d for d in world.mover_definitions}
+    # A placed mover with a definition is drawn as one box of it where it
+    # stands (the runtime's collision is the same box).
+    boxes = list(world.boxes) + [definition_box(world, e) for e in world.entities
+                                 if e.kind == 'mover' and e.definition is not None]
     vertices, src_indices, runs = [], [], []
-    for b in world.boxes:
+    for b in boxes:
         first = len(src_indices)
         _box_triangles(b, vertices, src_indices)
         owner = (GROUP_ENTITY, index_of[b.owner]) if b.owner else None
@@ -348,10 +441,18 @@ def compile_world(world, output):
     hi = [max(v[0][k] for v in vertices) for k in range(3)]
     for e in world.entities:            # a mover's open position counts too
         if e.kind == 'mover':
-            blo, bhi = owned_bounds(world, e.id)
-            lo = [min(lo[k], blo[k] + min(0.0, e.move[k])) for k in range(3)]
-            hi = [max(hi[k], bhi[k] + max(0.0, e.move[k])) for k in range(3)]
+            if e.definition is not None:
+                b = definition_box(world, e)
+                blo, bhi, move = b.min, b.max, defs[e.definition].move
+            else:
+                (blo, bhi), move = owned_bounds(world, e.id), e.move
+            lo = [min(lo[k], blo[k] + min(0.0, move[k])) for k in range(3)]
+            hi = [max(hi[k], bhi[k] + max(0.0, move[k])) for k in range(3)]
     entities = [_entity_record(world, e) for e in world.entities]
+    section = {'schema': ENTITY_SCHEMA, 'entities': entities}
+    if world.mover_definitions:
+        section = {'schema': DEFINITION_SCHEMA, 'entities': entities,
+                   'mover_definitions': [_definition_record(d) for d in world.mover_definitions]}
     kinds = {k: sum(e.kind == k for e in world.entities) for k in KINDS}
     manifest = {
         'package_version': VERSION, 'importer_version': 'original_world-0.1.0',
@@ -360,9 +461,9 @@ def compile_world(world, output):
         'source_format': 'original world (Open Asset Lab)',
         'required_open_halo_runtime': f'external-map-v{VERSION}',
         'geometry': {'vertices': len(packed), 'triangles': len(indices) // 3,
-                     'collision_triangles': collision_triangles, 'boxes': len(world.boxes)},
+                     'collision_triangles': collision_triangles, 'boxes': len(boxes)},
         'material_paths': mats, 'spawn_points': world.spawns, 'flag_points': [], 'breakables': [],
-        'world_entities': {'schema': ENTITY_SCHEMA, 'entities': entities},
+        'world_entities': section,
         'supported_features': ['boxes', 'player starts', 'world entities: ' + ', '.join(KINDS)],
         'unsupported_features': [],
         'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats),
@@ -373,8 +474,11 @@ def compile_world(world, output):
                   [_texture(world.materials[m]) for m in mats], world.spawns, lo, hi)
     with open(output, 'rb') as f:
         data = f.read()
+    digest = worldkey.world_digest(data)
     report = {'world': world.id, 'entities': len(entities), 'kinds': kinds,
+              'mover_definitions': len(world.mover_definitions), 'entity_schema': section['schema'],
               'links': sum(len(e.links) for e in world.entities),
               'triangles': len(indices) // 3, 'package_bytes': len(data),
-              'package_sha256': hashlib.sha256(data).hexdigest()}
+              'package_sha256': hashlib.sha256(data).hexdigest(),
+              'world_digest': f'{digest:016x}', 'world_key': f'{worldkey.fold(digest):08x}'}
     return manifest, report

@@ -77,3 +77,31 @@ fixture, not shipped content.
 `tests/test_world.py` covers the fixture, determinism, reordering (links
 follow IDs, the door's group index follows its new position), the audit,
 and every diagnostic above.
+
+## Mover definitions and the X2 fixture
+
+A `MoverDefinition` (`assetlab.world`) is a reusable mover: `id`
+(`namespace:mover/name`, the world's namespace, a registered ID type since
+X2), `size`, `move`, `speed` and `material`. A placed mover names it with
+`definition=` and gives only `position` (its box's centre); the compiler
+draws it as one box of the definition's material and writes
+`world_entities` schema 2 ([RUNTIME_PACKAGE.md](RUNTIME_PACKAGE.md)). The
+definition is data, not an object: MegaMod resolves each reference once at
+load and keeps each placement's state separate. Definitions exist for
+movers only.
+
+Validation adds: a malformed, wrongly typed, foreign-namespace or duplicate
+definition ID; bad size/move/speed or unknown material; a reference to a
+missing definition (`x2:entity/door_b references missing mover definition
+x2:mover/...`), to a placed entity, or with a non-mover ID; a link that
+targets a definition; a definition on a non-mover; a mover with a
+definition that also has inline parameters or geometry, or no position;
+an inline mover in a world that has definitions.
+
+`assetlab fixture x2_definition_lab`: three doorways in a dividing wall,
+each closed by a placement of `x2:mover/basic_slide_door`; `button_a ->
+relay_a -> door_a`, `button_b -> relay_b -> door_b`, `door_c` unlinked,
+plus a trigger -> teleport. Deterministic, original, 30 KB. The world
+key's coverage is tested on it (`WorldKeyTests`): geometry, collision,
+spawns, placements, definitions, links, trigger and teleport edits change
+the key; the display name, a colour and provenance do not.

@@ -181,8 +181,10 @@ def main():
     a.add_argument('paths', nargs='+', help='.oalmap/.oalasset files or folders (searched recursively)')
     a.add_argument('--namespace', help='owner to assume for packages that declare none')
     a.add_argument('--json', action='store_true')
-    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab) into an .oalmap')
+    a = sub.add_parser('fixture', help='build an original test world (x1_event_lab, x2_definition_lab) into an .oalmap')
     a.add_argument('name'); a.add_argument('--output', required=True)
+    a = sub.add_parser('world-key', help="MegaMod's world key of .oalmap packages (what two peers must agree on)")
+    a.add_argument('packages', nargs='+')
     a = sub.add_parser('report', help='compatibility report of one or more packages')
     a.add_argument('packages', nargs='+'); a.add_argument('--json', action='store_true')
     w = sub.add_parser('workshop', help="Steam Workshop: search, fetch, analyze and import (Garry's Mod by default)")
@@ -279,6 +281,9 @@ def main():
                 p.error(f"unknown fixture {args.name!r} (one of {', '.join(sorted(FIXTURES))})")
             _, report = compile_world(FIXTURES[args.name](), args.output)
             print(json.dumps(report, indent=2))
+        elif args.command == 'world-key':
+            from .worldkey import world_key
+            print(json.dumps([world_key(x) for x in args.packages], indent=2))
         elif args.command == 'report':
             compats = [read_manifest(x)['compatibility'] for x in args.packages]
             if args.json:

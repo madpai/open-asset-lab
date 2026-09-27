@@ -32,7 +32,9 @@ from .package import read_manifest
 # `entity` is a placed world entity (assetlab.world): unique within its
 # world and in the world's namespace, e.g. x1:entity/door_main. It names a
 # placement, not a reusable definition.
-TYPES = ('world', 'character', 'weapon', 'sounds', 'entity')
+# `mover` (X2) is a reusable mover definition inside a world, e.g.
+# x2:mover/basic_slide_door: any number of placed movers name it.
+TYPES = ('world', 'character', 'weapon', 'sounds', 'entity', 'mover')
 _SEGMENT = re.compile(r'[a-z][a-z0-9_]*\Z')
 LIMITS = {'namespace': 40, 'type': 24, 'name': 48, 'total': 96}
 # Built-in content the runtime provides without a package (the Halo Trial's

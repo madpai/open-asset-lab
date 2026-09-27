@@ -21,13 +21,13 @@ Runtime units: +Z up, 1 wu per unit; the floor's top is z = 0.
 """
 from __future__ import annotations
 
-from .world import Box, Entity, Link, OriginalWorld
+from .world import Box, Entity, Link, MoverDefinition, OriginalWorld
 
 NS = 'x1'
 
 
-def eid(name):
-    return f'{NS}:entity/{name}'
+def eid(name, ns=NS):
+    return f'{ns}:entity/{name}'
 
 
 MATERIALS = {
@@ -85,4 +85,83 @@ def x1_event_lab():
                          boxes=boxes, spawns=spawns, entities=entities)
 
 
-FIXTURES = {'x1_event_lab': x1_event_lab}
+# ---- x2_definition_lab ---------------------------------------------------
+# x2_definition_lab -- MegaMod's X2 slice: ONE reusable mover definition,
+# `x2:mover/basic_slide_door`, placed three times. Each door keeps its own
+# state: opening A leaves B and C shut.
+#
+#     button_a --used/activate--> relay_a --fired/open--> door_a
+#     button_b --used/activate--> relay_b --fired/open--> door_b
+#     door_c: the same definition, nothing opens it
+#     teleport_trigger --entered/teleport--> teleport_destination
+#
+#     y
+#     ^  [platform + destination]  |          [trigger pad]
+#     |                            C door_c (y 3)
+#     |  start                     B door_b (y 0)   east room
+#     |  start      button_b ->    |
+#     |                            A door_a (y -3)
+#     |             button_a ->    |
+#     +----------------------------+-----------------------> x
+#    -5                            0                       5
+#
+# Every door slides +y by 1.25 into the dividing wall at 1 wu/s.
+
+X2 = 'x2'
+X2_DOOR = f'{X2}:mover/basic_slide_door'
+X2_DOORS = {'door_a': -3.0, 'door_b': 0.0, 'door_c': 3.0}      # doorway centres (y)
+X2_BUTTONS = {'button_a': (-0.14, -4.2, 0.55), 'button_b': (-0.14, -1.3, 0.55)}
+X2_TRIGGER = ((2.5, 3.2, -0.1), (3.5, 4.2, 1.2))
+X2_DESTINATION = (-4.25, 4.1, 0.4)
+
+
+def x2_definition_lab():
+    H, W = 1.6, 0.6                                    # wall height; half a doorway's width
+    e = lambda name: eid(name, X2)
+    boxes = [
+        Box((-5, -5, -0.2), (5, 5, 0), 'floor'),
+        Box((-5.2, 5, -0.2), (5.2, 5.2, H), 'wall'),     # north
+        Box((-5.2, -5.2, -0.2), (5.2, -5, H), 'wall'),   # south
+        Box((-5.2, -5, -0.2), (-5, 5, H), 'wall'),       # west
+        Box((5, -5, -0.2), (5.2, 5, H), 'wall'),         # east
+    ]
+    # The dividing wall at x = 0: solid between the three doorways, each
+    # 1.2 wide and 1.1 high with a lintel above.
+    ys = sorted(X2_DOORS.values())
+    edges = [-5.0] + [v for y in ys for v in (y - W, y + W)] + [5.0]
+    for lo, hi in zip(edges[0::2], edges[1::2]):
+        boxes.append(Box((-0.1, lo, 0), (0.1, hi, H), 'wall'))
+    for y in ys:
+        boxes.append(Box((-0.1, y - W, 1.1), (0.1, y + W, H), 'wall'))
+    for name, (x, y, z) in X2_BUTTONS.items():
+        boxes.append(Box((-0.18, y - 0.2, z - 0.1), (-0.1, y + 0.2, z + 0.1), 'button'))
+    boxes += [
+        Box((-5, 3.3, 0), (-3.5, 5, 0.4), 'platform'),
+        Box((-4.5, 3.85, 0.4), (-4.0, 4.35, 0.42), 'destination_pad', solid=False),
+        Box((X2_TRIGGER[0][0], X2_TRIGGER[0][1], 0), (X2_TRIGGER[1][0], X2_TRIGGER[1][1], 0.02), 'trigger_pad', solid=False),
+    ]
+    definitions = [MoverDefinition(X2_DOOR, size=(0.1, 1.2, 1.1), move=(0.0, 1.25, 0.0), speed=1.0, material='door')]
+    entities = [
+        Entity(e('button_a'), 'interactable', position=X2_BUTTONS['button_a'], reach=1.0,
+               links=[Link('used', e('relay_a'), 'activate')]),
+        Entity(e('relay_a'), 'relay', links=[Link('fired', e('door_a'), 'open')]),
+        Entity(e('door_a'), 'mover', definition=X2_DOOR, position=(0.0, X2_DOORS['door_a'], 0.55)),
+        Entity(e('button_b'), 'interactable', position=X2_BUTTONS['button_b'], reach=1.0,
+               links=[Link('used', e('relay_b'), 'activate')]),
+        Entity(e('relay_b'), 'relay', links=[Link('fired', e('door_b'), 'open')]),
+        Entity(e('door_b'), 'mover', definition=X2_DOOR, position=(0.0, X2_DOORS['door_b'], 0.55)),
+        Entity(e('door_c'), 'mover', definition=X2_DOOR, position=(0.0, X2_DOORS['door_c'], 0.55)),
+        Entity(e('teleport_trigger'), 'trigger', bounds=X2_TRIGGER,
+               links=[Link('entered', e('teleport_destination'), 'teleport')]),
+        Entity(e('teleport_destination'), 'teleport', position=X2_DESTINATION, yaw_degrees=0.0),
+    ]
+    spawns = [
+        {'position': [-3.5, -3.0, 0.0], 'yaw_degrees': 0.0, 'team': None},
+        {'position': [-3.5, 0.0, 0.0], 'yaw_degrees': 0.0, 'team': None},
+    ]
+    return OriginalWorld(id=f'{X2}:world/definition_lab', file_name='x2_definition_lab',
+                         display_name='X2 Definition Lab', materials=dict(MATERIALS),
+                         boxes=boxes, spawns=spawns, entities=entities, mover_definitions=definitions)
+
+
+FIXTURES = {'x1_event_lab': x1_event_lab, 'x2_definition_lab': x2_definition_lab}

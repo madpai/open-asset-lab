@@ -40,3 +40,39 @@ does not implement world entities refuses v3 rather than load the world
 without its behaviour -- MegaMod relies on that to keep its v10 protocol
 (`docs/WORLD_ENTITIES.md` there). MegaMod parses the section with a
 bounded parser and refuses the whole package on any error.
+
+### `world_entities` schema 2: mover definitions (X2)
+
+Still OALMAP v3 (the binary layout is unchanged); the section's own
+`schema` number says what it holds. Schema 2 adds reusable mover
+definitions, and movers name one instead of carrying parameters:
+
+```json
+"world_entities": {"schema": 2,
+  "mover_definitions": [{"id": "x2:mover/basic_slide_door", "size": [0.1,1.2,1.1],
+                         "move": [0,1.25,0], "speed": 1.0}],
+  "entities": [
+    {"id": "x2:entity/door_a", "kind": "mover", "definition": "x2:mover/basic_slide_door",
+     "position": [0,-3,0.55], "links": []}, ...]}
+```
+
+`position` is the closed box's centre; the box is `size` around it. In
+schema 2 every mover names a definition and has no inline
+`bounds`/`move`/`speed`; `mover_definitions` in schema 1 is refused. An
+X1-era runtime refuses schema 2 ("unsupported schema"), so a world is never
+loaded without its definitions. Each placed door still has its own
+triangles (flagged bit 3 with its own entity index). Written only when a
+world has definitions: worlds without them are schema 1, byte-for-byte as
+before.
+
+## The world key (MegaMod's map check)
+
+MegaMod admits a joiner only if both peers compute the same **world key**
+for the package: FNV-1a 64 over the played bytes -- counts, header bounds,
+vertex/index/group/spawn records as stored, and the manifest members
+`spawn_points`, `flag_points`, `breakables`, `weather`, `world_entities`
+(exact value bytes, in manifest order) -- never provenance, reports, names
+or texture pixels. `assetlab/worldkey.py` is the reference implementation
+(its docstring has the exact stream); `assetlab world-key PKG` prints it
+and `compile_world` reports it. MegaMod's `src/asset/external_map.c`
+computes the same value.

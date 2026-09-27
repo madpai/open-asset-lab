@@ -6,10 +6,11 @@ import unittest
 from pathlib import Path
 
 from assetlab import ids
-from assetlab.fixtures import eid, x1_event_lab
-from assetlab.package import GROUP_NO_COLLISION, read_manifest
+from assetlab import worldkey
+from assetlab.fixtures import X2_DOOR, eid, x1_event_lab, x2_definition_lab
+from assetlab.package import GROUP_NO_COLLISION, manifest_json, read_manifest
 from assetlab.world import (GROUP_ENTITY, MAX_CHAIN, MAX_LINKS_PER_ENTITY, VERSION, Box, Entity, Link,
-                            WorldError, compile_world, validate)
+                            MoverDefinition, WorldError, compile_world, validate)
 
 
 def groups_of(package):
@@ -206,6 +207,223 @@ class X1FixtureTests(unittest.TestCase):
     def test_diagnostics_do_not_depend_on_the_fixture_object(self):
         w = x1_event_lab()
         self.assertEqual(validate(copy.deepcopy(w)), [])
+
+
+def x2(name):
+    return eid(name, 'x2')
+
+
+class X2DefinitionTests(unittest.TestCase):
+    """One reusable mover definition, three placements (MegaMod X2)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def build(self, world, name='w.oalmap'):
+        out = self.dir / name
+        compile_world(world, out)
+        return out
+
+    def errors(self, world):
+        return '\n'.join(validate(world))
+
+    def door(self, w, name):
+        return next(e for e in w.entities if e.id == x2(name))
+
+    def test_fixture_compiles_to_schema_2(self):
+        out = self.build(x2_definition_lab())
+        m = read_manifest(out)
+        self.assertEqual(m['package_version'], 3)               # OALMAP stays v3
+        section = m['world_entities']
+        self.assertEqual(section['schema'], 2)
+        self.assertEqual(section['mover_definitions'], [{'id': X2_DOOR, 'size': [0.1, 1.2, 1.1],
+                                                          'move': [0.0, 1.25, 0.0], 'speed': 1.0}])
+        movers = [e for e in section['entities'] if e['kind'] == 'mover']
+        self.assertEqual([e['id'] for e in movers], [x2('door_a'), x2('door_b'), x2('door_c')])
+        for e in movers:     # a reference and a place; no parameters of its own
+            self.assertEqual(set(e), {'id', 'kind', 'links', 'definition', 'position'})
+            self.assertEqual(e['definition'], X2_DOOR)
+        self.assertEqual([e['position'] for e in movers], [[0.0, -3.0, 0.55], [0.0, 0.0, 0.55], [0.0, 3.0, 0.55]])
+        # Each placed door is drawn as its own tagged group, out of static collision.
+        index = {e['id']: i for i, e in enumerate(section['entities'])}
+        tagged = sorted((g[3] >> 8) & 0xFFFF for g in groups_of(out) if g[3] & GROUP_ENTITY)
+        self.assertEqual(tagged, sorted(index[e['id']] + 1 for e in movers))
+        self.assertTrue(all(g[3] & GROUP_NO_COLLISION for g in groups_of(out) if g[3] & GROUP_ENTITY))
+
+    def test_x1_is_still_schema_1(self):
+        section = read_manifest(self.build(x1_event_lab()))['world_entities']
+        self.assertEqual(section['schema'], 1)
+        self.assertNotIn('mover_definitions', section)
+
+    def test_deterministic(self):
+        a = self.build(x2_definition_lab(), 'a.oalmap').read_bytes()
+        b = self.build(x2_definition_lab(), 'b.oalmap').read_bytes()
+        self.assertEqual(a, b)
+
+    def test_audit_accepts_mover_ids(self):
+        self.assertEqual(ids.valid_id(X2_DOOR), (True, ''))
+
+    def test_valid(self):
+        self.assertEqual(validate(x2_definition_lab()), [])
+
+    def test_missing_definition(self):
+        w = x2_definition_lab()
+        self.door(w, 'door_b').definition = 'x2:mover/basic_slide_dor'
+        self.assertIn('x2:entity/door_b references missing mover definition x2:mover/basic_slide_dor', self.errors(w))
+
+    def test_wrong_type_references(self):
+        w = x2_definition_lab()
+        self.door(w, 'door_a').definition = x2('relay_a')
+        self.door(w, 'door_b').definition = 'x2:weapon/basic_slide_door'
+        e = self.errors(w)
+        self.assertIn('x2:entity/door_a: definition x2:entity/relay_a is a placed entity, expected a mover definition', e)
+        self.assertIn("x2:entity/door_b: definition 'x2:weapon/basic_slide_door' is not a mover definition ID", e)
+        w = x2_definition_lab()
+        next(e for e in w.entities if e.id == x2('relay_a')).links = [Link('fired', X2_DOOR, 'open')]
+        self.assertIn('x2:entity/relay_a: link target x2:mover/basic_slide_door is a mover definition, expected a placed entity',
+                      self.errors(w))
+        w = x2_definition_lab()
+        next(e for e in w.entities if e.id == x2('relay_b')).definition = X2_DOOR
+        self.assertIn('x2:entity/relay_b: only a mover takes a definition (it is a relay)', self.errors(w))
+
+    def test_definition_ids(self):
+        w = x2_definition_lab()
+        d = w.mover_definitions[0]
+        w.mover_definitions += [MoverDefinition(d.id, d.size, d.move, d.speed, d.material),
+                                MoverDefinition('x2:mover/Bad-Door', d.size, d.move, d.speed, d.material),
+                                MoverDefinition('x2:entity/not_a_mover', d.size, d.move, d.speed, d.material),
+                                MoverDefinition('zz:mover/elsewhere', d.size, d.move, d.speed, d.material)]
+        e = self.errors(w)
+        self.assertIn('x2:mover/basic_slide_door: duplicate mover definition ID', e)
+        self.assertIn("'x2:mover/Bad-Door': malformed mover definition ID", e)
+        self.assertIn('x2:entity/not_a_mover: a mover definition ID has type mover', e)
+        self.assertIn("zz:mover/elsewhere: mover definitions belong to the world's namespace 'x2'", e)
+
+    def test_definition_parameters(self):
+        w = x2_definition_lab()
+        d = w.mover_definitions[0]
+        d.size, d.move, d.speed, d.material = (0.1, 0.0, 1.1), (0, 0, 0), 0, 'gold'
+        e = self.errors(w)
+        for want in ('x2:mover/basic_slide_door: size must be finite', 'x2:mover/basic_slide_door: move must be finite',
+                     'x2:mover/basic_slide_door: speed must be', "x2:mover/basic_slide_door: unknown material 'gold'"):
+            self.assertIn(want, e)
+
+    def test_placement_rules(self):
+        w = x2_definition_lab()
+        self.door(w, 'door_a').speed = 3.0
+        self.door(w, 'door_b').position = None
+        w.entities.append(Entity(x2('door_inline'), 'mover', move=(0, 1, 0), speed=1.0))
+        w.boxes.append(Box((1, 1, 0), (2, 2, 1), 'door', owner=x2('door_inline')))
+        e = self.errors(w)
+        self.assertIn('x2:entity/door_a: a mover with a definition takes its size, move, speed and geometry from it', e)
+        self.assertIn('x2:entity/door_b: a mover with a definition needs a finite position', e)
+        self.assertIn('x2:entity/door_inline: in a world with mover definitions every mover names one', e)
+
+    def test_compile_refuses_and_writes_nothing(self):
+        w = x2_definition_lab()
+        self.door(w, 'door_c').definition = 'x2:mover/nope'
+        with self.assertRaises(WorldError):
+            compile_world(w, self.dir / 'bad.oalmap')
+        self.assertFalse((self.dir / 'bad.oalmap').exists())
+
+
+class WorldKeyTests(unittest.TestCase):
+    """MegaMod's world key (assetlab.worldkey): what it covers, what it
+    leaves out. MegaMod computes the same value (scripts/test_x2.sh)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.n = 0
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def key(self, world):
+        self.n += 1
+        out = self.dir / f'k{self.n}.oalmap'
+        _, report = compile_world(world, out)
+        d = worldkey.world_digest(out.read_bytes())
+        self.assertEqual(report['world_digest'], f'{d:016x}')
+        return d
+
+    def base(self):
+        return self.key(x2_definition_lab())
+
+    def test_same_world_and_rebuild(self):
+        self.assertEqual(self.base(), self.base())
+        self.assertEqual(self.key(x1_event_lab()), self.key(x1_event_lab()))
+        self.assertNotEqual(self.base(), self.key(x1_event_lab()))
+
+    def changed(self, edit):
+        w = x2_definition_lab()
+        edit(w)
+        return self.key(w)
+
+    def test_gameplay_changes_change_it(self):
+        b = self.base()
+
+        def box(w, i):
+            return w.boxes[i]
+
+        cases = {
+            'geometry': lambda w: setattr(box(w, 0), 'max', (5, 5, 0.1)),
+            'collision': lambda w: setattr(box(w, 5), 'solid', False),
+            'spawn': lambda w: w.spawns[0].update(position=[-3.5, -2.5, 0.0]),
+            'spawn team': lambda w: w.spawns[0].update(team=1),
+            'placement': lambda w: setattr(next(e for e in w.entities if e.id == x2('door_c')), 'position', (0.0, 3.0, 0.6)),
+            'definition move': lambda w: setattr(w.mover_definitions[0], 'move', (0.0, 1.3, 0.0)),
+            'definition speed': lambda w: setattr(w.mover_definitions[0], 'speed', 2.0),
+            'definition size': lambda w: setattr(w.mover_definitions[0], 'size', (0.1, 1.2, 1.0)),
+            'event link': lambda w: setattr(next(e for e in w.entities if e.id == x2('relay_a')), 'links',
+                                            [Link('fired', x2('door_a'), 'toggle')]),
+            'link target': lambda w: setattr(next(e for e in w.entities if e.id == x2('relay_a')), 'links',
+                                             [Link('fired', x2('door_c'), 'open')]),
+            'trigger volume': lambda w: setattr(next(e for e in w.entities if e.id == x2('teleport_trigger')), 'bounds',
+                                                ((2.5, 3.2, -0.1), (3.6, 4.2, 1.2))),
+            'teleport destination': lambda w: setattr(next(e for e in w.entities if e.id == x2('teleport_destination')),
+                                                      'position', (-4.25, 4.0, 0.4)),
+            'teleport facing': lambda w: setattr(next(e for e in w.entities if e.id == x2('teleport_destination')),
+                                                 'yaw_degrees', 90.0),
+            'button reach': lambda w: setattr(next(e for e in w.entities if e.id == x2('button_a')), 'reach', 1.5),
+        }
+        for name, edit in cases.items():
+            with self.subTest(name):
+                self.assertNotEqual(self.changed(edit), b, name)
+
+    def test_provenance_and_looks_do_not(self):
+        b = self.base()
+        # Presentation: the display name, a colour (texture pixels).
+        self.assertEqual(self.changed(lambda w: setattr(w, 'display_name', 'Renamed Lab')), b)
+        self.assertEqual(self.changed(lambda w: w.materials.update(door=(10, 200, 10))), b)
+        # Provenance and reports in the manifest: rewrite the package's
+        # manifest with different ones, same geometry and entities.
+        out = self.dir / 'p.oalmap'
+        compile_world(x2_definition_lab(), out)
+        data = out.read_bytes()
+        m = read_manifest(out)
+        m.update(source_provenance='imported on another machine from /home/someone/else',
+                 importer_version='original_world-9.9.9', source_reference='a/local/path.bsp',
+                 source_sha256='0' * 64, conversion_warnings=['b', 'a'], created='2030-01-01T00:00:00Z')
+        mb = manifest_json(m)
+        ml = struct.unpack_from('<I', data, 8)[0]
+        other = data[:8] + struct.pack('<I', len(mb)) + data[12:64] + mb + data[64 + ml:]
+        self.assertNotEqual(other, data)
+        self.assertEqual(worldkey.world_digest(other), b)
+        # ...but a played member edited the same way does change it.
+        m['spawn_points'][0]['team'] = 0
+        mb = manifest_json(m)
+        other = data[:8] + struct.pack('<I', len(mb)) + data[12:64] + mb + data[64 + ml:]
+        self.assertNotEqual(worldkey.world_digest(other), b)
+
+    def test_fold_and_members(self):
+        self.assertEqual(worldkey.fold(0x1122334455667788), 0x11223344 ^ 0x55667788)
+        self.assertEqual(worldkey.manifest_members(b'{"a":[1,{"b":"}"}],"c":null}'),
+                         [('a', b'[1,{"b":"}"}]'), ('c', b'null')])
 
 
 if __name__ == '__main__':
