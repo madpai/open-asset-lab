@@ -23,6 +23,12 @@ X1 needed the compiler seam and the validation, not an authoring language.
 A future glTF importer or text format should produce the same
 `OriginalWorld` (or its successor) and reuse `validate()`.
 
+Outside the test fixtures, a world lives in a **content project**: a
+folder with `project.py` (`libraries()`, `worlds()`), built with `assetlab
+project build DIR --output BUNDLE` (`assetlab/project.py`). MegaMod: Night
+Shift (`projects/night_shift/`) is the first. A box model's texture is
+sampled with v = 0 at the face's foot and reads unmirrored on its +x face.
+
 ## Entities
 
 | Kind | Emits | Accepts | Fields |

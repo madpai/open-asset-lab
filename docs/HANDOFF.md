@@ -6,6 +6,30 @@
 > major architectural work read [`ASSET_LAB_VISION.md`](ASSET_LAB_VISION.md).**
 > This handoff records the current state as it is.
 
+## Night Shift: the first production vertical slice, 2026-09-27
+
+MegaMod: Night Shift (MegaMod `docs/night_shift/`) is a co-op horror
+scenario built as real content, not a fixture: `projects/night_shift/`
+(art, prefabs, world, one Lua script; all original, generated in code).
+
+- `assetlab project build DIR --output BUNDLE` / `assetlab project budget DIR`
+  (`assetlab/project.py`): a content project is a folder whose
+  `project.py` defines `libraries()` and `worlds()`; build writes the
+  bundle layout MegaMod reads and reports every package plus each world's
+  entity budget (by kind and prefab, against 64) and bindings (against
+  128). No new format: the same compilers as `assetlab fixture`.
+- Packages: `nightshift.assets` (17 textures/materials/models, 18 sounds),
+  `nightshift.facility` (11 prefabs), `nightshift.world01` (world
+  `nightshift:world/harrow_annex`, file `night_shift`): key `356266bd`,
+  62/64 entities, 59 bindings. Pinned in `tests/test_project.py` (12
+  tests); MegaMod's `scripts/test_night_shift.sh` plays it with a crew of
+  desktop joiners and the emulator hosted it.
+- Creator friction found (MegaMod `docs/night_shift/OAL_FRICTION.md`):
+  no plan view, no reachability check (three blocked routes found only by
+  walking), hand-listed requirements, undocumented box-face texture
+  orientation (v = 0 is a face's foot), no asset/sound preview.
+- X1-X7 fixtures unchanged. Suite 196/196.
+
 ## X7: declarative event bindings, 2026-09-27
 
 MegaMod X7 made simple behaviour data (MegaMod `docs/EVENT_BINDINGS.md`):
