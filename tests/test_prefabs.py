@@ -58,7 +58,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(pf.SEP, '__')
         self.assertEqual(set(pf.KINDS), {'interactable', 'relay', 'mover', 'trigger', 'teleport', 'prop'})
         self.assertIn('prefabs', res.WORLD_KEY['library_members'])
-        self.assertEqual(CONTRACT['world_entities']['schema'], 6)
+        self.assertEqual(CONTRACT['world_entities']['schema'], 7)
         for f in (pf.CHILD_MODEL, pf.CHILD_SOUND, pf.CHILD_SCRIPT, pf.INSTANCE_PREFAB):
             self.assertIn(f, res.REFERENCES)
         self.assertEqual(res.REFERENCES[pf.INSTANCE_PREFAB]['expects'], 'prefab')

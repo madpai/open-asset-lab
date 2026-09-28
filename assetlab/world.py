@@ -90,6 +90,7 @@ SCRIPT_SCHEMA = 3          # adds scripts, an interactable's script, ability_scr
 ASSET_SCHEMA = 4           # adds props (a model) and a mover definition's sound (X5)
 PREFAB_SCHEMA = 5          # adds prefab_instances and a prop's yaw_degrees/scale (X6)
 BINDING_SCHEMA = 6         # adds bindings (X7)
+VISUAL_SCHEMA = 7          # adds environment and bounded local lights (X9)
 MAX_MOVER_DEFINITIONS = world_state.LIMITS['mover_definitions']
 
 # The runtime's limits (MegaMod src/asset/world_def.h); a package that
@@ -167,6 +168,43 @@ class Box:
 
 
 @dataclass
+class Environment:
+    ambient: tuple             # linear RGB illumination, 0..2
+    clear: tuple               # clear/background RGB, 0..1
+    fog_color: tuple           # atmospheric RGB, 0..1
+    fog_density: float = 0.0   # exponential squared, per world unit
+    fog_start: float = 0.0     # clear air before fog
+
+    def record(self):
+        return dict(ambient=list(self.ambient), clear=list(self.clear), fog_color=list(self.fog_color),
+                    fog_density=self.fog_density, fog_start=self.fog_start)
+
+
+@dataclass
+class Light:
+    id: str                    # local ID in the world
+    type: str                  # point | spot
+    position: tuple
+    color: tuple               # linear RGB, 0..1
+    intensity: float
+    range: float
+    relay: str = None          # placed relay ID, including a prefab child
+    direction: tuple = None   # spot: unit vector, world axes
+    inner_degrees: float = None
+    outer_degrees: float = None
+
+    def record(self):
+        r = dict(id=self.id, type=self.type, position=list(self.position), color=list(self.color),
+                 intensity=self.intensity, range=self.range)
+        if self.relay is not None:
+            r['relay'] = self.relay
+        if self.type == 'spot':
+            r.update(direction=list(self.direction), inner=math.cos(math.radians(self.inner_degrees)),
+                     outer=math.cos(math.radians(self.outer_degrees)))
+        return r
+
+
+@dataclass
 class OriginalWorld:
     id: str                      # namespace:world/name
     file_name: str               # the runtime looks packages up by this (maps/<name>.oalmap)
@@ -186,6 +224,9 @@ class OriginalWorld:
     requires: list = field(default_factory=list)
     prefab_instances: list = field(default_factory=list)   # X6: prefabs.PrefabInstance
     bindings: list = field(default_factory=list)           # X7: bindings.EventBinding
+    environment: Environment = None                         # X9: schema 7
+    lights: list = field(default_factory=list)               # X9: Light placements
+    texture_style: str = 'legacy'                              # X9 worlds opt into procedural surfaces
 
 
 def _prop_transform(e):
@@ -194,6 +235,8 @@ def _prop_transform(e):
 
 def schema_of(world):
     """The world_entities schema the world needs."""
+    if world.environment is not None or world.lights:
+        return VISUAL_SCHEMA
     if world.bindings:
         return BINDING_SCHEMA
     if world.prefab_instances or any(_prop_transform(e) for e in world.entities):
@@ -381,6 +424,41 @@ def validate(world, fetch=None):
         errs += e2
     for c in expanded:
         by_id[c['id']] = Entity(c['id'], c['kind'], links=[Link(ln['event'], ln['target'], ln['input']) for ln in c['links']])
+    if world.lights and world.environment is None:
+        errs.append('world_entities: lights need an environment')
+    if world.environment is not None:
+        env = world.environment
+        for name, value, hi in [('ambient', env.ambient, 2), ('clear', env.clear, 1), ('fog_color', env.fog_color, 1)]:
+            if not _finite(value) or any(x < 0 or x > hi for x in value):
+                errs.append(f'environment: {name} must be three finite values in 0..{hi}')
+        if not (isinstance(env.fog_density, (int, float)) and math.isfinite(env.fog_density) and
+                0 <= env.fog_density <= 2 and isinstance(env.fog_start, (int, float)) and
+                math.isfinite(env.fog_start) and 0 <= env.fog_start <= 4096):
+            errs.append('environment: fog density/start out of range')
+    if len(world.lights) > 32:
+        errs.append('lights: more than 32 authored lights')
+    last = ''
+    for light in world.lights:
+        why = prefablib.local_id_error(light.id, 'light id') if isinstance(light.id, str) else 'malformed light id'
+        if why: errs.append(f'light {light.id!r}: {why}')
+        if last and light.id <= last: errs.append(f'lights: IDs must be unique and canonical at {light.id}')
+        last = light.id
+        if light.type not in ('point', 'spot'): errs.append(f'light {light.id}: type must be point or spot')
+        if not _finite(light.position) or not _finite(light.color) or any(x < 0 or x > 1 for x in light.color):
+            errs.append(f'light {light.id}: invalid position or color')
+        if not (isinstance(light.intensity, (int, float)) and math.isfinite(light.intensity) and
+                0 < light.intensity <= 16 and isinstance(light.range, (int, float)) and
+                math.isfinite(light.range) and 0.05 < light.range <= 64):
+            errs.append(f'light {light.id}: intensity or range out of bounds')
+        if light.relay is not None and (light.relay not in by_id or by_id[light.relay].kind != 'relay'):
+            errs.append(f'light {light.id}: relay {light.relay!r} is missing or not a relay')
+        if light.type == 'spot' and (not _finite(light.direction) or
+                sum(x*x for x in light.direction) < 0.0001 or
+                not isinstance(light.inner_degrees, (int, float)) or
+                not isinstance(light.outer_degrees, (int, float)) or
+                not math.isfinite(light.inner_degrees) or not math.isfinite(light.outer_degrees) or
+                not (0 <= light.inner_degrees < light.outer_degrees <= 90)):
+            errs.append(f'light {light.id}: invalid spot direction or cone')
     world._expanded = expanded
     if all(e.kind in KINDS for e in world.entities):
         errs += world_state.errors([e.kind for e in world.entities] + [c['kind'] for c in expanded])
@@ -645,12 +723,48 @@ def _texture(rgb):
     return 16, 16, bytes(px)
 
 
+def _industrial_texture(name, rgb):
+    """Original deterministic painted/concrete/metal detail, tiled one wu.
+
+    No resource download or random seed. The dark seams and sparse wear give
+    large authored boxes a surface rhythm without the X1 diagnostic check.
+    """
+    px = bytearray()
+    seed = sum((i + 1) * ord(c) for i, c in enumerate(name))
+    metal = name in ('metal', 'grate', 'bars', 'pipe', 'truck', 'generator', 'tower', 'fence')
+    floorish = name.startswith('floor') or name in ('ground', 'grate', 'water')
+    for y in range(64):
+        for x in range(64):
+            h = (x * 374761393 + y * 668265263 + seed * 2246822519) & 0xffffffff
+            h = ((h ^ (h >> 13)) * 1274126177) & 0xffffffff
+            grain = ((h >> 24) - 128) / 128.0
+            d = 1.0 + grain * (0.055 if metal else 0.085)
+            if floorish:
+                if x in (0, 1, 63) or y in (0, 1, 63): d *= 0.65
+                if x in (4, 59) and y in (4, 59): d *= 1.4
+                if name == 'grate' and (x % 12 < 3 or y % 12 < 3): d *= 0.72
+            elif metal:
+                if x in (0, 1, 31, 32, 62, 63): d *= 0.68
+                if y in (0, 1, 62, 63): d *= 0.82
+                if x in (5, 58) and y in (5, 58): d *= 1.5
+                if 27 <= x <= 29: d *= 1.12
+            else:
+                if x in (0, 1, 62, 63): d *= 0.76
+                if y in (0, 1, 63): d *= 0.88
+                if y in (16, 17): d *= 0.9
+                if h % 173 == 0: d *= 0.72
+            px += bytes(max(0, min(255, round(c * d))) for c in rgb) + b'\xff'
+    return 64, 64, bytes(px)
+
+
 def compile_world(world, output, fetch=None):
     """Validate and write `world` as an OALMAP. Raises WorldError with every
     diagnostic when it does not validate. Returns (manifest, report).
     `fetch` finds the packages it requires (X4); their content is not
     copied in -- MegaMod loads them beside the world, by package ID."""
     errs = validate(world, fetch)
+    if world.texture_style not in ('legacy', 'industrial'):
+        errs.append(f'unknown texture_style {world.texture_style!r}')
     for b in world.boxes:
         if not (_finite(b.min) and _finite(b.max) and all(b.max[k] > b.min[k] for k in range(3))):
             errs.append(f'box {b.min}..{b.max}: empty or not finite')
@@ -707,6 +821,10 @@ def compile_world(world, output, fetch=None):
             section['prefab_instances'] = instance_records(world)
     if world.bindings:
         section['bindings'] = bindlib.records(world.bindings)
+    if world.environment is not None:
+        section['environment'] = world.environment.record()
+    if world.lights:
+        section['lights'] = [light.record() for light in world.lights]
     kinds = {k: sum(e.kind == k for e in world.entities) for k in KINDS}
     manifest = {
         'package_version': VERSION, 'importer_version': 'original_world-0.1.0',
@@ -731,7 +849,8 @@ def compile_world(world, output, fetch=None):
         manifest['package'] = decl.record()
     manifest_bytes = manifest_json(manifest)
     write_package(output, VERSION, manifest_bytes, packed, indices, groups,
-                  [_texture(world.materials[m]) for m in mats], world.spawns, lo, hi)
+                  [(_industrial_texture(m, world.materials[m]) if world.texture_style == 'industrial' else
+                    _texture(world.materials[m])) for m in mats], world.spawns, lo, hi)
     with open(output, 'rb') as f:
         data = f.read()
     digest = worldkey.world_digest(data, fetch)

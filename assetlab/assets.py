@@ -42,7 +42,8 @@ KINDS = ('texture', 'material', 'model', 'sound')
 LIST = {'texture': 'textures', 'material': 'materials', 'model': 'models', 'sound': 'sounds'}
 DIRS = {'texture': ('textures', 'rgba'), 'model': ('models', 'mesh'), 'sound': ('sounds', 'pcm')}
 # A descriptor's fields, in the engine's reading order (asset_res.c KEYS).
-KEYS = ('id', 'member', 'format', 'width', 'height', 'texture', 'draw', 'materials', 'rate', 'channels', 'frames')
+KEYS = ('id', 'member', 'format', 'width', 'height', 'texture', 'draw', 'materials', 'rate', 'channels', 'frames',
+        'emissive', 'roughness')
 FIELDS = {t: tuple(k for k in KEYS if k in TYPES[t]['fields']) for t in KINDS}
 
 
@@ -123,6 +124,8 @@ class Material:
     texture: str                  # a texture resource ID (the library's own, or imported)
     draw: str = 'opaque'          # opaque | alpha
     provenance: dict = field(default_factory=dict)
+    emissive: float = 0.0         # schema 2: base RGB emission, 0..4
+    roughness: float = None       # schema 2: 0 sharp metal .. 1 matte
 
 
 @dataclass
@@ -194,7 +197,10 @@ def _descriptor(kind, r, member):
     if kind == 'texture':
         return {'format': 'rgba8', 'height': r.height, 'id': r.id, 'member': member, 'width': r.width}
     if kind == 'material':
-        return {'draw': r.draw, 'id': r.id, 'texture': r.texture}
+        d = {'draw': r.draw, 'id': r.id, 'texture': r.texture}
+        if r.roughness is not None or r.emissive:
+            d.update(emissive=r.emissive, roughness=0.75 if r.roughness is None else r.roughness)
+        return d
     if kind == 'model':
         return {'format': 'mesh1', 'id': r.id, 'materials': list(r.materials), 'member': member}
     return {'channels': r.channels, 'format': 'pcm_s16le', 'frames': r.frames, 'id': r.id, 'member': member,
@@ -227,8 +233,9 @@ def build(textures=(), materials=(), models=(), sounds=()):
             if r.provenance:
                 provenance[r.id] = dict(r.provenance)
     paths = sorted(blobs, key=res._bytes)
+    schema = 2 if any('emissive' in d for d in descs['material']) else 1
     assets = {'materials': descs['material'], 'members': [{'path': p, 'size': len(blobs[p])} for p in paths],
-              'models': descs['model'], 'schema': SCHEMA, 'sounds': descs['sound'], 'textures': descs['texture']}
+              'models': descs['model'], 'schema': schema, 'sounds': descs['sound'], 'textures': descs['texture']}
     provides = sorted((r.id for kind in KINDS for r in groups[kind]), key=res._bytes)
     return assets, b''.join(blobs[p] for p in paths), provides, provenance
 
@@ -260,8 +267,14 @@ def validate(textures=(), materials=(), models=(), sounds=()):
                     errs.append(f"{r.id}: width and height must be whole numbers in 1..{TYPES['texture']['max_side']}")
                 elif len(r.rgba) != r.width * r.height * 4:
                     errs.append(f'{r.id}: {r.width}x{r.height} rgba8 is {r.width * r.height * 4} bytes, not {len(r.rgba)}')
-            elif kind == 'material' and r.draw not in TYPES['material']['draw']:
-                errs.append(f"{r.id}: unknown draw '{r.draw}' (opaque or alpha)")
+            elif kind == 'material':
+                if r.draw not in TYPES['material']['draw']:
+                    errs.append(f"{r.id}: unknown draw '{r.draw}' (opaque or alpha)")
+                if not isinstance(r.emissive, (int, float)) or not math.isfinite(r.emissive) or not 0 <= r.emissive <= 4:
+                    errs.append(f'{r.id}: emissive must be finite in 0..4')
+                if r.roughness is not None and (not isinstance(r.roughness, (int, float)) or
+                        not math.isfinite(r.roughness) or not 0 <= r.roughness <= 1):
+                    errs.append(f'{r.id}: roughness must be finite in 0..1')
             elif kind == 'model':
                 if not r.materials or len(r.materials) > TYPES['model']['max_slots']:
                     errs.append(f"{r.id}: a model needs 1..{TYPES['model']['max_slots']} materials")
@@ -374,7 +387,7 @@ def parse(manifest, payload, pkg):
             continue
         v = a[key]
         if key == 'schema':
-            if v != SCHEMA:
+            if v not in (1, 2):
                 raise AssetError(f'{pkg}: unsupported assets schema {v:g} (this engine has {SCHEMA})'
                                  if isinstance(v, (int, float)) else f'{pkg}: malformed assets schema')
             continue
@@ -431,7 +444,7 @@ def parse(manifest, payload, pkg):
                 raise AssetError(f'{pkg}: {rid} is declared twice' if out[-1]['id'] == rid else
                                  f'{pkg}: assets.{key} is not in canonical (byte) order at {rid}')
             for k in KEYS:
-                if k in d and k not in FIELDS[kind]:
+                if k in d and k not in FIELDS[kind] and not (kind == 'material' and k in ('emissive', 'roughness')):
                     raise AssetError(f"{pkg}: {rid}: a {res.noun(kind)} has no field '{k}'")
                 if k not in d and k in FIELDS[kind]:
                     raise AssetError(f"{pkg}: {rid}: a {res.noun(kind)} needs '{k}'")
@@ -448,6 +461,13 @@ def parse(manifest, payload, pkg):
             elif kind == 'material':
                 if d['draw'] not in TYPES['material']['draw']:
                     raise AssetError(f"{pkg}: {rid}: unknown draw '{d['draw']}' (opaque or alpha)")
+                if any(k in d for k in ('emissive', 'roughness')):
+                    if a.get('schema') != 2:
+                        raise AssetError(f'{pkg}: emissive and roughness need assets schema 2')
+                    e, r = d.get('emissive', 0), d.get('roughness', 0.75)
+                    if not (isinstance(e, (int, float)) and math.isfinite(e) and 0 <= e <= 4 and
+                            isinstance(r, (int, float)) and math.isfinite(r) and 0 <= r <= 1):
+                        raise AssetError(f'{pkg}: {rid}: emissive must be 0..4 and roughness 0..1')
             elif kind == 'model':
                 if d['format'] != 'mesh1':
                     raise AssetError(f"{pkg}: {rid}: unsupported model format '{d['format']}' (this engine reads mesh1)")

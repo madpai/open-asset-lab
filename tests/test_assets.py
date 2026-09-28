@@ -50,7 +50,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(assetlib.SCHEMA, a['schema'])
         self.assertEqual(assetlib.LIMITS, a['limits'])
         self.assertEqual(assetlib.TYPES['model']['max_slots'], 16)
-        self.assertEqual(CONTRACT['world_entities']['schema'], 6)          # X7: bindings (X6 worlds are still written as 5)
+        self.assertEqual(CONTRACT['world_entities']['schema'], 7)          # X9: environment and lights
         self.assertIn('prop', CONTRACT['world_entities']['kinds'])
         # Four asset types are real (X5); prefabs too since X6.
         for t in assetlib.KINDS:
@@ -135,7 +135,7 @@ class LibraryTests(unittest.TestCase):
                 ('"format":"mesh1"', '"format":"mdl"', f"{P}: ta:model/crate: unsupported model format 'mdl'"),
                 ('"draw":"opaque"', '"draw":"glow"', "unknown draw 'glow'"),
                 ('"width":2}', '"width":2,"vtf":"x"}', f"{P}: ta:texture/crate: unknown or repeated field 'vtf' in assets.textures"),
-                ('"schema":1,"sounds"', '"schema":2,"sounds"', f'{P}: unsupported assets schema 2 (this engine has 1)'),
+                ('"schema":1,"sounds"', '"schema":3,"sounds"', f'{P}: unsupported assets schema 3 (this engine has 2)'),
                 ('"provides":["ta:material/crate",', '"provides":[', f'{P} has material ta:material/crate but does not list it in provides'),
                 ('"ta:texture/crate"],"requires"', '"ta:texture/crate","ta:texture/more"],"requires"',
                  f'{P} lists ta:texture/more in provides, but has no such texture'),
