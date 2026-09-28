@@ -192,6 +192,12 @@ def main():
     a = sub.add_parser('fixture', help='build an original test world (x1_event_lab ... x6_second_world) into an .oalmap')
     a.add_argument('name'); a.add_argument('--output', required=True)
     a.add_argument('--packages', help="where the library packages it requires go (default: packages/ beside --output)")
+    a = sub.add_parser('project', help='build a content project (a folder with project.py: libraries() and worlds())')
+    psub = a.add_subparsers(dest='project_command', required=True)
+    x = psub.add_parser('build', help='write every library and world into a bundle (packages/, maps/) and report')
+    x.add_argument('path'); x.add_argument('--output', required=True, help='the bundle directory'); x.add_argument('--json', action='store_true')
+    x = psub.add_parser('budget', help="validate and report entity/binding budgets; write nothing")
+    x.add_argument('path'); x.add_argument('--json', action='store_true')
     a = sub.add_parser('world-key', help="MegaMod's world key of .oalmap packages (what two peers must agree on)")
     a.add_argument('packages', nargs='+')
     a.add_argument('--packages-dir', action='append', default=[],
@@ -327,6 +333,10 @@ def main():
             if built:
                 report['libraries'] = built
             print(json.dumps(report, indent=2))
+        elif args.command == 'project':
+            from .project import build, text
+            r = build(args.path, args.output if args.project_command == 'build' else None)
+            print(json.dumps(r, indent=2) if args.json else text(r))
         elif args.command == 'world-key':
             from .dependencies import directory_source
             from .worldkey import world_key
