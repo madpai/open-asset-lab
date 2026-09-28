@@ -586,7 +586,9 @@ def expand(namespace, inst, prefab):
     return out
 
 
-MAX_ENTITIES, MAX_LINKS, MAX_MOVER_DEFS = LIMITS['expanded_entities'], 256, LIMITS['expanded_mover_definitions']
+MAX_ENTITIES, MAX_LINKS, MAX_MOVER_DEFS = (LIMITS['expanded_entities'],
+                                         res.CONTRACT['world_state']['limits']['links'],
+                                         LIMITS['expanded_mover_definitions'])
 
 
 def instances_errors(records):

@@ -1,5 +1,18 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## X8 world state, 2026-09-27
+
+MegaMod's v11 contract is copied to `assetlab/data/megamod_resources.json`.
+`assetlab/world_state.py` derives runtime, spatial and logical limits and
+snapshot bytes from it. World validation counts authored and expanded
+entities; `assetlab project budget` reports the channels and costs. The
+original Night Shift package remains pinned at key `356266bd`, 62 objects.
+`projects/night_shift/project_x8.py` builds a separate package with the
+two cut doors restored: 74 objects (23 movers, 11 relays, 40 host-only),
+39 bytes at rest, key `cc52fc69`. MegaMod's `scripts/test_x8.sh` checks
+the build against the live engine and a desktop joiner. Unit tests cover
+the formula, limits and old fixture identity.
+
 > **Direction (2026-09-26):** Open Asset Lab is becoming the general
 > content compiler for MegaMod, not a Source converter; Source/GMod is the
 > first importer family and Steam Workshop the first provider. **Before

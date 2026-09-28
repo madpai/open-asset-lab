@@ -14,7 +14,7 @@ and may import sibling modules (DIR goes first on sys.path while it loads).
 -- the layout MegaMod's --bundle reads -- through the same compilers as
 `assetlab fixture`, and reports every package and each world's ENTITY
 BUDGET: hand-placed and expanded entities by kind and by prefab, against the
-runtime's 64-entity limit (WORLD_STATE's index under protocol v10).
+runtime, spatial and logical limits from MegaMod's X8 contract.
 `budget` validates and reports without writing anything.
 
 Nothing here is a new format: a project is code over the same authoring
@@ -31,8 +31,9 @@ from pathlib import Path
 
 from .dependencies import compile_library, mapping_source
 from .world import KINDS, MAX_ENTITIES, compile_world
+from .world_state import LIMITS
 
-LIMIT_BINDINGS = 128
+LIMIT_BINDINGS = LIMITS['bindings']
 
 
 def load(path):
@@ -75,8 +76,10 @@ def budget(world, report):
         kinds[c['kind']] += 1
     total = len(world.entities) + len(expanded)
     own = len(world.bindings)
+    state = report['world_state']
     return {
         'limit': MAX_ENTITIES, 'total': total, 'headroom': MAX_ENTITIES - total,
+        'world_state': {k: v for k, v in state.items() if k != 'objects'},
         'hand_placed': {'total': len(world.entities), 'kinds': {k: placed[k] for k in KINDS if placed[k]}},
         'prefab_instances': len(world.prefab_instances),
         'expanded': {'total': len(expanded),
@@ -130,6 +133,10 @@ def text(report):
         lines.append(f"    entities {b['total']}/{b['limit']} (headroom {b['headroom']}): {b['hand_placed']['total']} hand-placed "
                      f"+ {b['expanded']['total']} from {b['prefab_instances']} prefab instances")
         lines.append('    by kind: ' + ', '.join(f'{k} {n}' for k, n in b['kinds'].items()))
+        s = b['world_state']
+        lines.append(f"    replication: {s['spatial']} spatial, {s['logical']} logical, {s['host_only']} host-only; "
+                     f"WORLD_STATE {s['snapshot_bytes']['at_rest']} bytes at rest, "
+                     f"{s['snapshot_bytes']['all_moving']} bytes all moving (payload)")
         for pid, p in b['expanded']['by_prefab'].items():
             lines.append(f"    {pid}: {p['instances']} x {p['per_instance']} = {p['entities']}")
         lines.append(f"    bindings {b['bindings']['total']}/{b['bindings']['limit']} "

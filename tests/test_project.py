@@ -16,6 +16,7 @@ from assetlab.dependencies import read_library
 
 ROOT = Path(__file__).resolve().parent.parent
 NIGHT_SHIFT = ROOT / 'projects' / 'night_shift'
+NIGHT_SHIFT_X8 = NIGHT_SHIFT / 'project_x8.py'
 
 
 def _sha(p):
@@ -44,8 +45,10 @@ class ProjectCommandTests(unittest.TestCase):
             r = project.build(d, Path(tmp) / 'out')
             self.assertTrue((Path(tmp) / 'out/maps/tiny_room.oalmap').is_file())
             b = r['worlds'][0]['budget']
-            self.assertEqual((b['total'], b['headroom'], b['hand_placed']['kinds']), (1, 63, {'relay': 1}))
-            self.assertIn('entities 1/64 (headroom 63)', project.text(r))
+            self.assertEqual((b['total'], b['headroom'], b['hand_placed']['kinds']), (1, 1023, {'relay': 1}))
+            self.assertEqual((b['world_state']['spatial'], b['world_state']['logical'],
+                              b['world_state']['snapshot_bytes']['at_rest']), (0, 1, 11))
+            self.assertIn('entities 1/1024 (headroom 1023)', project.text(r))
 
     def test_budget_writes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -109,6 +112,19 @@ class NightShiftTests(unittest.TestCase):
         self.assertLessEqual(b['bindings']['total'], project.LIMIT_BINDINGS)
         self.assertEqual(b['expanded']['by_prefab']['nightshift:prefab/security_door']['per_instance'], 6)
         self.assertEqual(b['total'], b['hand_placed']['total'] + b['expanded']['total'])
+        self.assertEqual(b['world_state']['runtime_objects'], b['total'])
+        self.assertEqual(b['world_state']['spatial'] + b['world_state']['logical'] + b['world_state']['host_only'], b['total'])
+
+    def test_x8_restores_two_doors_without_changing_the_original(self):
+        x8 = project.build(NIGHT_SHIFT_X8)['worlds'][0]
+        b = x8['budget']
+        self.assertEqual((self.report['worlds'][0]['world_key'], self.report['worlds'][0]['budget']['total']),
+                         ('356266bd', 62))
+        self.assertEqual((b['total'], b['world_state']['spatial'], b['world_state']['logical'],
+                          b['world_state']['host_only']), (74, 23, 11, 40))
+        self.assertEqual(b['world_state']['snapshot_bytes'],
+                         {'at_rest': 39, 'all_moving': 85, 'packet_at_rest': 59})
+        self.assertEqual(x8['world_key'], 'cc52fc69')
 
     def test_resources_are_logical_ids_not_paths(self):
         lib = read_library((self.out / 'packages/nightshift.assets.oalasset').read_bytes())
@@ -162,7 +178,7 @@ class NightShiftTests(unittest.TestCase):
             print(project.text(self.report))
         s = buf.getvalue()
         self.assertIn('nightshift:prefab/security_door: 3 x 6 = 18', s)
-        self.assertRegex(s, r'entities \d+/64')
+        self.assertRegex(s, r'entities \d+/1024')
 
 
 if __name__ == '__main__':

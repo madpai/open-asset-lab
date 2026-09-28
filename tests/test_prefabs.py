@@ -53,7 +53,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(pf.member_schema([x6_security_door()]), 1)
         self.assertEqual(pf.LIMITS, p['limits'])
         self.assertEqual(pf.LIMITS['children'], 16)
-        self.assertEqual(pf.LIMITS['expanded_entities'], 64)
+        self.assertEqual(pf.LIMITS['expanded_entities'], 1024)
         self.assertFalse(p['nesting']['supported'])
         self.assertEqual(pf.SEP, '__')
         self.assertEqual(set(pf.KINDS), {'interactable', 'relay', 'mover', 'trigger', 'teleport', 'prop'})
@@ -214,7 +214,7 @@ class WorldTests(unittest.TestCase):
         self.assertIn("x6:entity/north_door__door: '__' is reserved for prefab children", errors_of_world(w))
         w = x6_prefab_world()
         w.prefab_instances += [PrefabInstance(f'n{i:02d}', X6_DOOR, (0.0, 0.0, 0.0)) for i in range(11)]
-        self.assertIn('prefab instance n10 expands the world to 67 entities, exceeding limit 64', errors_of_world(w))
+        self.assertEqual(errors_of_world(w), '')  # X8: 67 objects are ordinary, within the runtime limit
         w = x6_prefab_world(); w.prefab_instances[1].scale = 4.0
         self.assertIn("prefab instance south_door (x6:prefab/security_door) child 'button': reach 4.8 after scale 4 exceeds 4 wu",
                       errors_of_world(w))

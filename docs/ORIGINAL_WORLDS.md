@@ -1,5 +1,12 @@
 # Original worlds and generic world entities
 
+> **X8 update:** current world limits and replication costs come from the
+> engine's exported `world_state` contract (`assetlab/data/megamod_resources.json`).
+> Runtime objects, mover states and relay flags have separate capacities;
+> `assetlab project budget` reports all three and both at-rest and moving
+> snapshot bytes. The original X1 examples and their 64-object limits below
+> are historical. See MegaMod's `docs/WORLD_STATE.md` for protocol v11.
+
 **Status:** implemented 2026-09-26 for MegaMod's X1 slice. The runtime side
 is MegaMod's [`docs/WORLD_ENTITIES.md`](https://github.com/madpai/megamod-showdown/blob/main/docs/WORLD_ENTITIES.md).
 
@@ -247,4 +254,3 @@ two crates in the west room and knocking doors. `x5_second_world` is a
 second consumer (the X1 room, its door a definition, one crate). MegaMod's
 `scripts/test_x5.sh` builds both, refuses every broken variant with the same
 words as `assetlab resources check`, and plays them.
-

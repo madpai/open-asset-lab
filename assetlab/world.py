@@ -75,7 +75,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field
 
-from . import bindings as bindlib, dependencies as deplib, ids, prefabs as prefablib, resources as res, scripts as scriptlib, worldkey
+from . import bindings as bindlib, dependencies as deplib, ids, prefabs as prefablib, resources as res, scripts as scriptlib, worldkey, world_state
 from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vertices,
                       write_package)
 
@@ -90,13 +90,13 @@ SCRIPT_SCHEMA = 3          # adds scripts, an interactable's script, ability_scr
 ASSET_SCHEMA = 4           # adds props (a model) and a mover definition's sound (X5)
 PREFAB_SCHEMA = 5          # adds prefab_instances and a prop's yaw_degrees/scale (X6)
 BINDING_SCHEMA = 6         # adds bindings (X7)
-MAX_MOVER_DEFINITIONS = 64
+MAX_MOVER_DEFINITIONS = world_state.LIMITS['mover_definitions']
 
 # The runtime's limits (MegaMod src/asset/world_def.h); a package that
 # passes here passes there.
-MAX_ENTITIES = 64
+MAX_ENTITIES = world_state.LIMITS['runtime_objects']
 MAX_LINKS_PER_ENTITY = 8
-MAX_LINKS = 256
+MAX_LINKS = world_state.LIMITS['links']
 MAX_CHAIN = 16          # links from a root event to the last one it causes
 MAX_EVENTS_PER_ROOT = 256
 MAX_REACH = 4.0         # wu
@@ -382,6 +382,8 @@ def validate(world, fetch=None):
     for c in expanded:
         by_id[c['id']] = Entity(c['id'], c['kind'], links=[Link(ln['event'], ln['target'], ln['input']) for ln in c['links']])
     world._expanded = expanded
+    if all(e.kind in KINDS for e in world.entities):
+        errs += world_state.errors([e.kind for e in world.entities] + [c['kind'] for c in expanded])
     for d in world.mover_definitions:
         if d.sound is not None and d.id in defs:
             try:
@@ -749,4 +751,6 @@ def compile_world(world, output, fetch=None):
               'triangles': len(indices) // 3, 'package_bytes': len(data),
               'package_sha256': hashlib.sha256(data).hexdigest(),
               'world_digest': f'{digest:016x}', 'world_key': f'{worldkey.fold(digest):08x}'}
+    report['world_state'] = world_state.count([e.kind for e in world.entities] +
+                                               [c['kind'] for c in getattr(world, '_expanded', [])])
     return manifest, report

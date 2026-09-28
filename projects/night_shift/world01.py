@@ -24,9 +24,9 @@ docs/night_shift/GAME_FLOW.md in MegaMod for the play-through):
       +-----------------------------------------------------> x
       -16      -9     -0.8  0.8   4  7          17.4 18.6
 
-Budget: the world is written against WORLD_STATE's 64-entity index; every
-visible fixture that does not move or react is world geometry (boxes), not
-a prop. See docs/night_shift/ENTITY_BUDGET.md.
+Historical budget: this original world was written against v10's 64-entity
+index and stays byte for byte stable. world_x8.py is the separate 74-object
+variant. See MegaMod docs/night_shift/ENTITY_BUDGET.md.
 """
 from __future__ import annotations
 

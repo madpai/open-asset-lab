@@ -7,6 +7,7 @@ scenario in HARROW ANNEX. Every asset is original and generated here
 ```sh
 python -m assetlab project budget projects/night_shift            # validate + entity/binding budget
 python -m assetlab project build projects/night_shift --output BUNDLE
+python -m assetlab project build projects/night_shift/project_x8.py --output X8_BUNDLE
 ```
 
 | File | Package |
@@ -16,6 +17,7 @@ python -m assetlab project build projects/night_shift --output BUNDLE
 | `world01.py` | `nightshift.world01` -- the world `nightshift:world/harrow_annex` (file `night_shift`) |
 | `scripts/anomaly.lua` | `nightshift:script/anomaly`, the one Lua script |
 | `project.py` | what `assetlab project` builds |
+| `world_x8.py`, `project_x8.py` | a separate X8 world that restores D2 and D5: 74 runtime objects, 23 spatial, 11 logical, 40 host-only; original world01 bytes unchanged |
 
 Design, findings and the end-to-end test live in MegaMod:
 `docs/night_shift/` and `scripts/test_night_shift.sh`
