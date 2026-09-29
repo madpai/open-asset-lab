@@ -1,5 +1,13 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## Current MegaMod contract, 2026-09-29
+
+`assetlab/data/megamod_resources.json` now matches MegaMod protocol v12.
+The update copies the new protocol version after MegaMod added its Scenario
+game-mode value. WORLD_STATE remains message format 1; no Open Asset Lab
+package format, compiler behavior or Night Shift package identity changed.
+The v11 section below records the original X8 milestone.
+
 ## X8 world state, 2026-09-27
 
 MegaMod's v11 contract is copied to `assetlab/data/megamod_resources.json`.
