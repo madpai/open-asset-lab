@@ -50,7 +50,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(assetlib.SCHEMA, a['schema'])
         self.assertEqual(assetlib.LIMITS, a['limits'])
         self.assertEqual(assetlib.TYPES['model']['max_slots'], 16)
-        self.assertEqual(CONTRACT['world_entities']['schema'], 8)          # X10: racing
+        self.assertEqual(CONTRACT['world_entities']['schema'], 9)          # X10: racing
         self.assertIn('prop', CONTRACT['world_entities']['kinds'])
         # Four asset types are real (X5); prefabs too since X6.
         for t in assetlib.KINDS:

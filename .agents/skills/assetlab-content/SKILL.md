@@ -66,3 +66,26 @@ semantics; coordinate any contract change in both repositories.
 
 Methodology and proposed follow-ups:
 [Universal Modder study](https://github.com/madpai/megamod-showdown/blob/main/docs/research/UNIVERSAL_MODDER.md).
+
+
+## Classic Oblivion prototype
+
+For owner-supplied classic archives use `docs/OBLIVION_IMPORT.md` and the
+optional `oblivion-model` CLI. Strict static imports first; frozen actors only
+with explicit stored-pose diagnostics. Measure pivot/scale/grip and render in
+the native engine. Neither imported artwork nor successful loading proves
+skeletal animation, plugin mechanics or wearable armor. Use an original BSA/NIF
+fixture for reader changes and `projects/gatebound` for survival contract work.
+
+For animation-only Source `UseHands` viewmodels, explicitly supply the donor
+`hands_model`; map bone names and inspect visible geometry in the native
+renderer. Refuse zero-vertex viewmodels. For Oblivion first-person assets,
+check blade direction, hand placement and casting in Android, and label
+authored root clips separately from unsupported original KF animation.
+Use real normalized diffuse pixels and floor/gate meshes where available.
+Inspect the in-game HUD and inventory on an Android screen: Android widget
+text units differ from Canvas pixels, and package presence alone proves
+neither correct presentation nor that the runtime actually loaded the roster.
+For wielded NIF weapons, inspect optional scabbard/attachment subtrees and
+exclude them explicitly by name when appropriate; preserve this selection
+in provenance. A covered blade is not an orientation or texture problem.

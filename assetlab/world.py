@@ -75,7 +75,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field
 
-from . import bindings as bindlib, dependencies as deplib, ids, prefabs as prefablib, racing as racinglib, resources as res, scripts as scriptlib, worldkey, world_state
+from . import bindings as bindlib, dependencies as deplib, ids, prefabs as prefablib, racing as racinglib, survival as survivallib, resources as res, scripts as scriptlib, worldkey, world_state
 from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vertices,
                       write_package)
 
@@ -222,6 +222,14 @@ class Light:
 
 
 @dataclass
+class ModelPlacement:
+    model: object               # normalized assets.Model, preserving UVs/normals
+    position: tuple = (0,0,0)
+    scale: float = 1
+    solid: bool = True
+
+
+@dataclass
 class OriginalWorld:
     id: str                      # namespace:world/name
     file_name: str               # the runtime looks packages up by this (maps/<name>.oalmap)
@@ -247,6 +255,10 @@ class OriginalWorld:
     quads: list = field(default_factory=list)                 # original sloped geometry; no schema change
     triangles: list = field(default_factory=list)
     racing: racinglib.RaceConfig = None
+    survival: survivallib.SurvivalConfig = None
+    material_textures: dict = field(default_factory=dict)  # material key -> normalized assets.Texture
+    provenance: object = None
+    model_geometry: list = field(default_factory=list)
 
 
 def _prop_transform(e):
@@ -255,6 +267,8 @@ def _prop_transform(e):
 
 def schema_of(world):
     """The world_entities schema the world needs."""
+    if world.survival is not None:
+        return 9
     if world.racing is not None:
         return RACING_SCHEMA
     if world.environment is not None or world.lights:
@@ -427,6 +441,9 @@ def validate(world, fetch=None):
             if e.id in by_id and '__' in e.id.partition('/')[2]:
                 errs.append(f"{e.id}: '__' is reserved for prefab children (<instance>__<child>)")
     rs, imported, deps = _resources(world, by_id, defs, fetch, errs)
+    if world.survival is not None:
+        errs += survivallib.errors(world.survival)
+        if world.racing is not None: errs.append('survival and racing cannot share a world')
     if world.racing is not None:
         errs += racinglib.errors(world.racing)
         if isinstance(world.racing.model,str):
@@ -855,6 +872,18 @@ def compile_world(world, output, fetch=None):
         n=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
         if sum(x*x for x in n)<1e-6:
             errs.append(f'triangle {i}: degenerate')
+    for placement in world.model_geometry:
+        model=placement.model
+        if not _finite(placement.position) or not isinstance(placement.scale,(int,float)) or not math.isfinite(placement.scale) or not 0<placement.scale<=100:
+            errs.append('invalid normalized model placement')
+        if any(m not in world.materials or m not in world.material_textures for m in model.materials):
+            errs.append('normalized model needs every material and texture')
+        if not model.vertices or len(model.indices)%3 or any(i<0 or i>=len(model.vertices) for i in model.indices):errs.append('invalid normalized model geometry')
+        if any(not all(math.isfinite(x) for x in (*p,*n,*uv)) for p,n,uv in model.vertices):errs.append('nonfinite normalized model vertex')
+        if any(first<0 or count<=0 or count%3 or first+count>len(model.indices) or slot<0 or slot>=len(model.materials) for first,count,slot in model.groups):errs.append('invalid normalized model groups')
+    for name,t in world.material_textures.items():
+        if name not in world.materials or type(t.width) is not int or type(t.height) is not int or not 1<=t.width<=8192 or not 1<=t.height<=8192 or len(t.rgba)!=t.width*t.height*4 or len(t.rgba)>64*1024*1024:
+            errs.append('invalid authored material texture '+name)
     if not world.spawns:
         errs.append('the world has no player start')
     if errs:
@@ -880,6 +909,12 @@ def compile_world(world, output, fetch=None):
         first=len(src_indices)
         _triangle(t,vertices,src_indices)
         runs.append((t.material,first,len(src_indices)-first,t.solid,None))
+    for placement in world.model_geometry:
+        model=placement.model;base=len(vertices)
+        vertices +=[(tuple(p[k]*placement.scale+placement.position[k] for k in range(3)),n,uv) for p,n,uv in model.vertices]
+        for first,count,slot in model.groups:
+            start=len(src_indices);src_indices +=[base+i for i in model.indices[first:first+count]]
+            runs.append((model.materials[slot],start,count,placement.solid,None))
     mats = sorted(world.materials)
     tex_index = {m: i for i, m in enumerate(mats)}
     indices, groups, collision_triangles = build_groups(runs, src_indices, tex_index, lambda m: False,
@@ -920,6 +955,8 @@ def compile_world(world, output, fetch=None):
         section['lights'] = [light.record() for light in world.lights]
     if world.racing is not None:
         section['racing'] = world.racing.record()
+    if world.survival is not None:
+        section['survival'] = world.survival.record()
     kinds = {k: sum(e.kind == k for e in world.entities) for k in KINDS}
     manifest = {
         'package_version': VERSION, 'importer_version': 'original_world-0.1.0',
@@ -938,14 +975,14 @@ def compile_world(world, output, fetch=None):
             k for k in KINDS if k != 'prop' or any(e.kind == 'prop' for e in world.entities))],
         'unsupported_features': [],
         'bounds': {'min': lo, 'max': hi}, 'texture_count': len(mats),
-        'source_provenance': 'original content built by Open Asset Lab; no third-party assets',
+        'source_provenance': world.provenance or 'original content built by Open Asset Lab; no third-party assets',
     }
     decl = declaration(world)
     if decl is not None:
         manifest['package'] = decl.record()
     manifest_bytes = manifest_json(manifest)
     write_package(output, VERSION, manifest_bytes, packed, indices, groups,
-                  [(_industrial_texture(m, world.materials[m]) if world.texture_style == 'industrial' else
+                  [((world.material_textures[m].width,world.material_textures[m].height,world.material_textures[m].rgba) if m in world.material_textures else _industrial_texture(m, world.materials[m]) if world.texture_style == 'industrial' else
                     _texture(world.materials[m])) for m in mats], world.spawns, lo, hi)
     with open(output, 'rb') as f:
         data = f.read()

@@ -167,6 +167,10 @@ def _clip_from_recipe(rig, recipe, hold):
         if found:
             base = found[0]; break
     if base is None:
+        for label in recipe.get('sequence', []):
+            found=rig.find_sequences(label=fill(label))
+            if found:base=found[0];break
+    if base is None:
         return None, None
     fi, seq = base
     anim_i = rig.pick_cell(fi, seq, recipe.get('move'))
@@ -229,7 +233,7 @@ def _mat34_mul(a, b):
     return out
 
 
-def _model_entry(resolver, path, clips_spec, kind, hold='ak', skin=0):
+def _model_entry(resolver, path, clips_spec, kind, hold='ak', skin=0, animation_map=None, hands_model=None):
     """Build one model: mesh, skeleton, attachments, clips. `clips_spec` is
     'character', 'viewmodel' or None (static)."""
     rig = _Rig(resolver, path)
@@ -239,14 +243,44 @@ def _model_entry(resolver, path, clips_spec, kind, hold='ak', skin=0):
     if vvd is None or vtx is None:
         raise BSPError(f'{path}: .vvd/.dx90.vtx missing')
     mesh = Skinned(main, vvd, vtx, exists=resolver.has_material, skin=skin)
+    if hands_model:
+        hands=_Rig(resolver,hands_model).main;hb=hands_model.removesuffix('.mdl')
+        hvvd,hvtx=resolver.read(hb+'.vvd'),resolver.read(hb+'.dx90.vtx')
+        if hvvd is None or hvtx is None:raise BSPError('hands model dependencies missing')
+        geometry=Skinned(hands,hvvd,hvtx,exists=resolver.has_material,skin=skin)
+        # GMod UseHands contributes helper wrist/ulna bones. Preserve their
+        # bind pose and hierarchy; the viewmodel drives their mapped ancestors.
+        for bone in hands.bones:
+            key=bone['name'].lower()
+            if key in main.bone_index:continue
+            parent=bone['parent'];parent_name=hands.bones[parent]['name'].lower() if parent>=0 else None
+            if parent_name and parent_name not in main.bone_index:raise BSPError('hands skeleton is not ordered by parent')
+            if len(main.bones)>=128:raise BSPError('combined hands bone budget exceeded')
+            extra=dict(bone);extra['parent']=main.bone_index[parent_name] if parent_name else -1
+            main.bone_index[key]=len(main.bones);main.bones.append(extra)
+        bone_map=[main.bone_index[b['name'].lower()] for b in hands.bones]
+        for material,triangles in geometry.groups.items():
+            mapped=[]
+            for pos,nrm,uv,bones in triangles:
+                if any(bone_map[b]<0 for b,w in bones if w>0):raise BSPError('hands model uses bones absent from viewmodel')
+                mapped.append((pos,nrm,uv,[(bone_map[b],w) for b,w in bones if w>0]))
+            mesh.groups.setdefault(material,[]).extend(mapped)
+    if not any(mesh.groups.values()):raise BSPError('model has no renderable geometry; supply compatible hands_model for an animation-only viewmodel')
     clips, notes, missing_roles = [], {}, []
+    animation_map=animation_map or {}
+    allowed=translate.CHARACTER_ROLES if clips_spec=='character' else translate.VIEWMODEL_ROLES
+    if any(k not in allowed or not isinstance(v,str) or not v for k,v in animation_map.items()):
+        raise BSPError('animation_map must map known roles to nonempty sequence names')
     if clips_spec == 'character':
         for role, recipes in translate.CHARACTER_ROLES.items():
             got = None
-            for recipe in recipes:
+            authored=[{'sequence':[animation_map[role]],'move':(1,0)}] if role in animation_map else []
+            for recipe in authored or recipes:
                 clip, note = _clip_from_recipe(rig, recipe, hold)
                 if clip:
                     got = clip; notes[role] = note; break
+            if not got and role in animation_map:
+                raise BSPError(f'{path}: animation override {role}={animation_map[role]!r} did not resolve')
             if got:
                 got['role'] = role; got['loop'] = role != 'death'; clips.append(got)
             else:
@@ -279,7 +313,9 @@ def _model_entry(resolver, path, clips_spec, kind, hold='ak', skin=0):
             raise BSPError(f'{path}: no animation for {", ".join(lacking)} (hold type {hold!r})')
     elif clips_spec == 'viewmodel':
         for role, acts in translate.VIEWMODEL_ROLES.items():
-            clip, note = _viewmodel_clip(rig, acts)
+            clip, note = _clip_from_recipe(rig,{'sequence':[animation_map[role]]},hold) if role in animation_map else _viewmodel_clip(rig, acts)
+            if not clip and role in animation_map:
+                raise BSPError(f'{path}: animation override {role}={animation_map[role]!r} did not resolve')
             if clip:
                 clip['role'] = role; clip['loop'] = role == 'idle'; clips.append(clip); notes[role] = note
             else:
@@ -438,14 +474,14 @@ BOOL_STATS = ('fly', 'ability_beam')
 
 
 def build_character(model_path, output, roots=(), vpks=(), hold='ak', name=None, skin=0,
-                    display=None, loadout=None, stats=None):
+                    display=None, loadout=None, stats=None, animation_map=None):
     """A character. `display` is its name in menus; `loadout` its default
     class, [primary, secondary], by the weapon names the game shows (an
     imported weapon's display_name, or a Halo weapon's own, e.g. "pistol")."""
     resolver = Resolver(None, roots, vpks)
-    entry = _model_entry(resolver, model_path.replace('\\', '/').lower(), 'character', 'body', hold, skin)
+    entry = _model_entry(resolver, model_path.replace('\\', '/').lower(), 'character', 'body', hold, skin, animation_map)
     name = name or re.sub('[^a-z0-9_-]+', '_', Path(model_path).stem.lower())
-    extra = {'hold_type': hold, 'hand_points': list(translate.HAND_POINTS)}
+    extra = {'hold_type': hold, 'hand_points': list(translate.HAND_POINTS), 'animation_overrides': animation_map or {}}
     if display:
         extra['display_name'] = display
     for k, v in (stats or {}).items():
@@ -490,7 +526,7 @@ def build_weapon(definition, output, roots=(), vpks=()):
     if d.get('world_grip') and world is not None:
         add_world_grip(world, d['world_grip'])
     models = [world,
-              _model_entry(resolver, d['view_model'].lower(), 'viewmodel', 'view')]
+              _model_entry(resolver, d['view_model'].lower(), 'viewmodel', 'view', animation_map=d.get('animation_map'), hands_model=d.get('hands_model'))]
     extra = {k: v for k, v in d.items() if k not in ('world_model', 'view_model', 'sounds')}
     extra['sound_sources'] = d.get('sounds', {})
     sounds = []

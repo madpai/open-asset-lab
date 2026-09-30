@@ -1,7 +1,7 @@
 """Process failures and disagreement must never become successful evidence.
 
 The tiny response is a recorded subset of megamod-resources' output for
-the original TINY fixture at engine 7b6b566 (protocol 13). The fake process
+the original TINY fixture at engine 7b6b566 (protocol 13, with the current protocol field supplied below). The fake process
 lets CI exercise failure paths without requiring an Engine checkout.
 Real Night Shift/Racing integration remains the native evidence.
 """
@@ -20,7 +20,7 @@ from tests.test_project import ROOT, TINY
 NATIVE_TINY = {
     'ok': True, 'world_key': '0a8229e5', 'world_digest': 'cd11db3cc793f2d9',
     'package': {'declared': False, 'id': '', 'set': []}, 'bindings': [],
-    'world_state': {'ok': True, 'protocol': 13, 'runtime_objects': 1,
+    'world_state': {'ok': True, 'protocol': 14, 'runtime_objects': 1,
                     'spatial': 0, 'logical': 1, 'host_only': 0,
                     'snapshot_bytes': {'at_rest': 11, 'all_moving': 11, 'packet_at_rest': 31}},
 }

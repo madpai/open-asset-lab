@@ -1,0 +1,5 @@
+# Optional experimental local NIF decoder. Includes nifxml submodule.
+# BSD PyFFI; deliberately isolated from native Engine dependencies.
+pyffi @ git+https://github.com/niftools/pyffi.git@7f4404dbb8cf832dadd4b3150819340b8764f9b0
+Pillow>=10
+setuptools

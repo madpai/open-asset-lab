@@ -128,6 +128,13 @@ class CharacterTests(unittest.TestCase):
         self.assertEqual(m['models'][0]['bones'],['root','hand'])
         data=(self.root/'guy.oalasset').read_bytes()
         self.assertEqual(data[:4],MAGIC);self.assertEqual(struct.unpack_from('<I',data,4)[0],1)
+    def test_explicit_animation_mapping_is_exact_and_validated(self):
+        from assetlab.character import build_character
+        m=build_character('models/test/guy.mdl',self.root/'mapped.oalasset',roots=[self.root],animation_map={'run_front':'idle'})
+        clip=next(c for c in m['models'][0]['clips'] if c['role']=='run_front')
+        self.assertTrue(clip['source'].startswith('idle ('))
+        for mapping in ({'invalid_role':'idle'},{'run_front':'missing'},{'run_front':''}):
+            with self.assertRaises(BSPError):build_character('models/test/guy.mdl',self.root/'bad.oalasset',roots=[self.root],animation_map=mapping)
     def test_world_grip_gives_a_boneless_weapon_its_merge_point(self):
         from assetlab.character import _model_entry,add_world_grip
         from assetlab.package import Resolver
@@ -135,6 +142,12 @@ class CharacterTests(unittest.TestCase):
         add_world_grip(e,{'on':'hand','local':[0,-1,0,1.5, -1,0,0,0, 0,0,-1,0]})
         self.assertEqual(e['attachments'][-1],('ValveBiped.weapon_bone',1,(0.,-1.,0.,1.5,-1.,0.,0.,0.,0.,0.,-1.,0.)))
         with self.assertRaisesRegex(BSPError,'12 numbers'):add_world_grip(e,{'local':[1,0,0]})
+    def test_hands_geometry_composes_with_animation_skeleton(self):
+        from assetlab.character import _model_entry
+        from assetlab.package import Resolver
+        entry=_model_entry(Resolver(None,[self.root]),'models/test/guy.mdl','viewmodel','view',hands_model='models/test/guy.mdl',animation_map={'idle':'idle','fire':'run'})
+        self.assertEqual(sum(len(v) for v in entry['mesh'].groups.values()),6)
+        with self.assertRaises(BSPError):_model_entry(Resolver(None,[self.root]),'models/test/guy.mdl','viewmodel','view',hands_model='missing.mdl')
     def test_sound_pack(self):
         import wave
         from assetlab.character import build_sounds,MAGIC

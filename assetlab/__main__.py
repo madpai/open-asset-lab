@@ -163,10 +163,17 @@ def main():
     a.add_argument('--report-dir', type=Path, help='write compatibility.json/.md here')
     a.add_argument('--prop-lod', type=int, default=0,
                    help='draw props at this model LOD (0 full detail; a model without it uses its coarsest)')
+    a = sub.add_parser('oblivion-model',help='experimental local BSA v103/NIF geometry import')
+    a.add_argument('model');a.add_argument('--meshes',type=Path,required=True);a.add_argument('--textures',type=Path,required=True)
+    a.add_argument('--output-dir',type=Path,required=True);a.add_argument('--namespace',required=True);a.add_argument('--name',required=True)
+    a.add_argument('--scale',type=float,required=True);a.add_argument('--freeze',action='store_true')
+    a.add_argument('--kind',choices=('model','character','weapon'),default='model');a.add_argument('--display')
+    a.add_argument('--exclude-node',action='append',default=[],help='omit a named scene subtree, e.g. a weapon scabbard; exact name required')
     a = sub.add_parser('character', help='a Source character model into an .oalasset')
     a.add_argument('model'); a.add_argument('--output', required=True); a.add_argument('--hold', default='ak')
     a.add_argument('--name'); a.add_argument('--skin', type=int, default=0)
     a.add_argument('--display', help='its name in menus')
+    a.add_argument('--animation-map',type=Path,help='JSON map of native roles to exact Source sequence labels')
     a.add_argument('--loadout', nargs=2, metavar=('PRIMARY', 'SECONDARY'),
                    help='its default class: two weapon names as the game shows them')
     a.add_argument('--stats', nargs='*', default=[], metavar='KEY=VALUE',
@@ -280,12 +287,16 @@ def main():
             if args.report_dir:
                 args.report_dir.mkdir(parents=True, exist_ok=True); write(r['compatibility'], args.report_dir)
             print(json.dumps({'package': args.output, 'manifest': m, 'report': r}, indent=2))
+        elif args.command == 'oblivion-model':
+            from .oblivion import import_model
+            m=import_model(args.meshes,args.textures,args.model,args.output_dir,namespace=args.namespace,name=args.name,scale=args.scale,freeze=args.freeze,kind=args.kind,display=args.display,exclude_nodes=args.exclude_node)
+            print(json.dumps(m,indent=2))
         elif args.command in ('character', 'weapon', 'sounds'):
             from .character import build_character, build_weapon, build_sounds
             roots, vpks = search_path(args)
             if args.command == 'character':
                 m = build_character(args.model, args.output, roots, vpks, args.hold, args.name, args.skin,
-                                    args.display, args.loadout, dict(kv.split('=', 1) for kv in args.stats))
+                                    args.display, args.loadout, dict(kv.split('=', 1) for kv in args.stats),json.loads(args.animation_map.read_text()) if args.animation_map else None)
             elif args.command == 'sounds':
                 m = build_sounds(args.definition, args.output, roots, vpks)
             else:

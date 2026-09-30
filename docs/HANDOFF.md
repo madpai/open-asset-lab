@@ -1,5 +1,34 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## Gatebound and experimental classic Oblivion content, 2026-09-30
+
+`projects/gatebound` is an original, reproducible wave-survival arena with a
+17-item shop, three gates, two enemies, configurable spells and upgrades.
+World entities schema 9 agrees with native survival mode 5; protocol 14 is
+recorded in the resource contract. Original/private repeat builds match native
+keys bc17ebe0/a0dab19c. All 226 synthetic tests pass with the optional decoder
+installed, including original BSA, NIF, rigid actor and animation-map fixtures.
+
+Experimental `oblivion-model` imports bounded local v103 BSA/NIF 20.0.0.4
+diffuse geometry into existing libraries. Explicit `--freeze` permits a rigid
+stored pose while reporting unsupported animation/skin/particles/collision.
+Named NIF subtree exclusion is explicit (`--exclude-node`), recorded and
+refuses absent names. The actual wielded iron sword excludes its `Scb`
+scabbard subtree; importing all geometry covers the blade in the sheath.
+The private slice includes actual gate and Ayleid floor meshes, castle
+diffuse textures, cheese, Daedroth, iron sword and first-person male hands.
+World `model_geometry` bakes normalized NIF meshes into native triangles;
+`material_textures` supplies real texture pixels. Root clips and camera poses
+are authored explicitly; Oblivion KF animation remains unsupported. Source
+`--animation-map` supplies exact sequence mappings and rejects missing labels.
+Workshop Zombie SWEP animation-only viewmodels now compose with the actual
+Source citizen hands using an explicit `hands_model` definition, bone-name
+remapping and missing helper bones. A package with no visible view geometry
+is refused. Claws retain idle/draw/attack source mappings; Source
+zombie walk serves the native locomotion roles. No donor data enters public Git.
+See [Oblivion import scope](OBLIVION_IMPORT.md) and the Engine's Gatebound design.
+
+
 ## Reusable project verification and content skill, 2026-09-30
 
 `assetlab project verify DIR --output NEW_DIR --engine EXE` builds a trusted
