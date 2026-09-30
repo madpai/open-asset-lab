@@ -75,7 +75,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field
 
-from . import bindings as bindlib, dependencies as deplib, ids, prefabs as prefablib, resources as res, scripts as scriptlib, worldkey, world_state
+from . import bindings as bindlib, dependencies as deplib, ids, prefabs as prefablib, racing as racinglib, resources as res, scripts as scriptlib, worldkey, world_state
 from .package import (GROUP_NO_COLLISION, build_groups, manifest_json, pack_vertices,
                       write_package)
 
@@ -91,6 +91,7 @@ ASSET_SCHEMA = 4           # adds props (a model) and a mover definition's sound
 PREFAB_SCHEMA = 5          # adds prefab_instances and a prop's yaw_degrees/scale (X6)
 BINDING_SCHEMA = 6         # adds bindings (X7)
 VISUAL_SCHEMA = 7          # adds environment and bounded local lights (X9)
+RACING_SCHEMA = 8          # adds original race route, pads and vehicle tuning (X10)
 MAX_MOVER_DEFINITIONS = world_state.LIMITS['mover_definitions']
 
 # The runtime's limits (MegaMod src/asset/world_def.h); a package that
@@ -168,6 +169,22 @@ class Box:
 
 
 @dataclass
+class Quad:
+    """One planar four-corner original surface, counter-clockwise from its
+    visible/colliding side. Useful for ramps and banked track ribbons."""
+    corners: tuple
+    material: str
+    solid: bool = True
+
+
+@dataclass
+class Triangle:
+    corners: tuple              # counter-clockwise from the visible/colliding side
+    material: str
+    solid: bool = True
+
+
+@dataclass
 class Environment:
     ambient: tuple             # linear RGB illumination, 0..2
     clear: tuple               # clear/background RGB, 0..1
@@ -227,6 +244,9 @@ class OriginalWorld:
     environment: Environment = None                         # X9: schema 7
     lights: list = field(default_factory=list)               # X9: Light placements
     texture_style: str = 'legacy'                              # X9 worlds opt into procedural surfaces
+    quads: list = field(default_factory=list)                 # original sloped geometry; no schema change
+    triangles: list = field(default_factory=list)
+    racing: racinglib.RaceConfig = None
 
 
 def _prop_transform(e):
@@ -235,6 +255,8 @@ def _prop_transform(e):
 
 def schema_of(world):
     """The world_entities schema the world needs."""
+    if world.racing is not None:
+        return RACING_SCHEMA
     if world.environment is not None or world.lights:
         return VISUAL_SCHEMA
     if world.bindings:
@@ -405,6 +427,13 @@ def validate(world, fetch=None):
             if e.id in by_id and '__' in e.id.partition('/')[2]:
                 errs.append(f"{e.id}: '__' is reserved for prefab children (<instance>__<child>)")
     rs, imported, deps = _resources(world, by_id, defs, fetch, errs)
+    if world.racing is not None:
+        errs += racinglib.errors(world.racing)
+        if isinstance(world.racing.model,str):
+            try:
+                rs.resolve(res.PROP_MODEL, 'racing vehicle', world.racing.model)
+            except res.ResourceError as x:
+                errs.append(str(x))
     # X6: instances expand into ordinary entities before any link resolves,
     # so a world link may name a child (the engine's order).
     records = instance_records(world)
@@ -713,6 +742,33 @@ def _box_triangles(b, vertices, indices):
         indices += [base, base + 1, base + 2, base, base + 2, base + 3]
 
 
+def _quad_triangles(q, vertices, indices):
+    p=q.corners
+    u=[p[1][k]-p[0][k] for k in range(3)]
+    v=[p[2][k]-p[0][k] for k in range(3)]
+    n=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
+    length=math.sqrt(sum(x*x for x in n))
+    n=tuple(x/length for x in n)
+    base=len(vertices)
+    for i,c in enumerate(p):
+        uv=((0,0),(1,0),(1,1),(0,1))[i]
+        vertices.append((tuple(float(x) for x in c),n,uv))
+    indices += [base,base+1,base+2,base,base+2,base+3]
+
+
+def _triangle(t, vertices, indices):
+    p=t.corners
+    u=[p[1][k]-p[0][k] for k in range(3)]
+    v=[p[2][k]-p[0][k] for k in range(3)]
+    n=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
+    length=math.sqrt(sum(x*x for x in n))
+    n=tuple(x/length for x in n)
+    base=len(vertices)
+    for i,c in enumerate(p):
+        vertices.append((tuple(float(x) for x in c),n,((0,0),(1,0),(0,1))[i]))
+    indices += [base,base+1,base+2]
+
+
 def _texture(rgb):
     """16x16 RGBA: the colour with a faint 4-texel check, so motion shows."""
     px = bytearray()
@@ -770,6 +826,35 @@ def compile_world(world, output, fetch=None):
             errs.append(f'box {b.min}..{b.max}: empty or not finite')
         if b.material not in world.materials:
             errs.append(f'box {b.min}..{b.max}: unknown material {b.material!r}')
+    for i,q in enumerate(world.quads):
+        if q.material not in world.materials:
+            errs.append(f'quad {i}: unknown material {q.material!r}')
+        if len(q.corners)!=4 or any(not _finite(p) for p in q.corners):
+            errs.append(f'quad {i}: needs four finite corners')
+            continue
+        p=q.corners
+        u=[p[1][k]-p[0][k] for k in range(3)]
+        v=[p[2][k]-p[0][k] for k in range(3)]
+        n=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
+        length=math.sqrt(sum(x*x for x in n))
+        if length<0.001 or abs(sum(n[k]*(p[3][k]-p[0][k]) for k in range(3)))>0.01*length:
+            errs.append(f'quad {i}: degenerate or non-planar')
+        v2=[p[3][k]-p[0][k] for k in range(3)]
+        n2=(v[1]*v2[2]-v[2]*v2[1],v[2]*v2[0]-v[0]*v2[2],v[0]*v2[1]-v[1]*v2[0])
+        if sum(n[k]*n2[k] for k in range(3))<=0:
+            errs.append(f'quad {i}: twisted or reversed winding')
+    for i,t in enumerate(world.triangles):
+        if t.material not in world.materials:
+            errs.append(f'triangle {i}: unknown material {t.material!r}')
+        if len(t.corners)!=3 or any(not _finite(p) for p in t.corners):
+            errs.append(f'triangle {i}: needs three finite corners')
+            continue
+        p=t.corners
+        u=[p[1][k]-p[0][k] for k in range(3)]
+        v=[p[2][k]-p[0][k] for k in range(3)]
+        n=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
+        if sum(x*x for x in n)<1e-6:
+            errs.append(f'triangle {i}: degenerate')
     if not world.spawns:
         errs.append('the world has no player start')
     if errs:
@@ -787,6 +872,14 @@ def compile_world(world, output, fetch=None):
         owner = (GROUP_ENTITY, index_of[b.owner]) if b.owner else None
         # A mover's triangles are its own collision, not the world's.
         runs.append((b.material, first, len(src_indices) - first, b.solid and not b.owner, owner))
+    for q in world.quads:
+        first=len(src_indices)
+        _quad_triangles(q,vertices,src_indices)
+        runs.append((q.material,first,len(src_indices)-first,q.solid,None))
+    for t in world.triangles:
+        first=len(src_indices)
+        _triangle(t,vertices,src_indices)
+        runs.append((t.material,first,len(src_indices)-first,t.solid,None))
     mats = sorted(world.materials)
     tex_index = {m: i for i, m in enumerate(mats)}
     indices, groups, collision_triangles = build_groups(runs, src_indices, tex_index, lambda m: False,
@@ -825,6 +918,8 @@ def compile_world(world, output, fetch=None):
         section['environment'] = world.environment.record()
     if world.lights:
         section['lights'] = [light.record() for light in world.lights]
+    if world.racing is not None:
+        section['racing'] = world.racing.record()
     kinds = {k: sum(e.kind == k for e in world.entities) for k in KINDS}
     manifest = {
         'package_version': VERSION, 'importer_version': 'original_world-0.1.0',
@@ -833,7 +928,8 @@ def compile_world(world, output, fetch=None):
         'source_format': 'original world (Open Asset Lab)',
         'required_open_halo_runtime': f'external-map-v{VERSION}',
         'geometry': {'vertices': len(packed), 'triangles': len(indices) // 3,
-                     'collision_triangles': collision_triangles, 'boxes': len(boxes)},
+                     'collision_triangles': collision_triangles, 'boxes': len(boxes), **({'quads': len(world.quads)} if world.quads else {}),
+                     **({'triangles_authored': len(world.triangles)} if world.triangles else {})},
         'material_paths': mats, 'spawn_points': world.spawns, 'flag_points': [], 'breakables': [],
         'world_entities': section,
         # X1-X4 worlds list the five kinds they always did (their bytes are

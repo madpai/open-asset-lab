@@ -1,5 +1,22 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## X10 MegaMod Racing original content, 2026-09-29
+
+`projects/megamod_racing/` builds the original `racing.assets`,
+`racing.trackkit` and `racing.track01` packages and Cinder Circuit world.
+The project generates a compact Hyperkart, six synthesized audio cues,
+checkpoint/boost-pad prefabs, an elevated triangle ribbon with a real bank
+and jump, and a three-lap/eight-gate/eight-grid/three-pad Racing config.
+`assetlab/racing.py` validates the bounded schema 8 data and tuning against
+the engine resource contract (`assetlab/data/megamod_resources.json`, now
+protocol v13). X1–X9 packages and keys are untouched. The new world key is
+`87915509`; the real MegaMod `scripts/test_racing.sh` rebuilds the project
+twice and compares the bytes/key before running a host/peer race test.
+The content is original and may be shared; private imported roster content
+is bundled only in the owner's personal APK. Gate/station placement in
+Python is deterministic but visually cumbersome, useful evidence for later
+spatial authoring work. See MegaMod `docs/RACING.md`.
+
 ## Current MegaMod contract, 2026-09-29
 
 `assetlab/data/megamod_resources.json` now matches MegaMod protocol v12.

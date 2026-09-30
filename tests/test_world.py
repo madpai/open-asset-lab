@@ -9,7 +9,7 @@ from assetlab import ids
 from assetlab import worldkey
 from assetlab.fixtures import X2_DOOR, eid, x1_event_lab, x2_definition_lab
 from assetlab.package import GROUP_NO_COLLISION, manifest_json, read_manifest
-from assetlab.world import (GROUP_ENTITY, MAX_CHAIN, MAX_LINKS_PER_ENTITY, VERSION, Box, Entity, Link,
+from assetlab.world import (GROUP_ENTITY, MAX_CHAIN, MAX_LINKS_PER_ENTITY, VERSION, Box, Entity, Link, Triangle,
                             MoverDefinition, WorldError, compile_world, validate)
 
 
@@ -71,6 +71,22 @@ class X1FixtureTests(unittest.TestCase):
         a = self.build(x1_event_lab(), 'a.oalmap').read_bytes()
         b = self.build(x1_event_lab(), 'b.oalmap').read_bytes()
         self.assertEqual(a, b)
+
+    def test_original_banked_triangle_is_solid_and_in_world_identity(self):
+        w=x1_event_lab()
+        w.materials['bank']=(20,90,150)
+        w.triangles=[Triangle(((0,0,0),(3,0,0),(0,3,1)), 'bank')]
+        a=self.build(w,'bank_a.oalmap')
+        m=read_manifest(a)
+        self.assertEqual(m['geometry']['triangles_authored'],1)
+        self.assertEqual(a.read_bytes(),self.build(w,'bank_b.oalmap').read_bytes())
+        key=worldkey.world_key(a)['world_key']
+        w.triangles[0]=Triangle(((0,0,0),(3,0,0),(0,3,2)), 'bank')
+        b=self.build(w,'bank_changed.oalmap')
+        self.assertNotEqual(key,worldkey.world_key(b)['world_key'])
+        w.triangles[0]=Triangle(((0,0,0),(0,0,0),(0,3,2)), 'bank')
+        with self.assertRaisesRegex(WorldError,'degenerate'):
+            self.build(w,'bad.oalmap')
 
     def test_reordered_placements_keep_their_links(self):
         w = x1_event_lab()

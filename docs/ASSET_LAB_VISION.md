@@ -1,5 +1,11 @@
 # Open Asset Lab vision
 
+**X10 evidence (2026-09-29):** `projects/megamod_racing/` compiles an
+original track, kart, prefabs and audio through the same package pipeline
+as imported content. Bounded racing configuration and original triangle
+world geometry are current authoring capabilities. The track exposes
+friction in spatial placement; a visual editor remains a future choice.
+
 The [comparative research map](RESEARCH_CONNECTIONS.md) links engine/mod findings to this project's importers, normalized content, provenance, package design, skeletons/animation, materials, and dependency resolution. It marks proposals separately from the capabilities described below.
 
 **Read this before any major architectural decision in this repository.**
