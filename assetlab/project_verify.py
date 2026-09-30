@@ -115,17 +115,19 @@ def verify(path, output, engine, timeout=30):
             result['packages'].append(checked)
             result['errors'] += [f'{file}: {e}' for e in checked['errors']]
         checks = {Path(p['file']).relative_to(bundle).as_posix(): p for p in result['packages']}
+        native_logs = root / 'native'
+        native_logs.mkdir()
         for world in first['worlds']:
             name = Path(world['file']).stem
             command = [str(engine), '--bundle', str(bundle), '--world', name]
             record = {'world': world['world'], 'command': command, 'errors': []}
             try:
                 run = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
-                (root / f'{name}.stdout').write_text(run.stdout)
-                (root / f'{name}.stderr').write_text(run.stderr)
+                (native_logs / f'{name}.stdout').write_text(run.stdout)
+                (native_logs / f'{name}.stderr').write_text(run.stderr)
                 record['returncode'] = run.returncode
                 if run.returncode:
-                    record['errors'].append(f'engine exited {run.returncode}; see {name}.stdout/.stderr')
+                    record['errors'].append(f'engine exited {run.returncode}; see native/{name}.stdout/.stderr')
                 else:
                     native = json.loads(run.stdout)
                     if not isinstance(native, dict):
@@ -135,7 +137,7 @@ def verify(path, output, engine, timeout=30):
             except subprocess.TimeoutExpired as e:
                 # TimeoutExpired may hold bytes even when text=True.
                 for suffix, data in (('stdout', e.stdout), ('stderr', e.stderr)):
-                    (root / f'{name}.{suffix}').write_bytes(
+                    (native_logs / f'{name}.{suffix}').write_bytes(
                         data if isinstance(data, bytes) else (data or '').encode())
                 record['errors'].append(f'engine timed out after {timeout:g} seconds')
             except (OSError, ValueError, KeyError, TypeError) as e:

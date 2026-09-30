@@ -54,7 +54,14 @@ class ProjectVerifyTests(unittest.TestCase):
         self.assertEqual(len(r['determinism']['files']), 1)
         self.assertTrue((self.output / 'bundle/maps/tiny_room.oalmap').is_file())
         self.assertEqual(json.loads((self.output / 'verification.json').read_text()), r)
-        self.assertEqual(json.loads((self.output / 'tiny_room.stdout').read_text()), NATIVE_TINY)
+        self.assertEqual(json.loads((self.output / 'native/tiny_room.stdout').read_text()), NATIVE_TINY)
+
+    def test_world_named_build_cannot_overwrite_compiler_evidence(self):
+        (self.source / 'project.py').write_text(TINY.replace("file_name='tiny_room'", "file_name='build'"))
+        self.reply(NATIVE_TINY)
+        self.run_verify()
+        self.assertIn('worlds', json.loads((self.output / 'build.stdout').read_text()))
+        self.assertEqual(json.loads((self.output / 'native/build.stdout').read_text()), NATIVE_TINY)
 
     def test_key_closure_and_replication_disagreements_fail(self):
         wrong = copy.deepcopy(NATIVE_TINY)
@@ -83,7 +90,7 @@ class ProjectVerifyTests(unittest.TestCase):
         r = self.run_verify(timeout=0.2)
         self.assertFalse(r['ok'])
         self.assertIn('timed out', r['errors'][0])
-        self.assertIn('starting', (self.output / 'tiny_room.stdout').read_text())
+        self.assertIn('starting', (self.output / 'native/tiny_room.stdout').read_text())
 
     def test_repeated_build_drift_is_detected(self):
         self.reply(NATIVE_TINY)

@@ -13,8 +13,8 @@ existing directories are refused and failures return nonzero. See
 The `.agents/skills/assetlab-content/` skill adapts Universal Modder's asset
 convention, provenance and runtime-proof workflow. Engine capability and
 playtest skills live in Megamod's checkout; the study is linked from
-`RESEARCH_CONNECTIONS.md`. All 214 synthetic tests passed locally, including
-nine verification tests. Night Shift and Racing each produced three
+`RESEARCH_CONNECTIONS.md`. All 215 synthetic tests passed locally, including
+ten verification tests. Night Shift and Racing each produced three
 identical packages and matched native keys `356266bd` and `87915509`.
 This command verifies packages; gameplay, rendering and phone checks remain
 separate. No package format or content identity changed.
