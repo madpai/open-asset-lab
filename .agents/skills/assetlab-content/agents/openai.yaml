@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asset Lab Content"
+  short_description: "Prepare content and verify native package agreement"
+  default_prompt: "Use $assetlab-content to compile and verify this Megamod content project."

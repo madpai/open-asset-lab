@@ -19,6 +19,15 @@ Research date: **2026-09-26**. The full corpus is in [MegaMod's research index](
 
 ## Practical sequence
 
+**2026-09-30 tooling addition:** the
+[Universal Modder study](https://github.com/madpai/megamod-showdown/blob/main/docs/research/UNIVERSAL_MODDER.md)
+informed three adapted agent skills and the implemented
+[`assetlab project verify`](ORIGINAL_WORLDS.md#verify-a-content-project-with-the-native-engine)
+command. Original projects can now check repeated package bytes and native
+loader agreement with one evidence-producing command. It does not extend
+format coverage or replace gameplay/device validation. The historical
+research sequence below describes its earlier baseline.
+
 1. Preserve the completed N1 boundary inventory, MegaMod v10 compatibility gate, and N2 **read-only** candidate-ID/collision audit as the baseline. Do not turn the ID audit into a package migration during X1.
 2. For X1, extract the existing OAL compiler's normalized-world validation/write seam and pass a [programmatic original synthetic world](https://github.com/madpai/megamod-showdown/blob/main/docs/research/X1_ORIGINAL_AUTHORING_PATH.md) through it. Check placed IDs, links, cycles and limits. Do not write package bytes directly in the fixture.
 3. Prove a second source family (original glTF) before broad Mesh/Material/Skeleton IRs; the X1 compiler seam gives it a target without making glTF a prerequisite for Button → Relay → Door.

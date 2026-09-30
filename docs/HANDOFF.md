@@ -1,5 +1,24 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## Reusable project verification and content skill, 2026-09-30
+
+`assetlab project verify DIR --output NEW_DIR --engine EXE` builds a trusted
+local project in two fresh Python interpreters, checks every package hash
+and dependency/reference report, and compares each world's identity,
+dependency closure, bindings and replication budget with the supplied
+`megamod-resources` executable. Evidence stays in the fresh output directory;
+existing directories are refused and failures return nonzero. See
+[original-world verification](ORIGINAL_WORLDS.md#verify-a-content-project-with-the-native-engine).
+
+The `.agents/skills/assetlab-content/` skill adapts Universal Modder's asset
+convention, provenance and runtime-proof workflow. Engine capability and
+playtest skills live in Megamod's checkout; the study is linked from
+`RESEARCH_CONNECTIONS.md`. All 214 synthetic tests passed locally, including
+nine verification tests. Night Shift and Racing each produced three
+identical packages and matched native keys `356266bd` and `87915509`.
+This command verifies packages; gameplay, rendering and phone checks remain
+separate. No package format or content identity changed.
+
 ## X10 MegaMod Racing original content, 2026-09-29
 
 `projects/megamod_racing/` builds the original `racing.assets`,

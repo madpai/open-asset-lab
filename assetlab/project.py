@@ -3,6 +3,7 @@ built in one step.
 
     assetlab project build DIR --output BUNDLE
     assetlab project budget DIR
+    assetlab project verify DIR --output NEW_RUN --engine MEGAMOD_RESOURCES
 
 DIR holds `project.py`, which defines
 
@@ -20,6 +21,8 @@ runtime, spatial and logical limits from MegaMod's X8 contract.
 Nothing here is a new format: a project is code over the same authoring
 model (docs/ORIGINAL_WORLDS.md), so its packages are exactly what that
 model compiles.
+`verify` (project_verify.py) repeats the build in fresh interpreters and
+compares its packages with the supplied native loader, retaining evidence.
 """
 from __future__ import annotations
 

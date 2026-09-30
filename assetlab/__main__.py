@@ -198,6 +198,11 @@ def main():
     x.add_argument('path'); x.add_argument('--output', required=True, help='the bundle directory'); x.add_argument('--json', action='store_true')
     x = psub.add_parser('budget', help="validate and report entity/binding budgets; write nothing")
     x.add_argument('path'); x.add_argument('--json', action='store_true')
+    x = psub.add_parser('verify', help='build twice, check packages and compare every world with the native loader')
+    x.add_argument('path'); x.add_argument('--output', required=True, help='a new evidence directory (must not exist)')
+    x.add_argument('--engine', required=True, type=Path, help='built megamod-resources executable')
+    x.add_argument('--timeout', type=float, default=30, help='seconds per native world inspection (default: 30)')
+    x.add_argument('--json', action='store_true')
     a = sub.add_parser('world-key', help="MegaMod's world key of .oalmap packages (what two peers must agree on)")
     a.add_argument('packages', nargs='+')
     a.add_argument('--packages-dir', action='append', default=[],
@@ -334,9 +339,16 @@ def main():
                 report['libraries'] = built
             print(json.dumps(report, indent=2))
         elif args.command == 'project':
-            from .project import build, text
-            r = build(args.path, args.output if args.project_command == 'build' else None)
-            print(json.dumps(r, indent=2) if args.json else text(r))
+            if args.project_command == 'verify':
+                from .project_verify import verify, text
+                r = verify(args.path, args.output, args.engine, args.timeout)
+                print(json.dumps(r, indent=2) if args.json else text(r))
+                if not r['ok']:
+                    sys.exit(1)
+            else:
+                from .project import build, text
+                r = build(args.path, args.output if args.project_command == 'build' else None)
+                print(json.dumps(r, indent=2) if args.json else text(r))
         elif args.command == 'world-key':
             from .dependencies import directory_source
             from .worldkey import world_key

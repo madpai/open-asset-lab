@@ -36,6 +36,32 @@ project build DIR --output BUNDLE` (`assetlab/project.py`). MegaMod: Night
 Shift (`projects/night_shift/`) is the first. A box model's texture is
 sampled with v = 0 at the face's foot and reads unmirrored on its +x face.
 
+## Verify a content project with the native Engine
+
+After building `megamod-resources` in the Engine checkout:
+
+```sh
+.venv/bin/python -m assetlab project verify projects/megamod_racing \
+  --engine ../megamod-showdown/build-host/megamod-resources \
+  --output /private/new-evidence-run
+```
+
+The output directory must be new. This executes the project's trusted local
+Python just as `build` does, builds every library/world in two fresh interpreters, and checks
+all package hashes and dependency/reference diagnostics. Each world is
+then inspected by the supplied native executable. World key/digest,
+package declaration/dependency closure, bindings and protocol/replication
+budgets must agree. Native refusal, timeout or malformed JSON fails with
+a nonzero exit. `--timeout` sets seconds per world; `--json` prints the
+machine report.
+
+Evidence lives in `verification.json`, `build.json`, per-world native
+stdout/stderr and `bundle/`; it includes the executable and package hashes.
+Failed runs retain their evidence. Keep private source/package reports
+outside public history. This validates packages; use the Engine's scenario
+and race playtests for gameplay, renderer checks for appearance, and the
+physical device for touch feel and frame pacing.
+
 ## Entities
 
 | Kind | Emits | Accepts | Fields |

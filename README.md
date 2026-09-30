@@ -143,6 +143,19 @@ python -m assetlab staged
 python -m unittest discover -s tests -v
 ```
 
+Original content projects also have a repeat-build/native-loader check:
+
+```sh
+python -m assetlab project verify projects/megamod_racing \
+  --engine ../megamod-showdown/build-host/megamod-resources \
+  --output /private/new-evidence-run
+```
+
+It retains package hashes, dependency diagnostics and each world's native
+inspection in a fresh evidence directory. See
+[project verification](docs/ORIGINAL_WORLDS.md#verify-a-content-project-with-the-native-engine)
+and the reusable [content skill](.agents/skills/assetlab-content/SKILL.md).
+
 The default library is `~/.local/share/open-asset-lab/`, with `jobs.sqlite3`, `uploads/`, `work/`, and `staged/index.json`. Jobs have bounded logs and a single worker. If the service restarts during a job, unfinished jobs requeue. The staged list shows resolved texture and missing dependency counts. Earlier staged packages retain their original checkerboard previews; select the newest stage for the updated placeholder preview.
 
 ## Reproduce the demonstrated host milestone

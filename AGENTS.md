@@ -36,4 +36,5 @@ the Engine sees clean, generic content. In practice:
 - Verify a real Source map with Open Halo's `open-halo-map-test` before claiming end-to-end map rendering. A standalone converter output is insufficient.
 - Preserve source material paths and warnings. Unsupported features should fail explicitly or appear in the report.
 - Procedures as skills (`.claude/skills/`, readable by any agent): `workshop-import` for Workshop items and collections. Map conversion and publishing live in Megamod's `.claude/skills/` (`convert-map`, `publish`).
+- Content preparation and native package verification: `.agents/skills/assetlab-content/SKILL.md`. `assetlab project verify` builds a trusted local project twice and compares every world with a supplied `megamod-resources` executable; its evidence does not establish gameplay or phone performance.
 - CI runs the tests and a no-game-content guard on every push; a red run is a real failure to root-cause, not to re-run away.
