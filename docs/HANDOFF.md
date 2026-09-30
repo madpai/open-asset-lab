@@ -1,5 +1,48 @@
 # Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
 
+## NEXT GOAL — Complete equipment and animated enemy imports
+
+**Owner priority (2026-09-30):** support Gatebound's full lineup of visibly
+wearable armor, equippable weapons and animated enemy types from the actual
+local Oblivion files, then compatible local-game and Workshop donors. The
+Engine handoff's **NEXT GOAL** defines the coordinated gameplay/release scope.
+This is planned work; the frozen-pose and stat-only limitations below remain.
+
+- Audit the complete available armor/clothing/robe/shield families, weapon
+  families and material/tier variants, creature/NPC types, body variants,
+  skeletons, KF clips, sounds and effect textures. Produce a private provenance
+  and coverage manifest; record missing files, optional/DLC availability and
+  incompatible combinations explicitly. The audit establishes the full lineup
+  rather than an invented asset count.
+- Import NIF skin weights, skeleton/bind transforms and original KF animation
+  into generic normalized packages. Start with a truly animated Daedroth,
+  visibly wearable armor set and correctly held/animated weapon; inspect native
+  and Android results before scaling across the catalogue. Preserve source
+  animation/state mappings and report unavailable states or explicit fallbacks.
+- Compile wearable slot/coverage and character-skeleton compatibility data;
+  support the actual head/torso/legs/hands/feet/shield meshes and outfit variants.
+  Armor icons or damage-reduction metadata alone do not satisfy wearable content.
+  Weapons need actual held/world and first-person geometry, grips, appropriate
+  animations/sounds and explicit scabbard/attachment selection.
+- Supply animated Daedra, undead, animals/monsters and humanoid enemy families,
+  with compatible Source/Workshop additions and authored melee/ranged/caster,
+  fast/armored/elite/boss wave roles. Do not count a static pose as animated.
+- Normalize the original skeletal hand/casting animations and Oblivion gate
+  particles/texture-controller effects using donor textures. Current authored
+  root clips and omitted particles remain prototypes until these paths work.
+- Coordinate bounded catalogue/equipment contract changes and save migration
+  with the Engine: the present 32-item shop, 64 inventory stacks and four
+  equipment fields cannot represent the intended lineup. Preserve stable IDs,
+  existing ownership, gold, skills and level-only prestige; verify multiplayer
+  fingerprints and worn/held/animated visuals with matching peers.
+
+Completion requires a coverage report for the audited lineup, deterministic
+packages/native loader agreement, actual equip/animation/casting/gate evidence,
+solo save migration and LAN reconnect checks, and an S24+ playtest of frame
+time, memory and loading. Keep donor data/packages/previews private and retain
+original synthetic fixtures. Read `docs/OBLIVION_IMPORT.md`, the assetlab-content
+skill and the Engine's Gatebound design before extending the importer.
+
 ## Gatebound and experimental classic Oblivion content, 2026-09-30
 
 `projects/gatebound` is an original, reproducible wave-survival arena with a
