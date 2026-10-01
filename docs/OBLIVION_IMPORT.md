@@ -8,6 +8,27 @@ imports a reported stored pose and omits unsupported features. Optional PyFFI
 is an offline BSD decoder, pinned in `requirements-oblivion.txt`; the Engine
 loads the existing normalized packages and has no foreign decoder dependency.
 
+## Current integration status — 2026-09-30
+
+Megamod's published `f808e2a` uses the existing private packages unchanged:
+actual gates, Ayleid floor geometry, castle textures, rigid Daedroth, iron sword
+and hand meshes, plus extracted inventory/HUD bitmaps. Its repairs address
+wave loadouts, arena escape recovery and Android camera/UI placement.
+They do not add NIF skinning, original KF clips, gate particles or worn armor.
+Armor remains gameplay stats/icons; sword grips and casting use authored rigid
+root clips. Source/Workshop skeletal animation support is a separate existing
+import path and does not establish Oblivion animation support.
+
+Protocol 14, world schema 9 and private Gatebound world key a0dab19c remain
+unchanged. Native and Android screenshot checks confirm the existing imported
+content renders and equips; replacement phone performance is still pending.
+See [the next import goal](HANDOFF.md#next-goal--complete-equipment-and-animated-enemy-imports)
+for the required audit, skin/KF/equipment capabilities, complete lineup,
+save migration and native/Android/LAN proofs. Frozen poses and prop-only armor
+must not be counted as completion of that goal.
+
+## Importing the supported geometry slice
+
 Install optional requirements in the Asset Lab virtual environment. Then:
 
 ```sh

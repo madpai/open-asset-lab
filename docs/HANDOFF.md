@@ -1,4 +1,36 @@
-# Session handoff — 2026-09-25 (Workshop search/import, MDL v49, breakables)
+# Session handoff — 2026-09-30 (Gatebound and Oblivion import scope)
+
+## Current repository and published runtime
+
+This checkout is `/home/commander/projects/open-asset-lab`, branch `main`,
+remote `origin` = `https://github.com/madpai/open-asset-lab.git`.
+Inspect the remote before pushing; keep importer work here and runtime work
+in `madpai/megamod-showdown`. Donor data, packages and previews stay private.
+
+Megamod build `f808e2a` is pushed and published on
+**http://100.89.1.14:8733/**. Its five
+[CI jobs passed](https://github.com/madpai/megamod-showdown/actions/runs/36792067092),
+and both personal/guest APK checksums and their archived copies passed.
+The engine repair clears random secondary guns/grenades from wave enemies,
+recovers escaped units through normal defeat, corrects the imported-view camera
+offset and improves the parchment inventory and resource ribbons.
+
+These are runtime/presentation repairs: no importer or donor package changes.
+The personal APK's two donor worlds and sixteen UI files match their private
+sources. Native protocol **14**, world schema **9**, original Gatebound key
+**bc17ebe0** and private donor key **a0dab19c** remain unchanged. The engine
+release gate passed 100 checks initially; its X8 route failure passed separately
+after a documented test waypoint correction. This is not a single 101/0 run.
+No new Asset Lab test run was needed for these documentation-only changes;
+the 226-test result below belongs to the earlier implementation release.
+
+Latest owner evidence is the S24+ `2c62fc0` report, which loaded the actual
+donor arena but escaped below it. Replacement-build S24+ performance/touch
+testing remains pending. Android emulator screenshots prove the updated
+HUD/inventory and equipped sword appearance, not phone performance or original
+Oblivion skeletal animation. Private evidence is preserved in
+`~/assetlab-private/gatebound/recovery-evidence/` and its local backup.
+The coordinated next implementation goal below remains unimplemented.
 
 ## NEXT GOAL — Complete equipment and animated enemy imports
 
